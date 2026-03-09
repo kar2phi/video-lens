@@ -1,1142 +1,1343 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{VIDEO_TITLE}}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{VIDEO_TITLE}}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  :root {
-    --left-bg: #f0f0ee;
-    --left-text: #1a1a1a;
-    --left-heading: #999;
-    --left-meta: #555;
-    --left-link: #c0392b;
-    --left-border: #ddd;
-    --video-bg: #d8d8d6;
-    --right-bg: #f9f9f7;
-    --right-text: #1a1a1a;
-    --right-border: #e0e0e0;
-    --panel-divider: #ccc;
-    --ts-active-bg: #ffeaea;
-    --strong-color: #1a1a1a;
-    --toggle-bg: #ddd;
-    --toggle-text: #444;
-  }
+    :root {
+      --left-bg: #f0f0ee;
+      --left-text: #1a1a1a;
+      --left-heading: #999;
+      --left-meta: #555;
+      --left-link: #c0392b;
+      --left-border: #ddd;
+      --video-bg: #d8d8d6;
+      --right-bg: #f9f9f7;
+      --right-text: #1a1a1a;
+      --right-border: #e0e0e0;
+      --panel-divider: #ccc;
+      --ts-active-bg: #ffeaea;
+      --strong-color: #1a1a1a;
+      --toggle-bg: #ddd;
+      --toggle-text: #444;
+    }
 
-  [data-theme="dark"] {
-    --left-bg: #14110f;
-    --left-text: #f0ede8;
-    --left-heading: #6a6460;
-    --left-meta: #8a8480;
-    --left-link: #e05a4a;
-    --left-border: #2a2520;
-    --video-bg: #000;
-    --right-bg: #1c1916;
-    --right-text: #d0cdc8;
-    --right-border: #2c2925;
-    --panel-divider: #2a2520;
-    --ts-active-bg: #3a1a1a;
-    --strong-color: #f0ede8;
-    --toggle-bg: #2a2520;
-    --toggle-text: #c0bdb8;
-  }
+    [data-theme="dark"] {
+      --left-bg: #14110f;
+      --left-text: #f0ede8;
+      --left-heading: #6a6460;
+      --left-meta: #8a8480;
+      --left-link: #e05a4a;
+      --left-border: #2a2520;
+      --video-bg: #000;
+      --right-bg: #1c1916;
+      --right-text: #d0cdc8;
+      --right-border: #2c2925;
+      --panel-divider: #2a2520;
+      --ts-active-bg: #3a1a1a;
+      --strong-color: #f0ede8;
+      --toggle-bg: #2a2520;
+      --toggle-text: #c0bdb8;
+    }
 
-  body {
-    background: var(--right-bg);
-    color: var(--right-text);
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 16px;
-    line-height: 1.75;
-    min-height: 100vh;
-    transition: background-color 0.2s ease, color 0.2s ease;
-  }
+    body {
+      background: var(--right-bg);
+      color: var(--right-text);
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 16px;
+      line-height: 1.75;
+      min-height: 100vh;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
 
-  .left, .right {
-    transition: background-color 0.2s ease, color 0.2s ease;
-  }
+    .left,
+    .right {
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
 
-  /* ── Layout ── */
-  .layout {
-    display: grid;
-    grid-template-columns: var(--left-w, 55.5%) 6px 1fr;
-    grid-template-rows: 1fr;
-    min-height: 100vh;
-  }
-
-  /* Resizer */
-  #resizer {
-    grid-column: 2;
-    grid-row: 1;
-    cursor: col-resize;
-    background: var(--panel-divider);
-    width: 6px;
-    position: relative;
-    flex-shrink: 0;
-    z-index: 10;
-  }
-  #resizer:hover, #resizer.dragging { background: var(--left-link); }
-  #resizer::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 2px;
-    height: 32px;
-    border-radius: 1px;
-    background: var(--panel-divider);
-    opacity: 0.5;
-  }
-  #resizer:hover::after, #resizer.dragging::after { opacity: 0; }
-
-  /* Left col: sticky video + outline */
-  .left {
-    grid-column: 1;
-    grid-row: 1;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: var(--left-bg);
-    color: var(--left-text);
-    overflow: hidden;
-  }
-
-  .video-wrap {
-    position: relative;
-    width: 100%;
-    padding-top: 56.25%; /* 16:9 */
-    flex-shrink: 0;
-    background: var(--video-bg);
-  }
-
-  .video-wrap iframe {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
-    display: block;
-  }
-
-  .video-meta {
-    padding: 0.9rem 1.2rem;
-    overflow-y: visible;
-    flex-shrink: 0;
-  }
-
-  .left-scroll {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .outline-section {
-    padding: 0.9rem 1.2rem 1.2rem;
-    border-top: 1px solid var(--left-border);
-    flex: 1;
-  }
-
-  .outline-section h2 {
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--left-heading);
-    margin-bottom: 0.9rem;
-  }
-
-  .video-meta h1 {
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--left-text);
-    line-height: 1.4;
-    margin-bottom: 0.35rem;
-  }
-
-  .video-meta .meta-line {
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 0.75rem;
-    color: var(--left-meta);
-  }
-
-  .video-meta .meta-line a {
-    color: var(--left-link);
-    text-decoration: none;
-  }
-
-  /* Right col: scrollable content */
-  .right {
-    grid-column: 3;
-    grid-row: 1;
-    overflow-y: auto;
-    height: 100vh;
-    padding: 0 2rem 70vh;
-    background: var(--right-bg);
-    color: var(--right-text);
-  }
-
-  section {
-    scroll-margin-top: 3.5rem;
-    padding-bottom: 1.8rem;
-    margin-bottom: 1.8rem;
-    border-bottom: 1px solid var(--right-border);
-  }
-
-  section:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-  }
-
-  h2 {
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--left-heading);
-    margin-bottom: 0.9rem;
-  }
-
-  p { margin-bottom: 0.9rem; }
-  p:last-child { margin-bottom: 0; }
-
-  ul { padding-left: 1.3rem; }
-  ul li { margin-bottom: 0.5rem; }
-
-  strong { color: var(--strong-color); }
-
-  /* Topics / Outline list */
-  ol.topics {
-    list-style: none;
-    padding: 0;
-  }
-
-  ol.topics li {
-    position: relative;
-    display: flex;
-    gap: 0.65rem;
-    align-items: baseline;
-    margin-bottom: 0;
-    font-size: 0.92rem;
-    font-family: 'DM Sans', system-ui, sans-serif;
-    color: var(--left-text);
-    line-height: 1.5;
-    border-left: 2px solid transparent;
-    padding-left: 1rem;
-    padding-block: 0.3rem;
-    transition: border-left-color 0.15s, background-color 0.15s;
-  }
-
-  ol.topics li:hover {
-    background-color: color-mix(in srgb, var(--left-link) 6%, transparent);
-  }
-
-  [data-theme="dark"] ol.topics li:hover {
-    background-color: color-mix(in srgb, var(--left-link) 12%, transparent);
-  }
-
-  a.ts {
-    color: var(--left-link);
-    text-decoration: none;
-    font-variant-numeric: tabular-nums;
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 0.82rem;
-    white-space: nowrap;
-    flex-shrink: 0;
-    cursor: pointer;
-  }
-
-  a.ts:hover { text-decoration: underline; }
-
-  ol.topics li.active {
-    border-left-color: var(--left-link);
-    font-weight: 600;
-  }
-  ol.topics li.active a.ts { font-weight: 600; color: var(--left-link); }
-
-  /* Icon buttons (help + theme) — live inside section-nav */
-  .nav-actions {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    flex-shrink: 0;
-  }
-  .icon-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    border: 1.5px solid rgba(0,0,0,0.13);
-    background: transparent;
-    color: #666;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 0.88rem;
-    font-weight: 500;
-    flex-shrink: 0;
-    transition: opacity 0.15s, border-color 0.15s;
-  }
-  .icon-btn:hover { opacity: 0.65; }
-
-  [data-theme="dark"] .icon-btn {
-    border-color: rgba(255,255,255,0.15);
-    color: #c0bdb8;
-  }
-
-  /* Help modal */
-  #help-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    background: rgba(0,0,0,0.38);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    align-items: center;
-    justify-content: center;
-  }
-  #help-overlay.open { display: flex; }
-  #help-modal {
-    background: var(--right-bg);
-    color: var(--right-text);
-    border: 1px solid var(--right-border);
-    border-radius: 12px;
-    padding: 1.75rem 2rem 1.5rem;
-    max-width: 400px;
-    width: calc(100% - 3rem);
-    box-shadow: 0 8px 40px rgba(0,0,0,0.18);
-    font-family: 'DM Sans', system-ui, sans-serif;
-    position: relative;
-  }
-  #help-modal h3 {
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--left-heading);
-    margin-bottom: 0.6rem;
-    margin-top: 1.2rem;
-  }
-  #help-modal h3:first-child { margin-top: 0; }
-  #help-modal p {
-    font-size: 0.88rem;
-    line-height: 1.65;
-    color: var(--right-text);
-    margin-bottom: 0;
-    font-family: 'DM Sans', system-ui, sans-serif;
-  }
-  #help-modal a { color: var(--left-link); text-decoration: none; }
-  #help-modal a:hover { text-decoration: underline; }
-  .help-shortcuts {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.45rem 1rem;
-    font-size: 0.85rem;
-  }
-  .help-key {
-    font-family: 'DM Mono', 'SF Mono', 'Menlo', monospace;
-    background: var(--toggle-bg);
-    color: var(--left-text);
-    border-radius: 4px;
-    padding: 0.15rem 0.5rem;
-    font-size: 0.78rem;
-    white-space: nowrap;
-    align-self: center;
-    text-align: center;
-  }
-  .help-desc {
-    color: var(--left-meta);
-    align-self: center;
-    font-size: 0.85rem;
-  }
-  #help-close {
-    position: absolute;
-    top: 0.75rem;
-    right: 0.75rem;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: var(--left-meta);
-    cursor: pointer;
-    font-size: 1.1rem;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.5;
-    transition: opacity 0.15s;
-  }
-  #help-close:hover { opacity: 1; }
-
-  .ctrl-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.45rem 1.2rem;
-    border-top: 1px solid var(--left-border);
-    flex-shrink: 0;
-    flex-wrap: wrap;
-  }
-  .ctrl-bar button {
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 0.75rem;
-    font-weight: 500;
-    padding: 0.55rem 0.75rem;
-    border: 1px solid var(--left-border);
-    border-radius: 4px;
-    background: transparent;
-    color: var(--left-text);
-    cursor: pointer;
-    line-height: 1;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-  }
-  .ctrl-bar button:hover { opacity: 0.75; }
-
-  #play-pause-btn {
-    width: 2rem;
-    height: 2rem;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    color: #111;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-    flex-shrink: 0;
-  }
-  #play-pause-btn:hover { opacity: 0.75; }
-
-  [data-theme="dark"] #play-pause-btn {
-    background: var(--left-border);
-    border-color: var(--left-border);
-    color: var(--left-text);
-  }
-
-  /* Speed button segmented control */
-  .speed-group {
-    display: flex;
-    border: 1px solid var(--left-border);
-    border-radius: 5px;
-    overflow: hidden;
-  }
-  .speed-group .speed-btn {
-    border: none;
-    border-right: 1px solid var(--left-border);
-    border-radius: 0;
-    padding: 0.55rem 0.5rem;
-  }
-  .speed-group .speed-btn:last-child { border-right: none; }
-  .speed-group .speed-btn.active {
-    background: var(--left-link);
-    color: #fff;
-    border-color: var(--left-link);
-  }
-  .speed-group .speed-btn:hover:not(.active) { opacity: 0.75; }
-
-  /* Seek button segmented control */
-  .seek-group {
-    display: flex;
-    border: 1px solid var(--left-border);
-    border-radius: 5px;
-    overflow: hidden;
-  }
-  .seek-group button {
-    border: none;
-    border-right: 1px solid var(--left-border);
-    border-radius: 0;
-    padding: 0.55rem 0.6rem;
-  }
-  .seek-group button:last-child { border-right: none; }
-
-  .ctrl-bar-icon-btn {
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    padding: 0.3rem 0.45rem;
-    border: 1px solid var(--left-border);
-    border-radius: 4px;
-    background: transparent;
-    color: var(--left-text);
-    cursor: pointer;
-    line-height: 1;
-    opacity: 0.55;
-    transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
-  }
-  .ctrl-bar-icon-btn:hover { opacity: 0.85; }
-  .ctrl-bar-icon-btn.active {
-    background: var(--left-link);
-    color: #fff;
-    border-color: var(--left-link);
-    opacity: 1;
-  }
-  .ctrl-bar.yt-native .ctrl-toggle-sep,
-  .ctrl-bar.yt-native .seek-group,
-  .ctrl-bar.yt-native #play-pause-btn,
-  .ctrl-bar.yt-native .speed-group {
-    display: none;
-  }
-  .ctrl-bar.yt-native .ctrl-divider:not(.ctrl-toggle-sep) {
-    display: none;
-  }
-
-  .ctrl-divider {
-    width: 1px; height: 1rem;
-    background: var(--left-border);
-    flex-shrink: 0;
-    margin: 0 0.1rem;
-  }
-
-  /* Custom scrollbars */
-  .left-scroll::-webkit-scrollbar,
-  .right::-webkit-scrollbar { width: 5px; }
-  .left-scroll::-webkit-scrollbar-track,
-  .right::-webkit-scrollbar-track { background: transparent; }
-  .left-scroll::-webkit-scrollbar-thumb,
-  .right::-webkit-scrollbar-thumb {
-    background: var(--left-border);
-    border-radius: 3px;
-  }
-
-  /* Progress bar */
-  #progress-track {
-    height: 3px;
-    background: var(--left-border);
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  #progress-fill {
-    height: 100%;
-    background: var(--left-link);
-    width: 0%;
-    transition: width 0.8s linear;
-    pointer-events: none;
-  }
-
-  /* Now playing pulse dot */
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.65); }
-  }
-  ol.topics li.active::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    background: var(--left-link);
-    border-radius: 50%;
-    position: absolute;
-    left: 4px;
-    top: 0;
-    bottom: 0;
-    margin: auto;
-    animation: pulse-dot 1.5s ease-in-out infinite;
-  }
-
-  /* Section nav */
-  .section-nav {
-    position: sticky;
-    top: 0;
-    margin: 0 -2rem 1.5rem;
-    padding: 0.6rem 1.25rem 0.6rem 2.5rem;
-    background: var(--right-bg);
-    border-bottom: 1px solid var(--right-border);
-    display: flex;
-    gap: 1.2rem;
-    z-index: 10;
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    transition: background-color 0.2s ease;
-  }
-  .section-nav a {
-    color: var(--left-meta);
-    text-decoration: none;
-    padding-bottom: 2px;
-    border-bottom: 2px solid transparent;
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .section-nav a.active {
-    color: var(--left-link);
-    border-bottom-color: var(--left-link);
-  }
-  .section-nav a:hover {
-    color: var(--right-text);
-  }
-
-  /* Copy button */
-  .copy-btn {
-    margin-left: 0.5rem;
-    font-size: 0.95rem;
-    background: none;
-    border: none;
-    color: var(--left-meta);
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.15s;
-    padding: 0 0.1rem;
-    vertical-align: middle;
-    line-height: 1;
-  }
-  .right section:hover .copy-btn { opacity: 1; }
-
-  /* Mobile: single column */
-  @media (max-width: 800px) {
+    /* ── Layout ── */
     .layout {
+      display: grid;
+      grid-template-columns: var(--left-w, 55.5%) 6px 1fr;
+      grid-template-rows: 1fr;
+      min-height: 100vh;
+    }
+
+    /* Resizer */
+    #resizer {
+      grid-column: 2;
+      grid-row: 1;
+      cursor: col-resize;
+      background: var(--panel-divider);
+      width: 6px;
+      position: relative;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    #resizer:hover,
+    #resizer.dragging {
+      background: var(--left-link);
+    }
+
+    #resizer::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px;
+      height: 32px;
+      border-radius: 1px;
+      background: var(--panel-divider);
+      opacity: 0.5;
+    }
+
+    #resizer:hover::after,
+    #resizer.dragging::after {
+      opacity: 0;
+    }
+
+    /* Left col: sticky video + outline */
+    .left {
+      grid-column: 1;
+      grid-row: 1;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--left-bg);
+      color: var(--left-text);
+      overflow: hidden;
+    }
+
+    .video-wrap {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%;
+      /* 16:9 */
+      flex-shrink: 0;
+      background: var(--video-bg);
+    }
+
+    .video-wrap iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
       display: block;
     }
-    .left {
-      position: static;
-      height: auto;
+
+    .video-meta {
+      padding: 0.9rem 1.2rem;
+      overflow-y: visible;
+      flex-shrink: 0;
     }
-    #resizer {
+
+    .left-scroll {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .outline-section {
+      padding: 0.9rem 1.2rem 1.2rem;
+      border-top: 1px solid var(--left-border);
+      flex: 1;
+    }
+
+    .outline-section h2 {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--left-heading);
+      margin-bottom: 0.9rem;
+    }
+
+    .video-meta h1 {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--left-text);
+      line-height: 1.4;
+      margin-bottom: 0.35rem;
+    }
+
+    .video-meta .meta-line {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.75rem;
+      color: var(--left-meta);
+    }
+
+    .video-meta .meta-line a {
+      color: var(--left-link);
+      text-decoration: none;
+    }
+
+    /* Right col: scrollable content */
+    .right {
+      grid-column: 3;
+      grid-row: 1;
+      overflow-y: auto;
+      height: 100vh;
+      padding: 0 2rem 70vh;
+      background: var(--right-bg);
+      color: var(--right-text);
+    }
+
+    section {
+      scroll-margin-top: 3.5rem;
+      padding-bottom: 1.8rem;
+      margin-bottom: 1.8rem;
+      border-bottom: 1px solid var(--right-border);
+    }
+
+    section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    h2 {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--left-heading);
+      margin-bottom: 0.9rem;
+    }
+
+    p {
+      margin-bottom: 0.9rem;
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    ul {
+      padding-left: 1.3rem;
+    }
+
+    ul li {
+      margin-bottom: 0.5rem;
+    }
+
+    strong {
+      color: var(--strong-color);
+    }
+
+    /* Topics / Outline list */
+    ol.topics {
+      list-style: none;
+      padding: 0;
+      display: grid;
+      grid-template-columns: max-content auto 1fr;
+      column-gap: 0.4rem;
+    }
+
+    ol.topics li {
+      position: relative;
+      display: grid;
+      grid-template-columns: subgrid;
+      grid-column: 1 / -1;
+      align-items: baseline;
+      margin-bottom: 0;
+      font-size: 0.92rem;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      color: var(--left-text);
+      line-height: 1.5;
+      border-left: 2px solid transparent;
+      padding-left: 1rem;
+      padding-block: 0.3rem;
+      transition: background-color 0.15s;
+    }
+
+    ol.topics li.expanded .outline-title,
+    ol.topics li.active .outline-title {
+      font-weight: 600;
+    }
+
+    .outline-detail {
+      display: none;
+      grid-column: 3;
+      font-size: 0.84rem;
+      line-height: 1.45;
+      color: var(--left-meta);
+      padding-bottom: 0.15rem;
+    }
+
+    ol.topics li.expanded .outline-detail,
+    ol.topics li.active .outline-detail {
+      display: block;
+    }
+
+    ol.topics li:hover {
+      background-color: color-mix(in srgb, var(--left-link) 6%, transparent);
+    }
+
+    [data-theme="dark"] ol.topics li:hover {
+      background-color: color-mix(in srgb, var(--left-link) 12%, transparent);
+    }
+
+    a.ts {
+      color: var(--left-link);
+      text-decoration: none;
+      font-variant-numeric: tabular-nums;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.82rem;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    a.ts:hover {
+      text-decoration: underline;
+    }
+
+    ol.topics li.active {
+      border-left-color: transparent;
+      box-shadow: inset 2px 0 0 0 var(--left-link);
+      transition: box-shadow 0.5s ease;
+    }
+
+    ol.topics li.active a.ts {
+      color: var(--left-link);
+    }
+
+    /* Icon buttons (help + theme) — live inside section-nav */
+    .nav-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-shrink: 0;
+    }
+
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(0, 0, 0, 0.13);
+      background: transparent;
+      color: #666;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.88rem;
+      font-weight: 500;
+      flex-shrink: 0;
+      transition: opacity 0.15s, border-color 0.15s;
+    }
+
+    .icon-btn:hover {
+      opacity: 0.65;
+    }
+
+    [data-theme="dark"] .icon-btn {
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #c0bdb8;
+    }
+
+    /* Help modal */
+    #help-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.38);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+    }
+
+    #help-overlay.open {
+      display: flex;
+    }
+
+    #help-modal {
+      background: var(--right-bg);
+      color: var(--right-text);
+      border: 1px solid var(--right-border);
+      border-radius: 12px;
+      padding: 1.75rem 2rem 1.5rem;
+      max-width: 400px;
+      width: calc(100% - 3rem);
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+      font-family: 'DM Sans', system-ui, sans-serif;
+      position: relative;
+    }
+
+    #help-modal h3 {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--left-heading);
+      margin-bottom: 0.6rem;
+      margin-top: 1.2rem;
+    }
+
+    #help-modal h3:first-child {
+      margin-top: 0;
+    }
+
+    #help-modal p {
+      font-size: 0.88rem;
+      line-height: 1.65;
+      color: var(--right-text);
+      margin-bottom: 0;
+      font-family: 'DM Sans', system-ui, sans-serif;
+    }
+
+    #help-modal a {
+      color: var(--left-link);
+      text-decoration: none;
+    }
+
+    #help-modal a:hover {
+      text-decoration: underline;
+    }
+
+    .help-shortcuts {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.45rem 1rem;
+      font-size: 0.85rem;
+    }
+
+    .help-key {
+      font-family: 'DM Mono', 'SF Mono', 'Menlo', monospace;
+      background: var(--toggle-bg);
+      color: var(--left-text);
+      border-radius: 4px;
+      padding: 0.15rem 0.5rem;
+      font-size: 0.78rem;
+      white-space: nowrap;
+      align-self: center;
+      text-align: center;
+    }
+
+    .help-desc {
+      color: var(--left-meta);
+      align-self: center;
+      font-size: 0.85rem;
+    }
+
+    #help-close {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--left-meta);
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.5;
+      transition: opacity 0.15s;
+    }
+
+    #help-close:hover {
+      opacity: 1;
+    }
+
+    .ctrl-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 1.2rem;
+      border-top: 1px solid var(--left-border);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .ctrl-bar button {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid var(--left-border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--left-text);
+      cursor: pointer;
+      line-height: 1;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .ctrl-bar button:hover {
+      opacity: 0.75;
+    }
+
+    #play-pause-btn {
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      color: #111;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      flex-shrink: 0;
+    }
+
+    #play-pause-btn:hover {
+      opacity: 0.75;
+    }
+
+    #time-display {
+      font-family: 'DM Mono', 'Fira Code', ui-monospace, monospace;
+      font-size: 0.72rem;
+      font-variant-numeric: tabular-nums;
+      opacity: 0.65;
+      white-space: nowrap;
+      color: var(--left-text);
+      padding: 0 0.2rem;
+      flex-shrink: 0;
+    }
+
+    [data-theme="dark"] #play-pause-btn {
+      background: var(--left-border);
+      border-color: var(--left-border);
+      color: var(--left-text);
+    }
+
+    /* Speed button segmented control */
+    .speed-group {
+      display: flex;
+      border: 1px solid var(--left-border);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .speed-group .speed-btn {
+      border: none;
+      border-right: 1px solid var(--left-border);
+      border-radius: 0;
+      padding: 0.55rem 0.5rem;
+    }
+
+    .speed-group .speed-btn:last-child {
+      border-right: none;
+    }
+
+    .speed-group .speed-btn.active {
+      background: var(--left-link);
+      color: #fff;
+      border-color: var(--left-link);
+    }
+
+    .speed-group .speed-btn:hover:not(.active) {
+      opacity: 0.75;
+    }
+
+    /* Seek button segmented control */
+    .seek-group {
+      display: flex;
+      border: 1px solid var(--left-border);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .seek-group button {
+      border: none;
+      border-right: 1px solid var(--left-border);
+      border-radius: 0;
+      padding: 0.55rem 0.6rem;
+    }
+
+    .seek-group button:last-child {
+      border-right: none;
+    }
+
+    .ctrl-bar-icon-btn {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 0.3rem 0.45rem;
+      border: 1px solid var(--left-border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--left-text);
+      cursor: pointer;
+      line-height: 1;
+      opacity: 0.55;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
+    }
+
+    .ctrl-bar-icon-btn:hover {
+      opacity: 0.85;
+    }
+
+    .ctrl-bar-icon-btn.active {
+      background: var(--left-link);
+      color: #fff;
+      border-color: var(--left-link);
+      opacity: 1;
+    }
+
+    .ctrl-bar.yt-native .ctrl-toggle-sep,
+    .ctrl-bar.yt-native .seek-group,
+    .ctrl-bar.yt-native #play-pause-btn,
+    .ctrl-bar.yt-native #time-display,
+    .ctrl-bar.yt-native .speed-group {
       display: none;
     }
-    .right {
-      height: auto;
-      overflow-y: visible;
-      border-top: 1px solid var(--panel-divider);
+
+    .ctrl-bar.yt-native .ctrl-divider:not(.ctrl-toggle-sep) {
+      display: none;
     }
-  }
-</style>
+
+    .ctrl-divider {
+      width: 1px;
+      height: 1rem;
+      background: var(--left-border);
+      flex-shrink: 0;
+      margin: 0 0.1rem;
+    }
+
+    /* Custom scrollbars */
+    .left-scroll::-webkit-scrollbar,
+    .right::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .left-scroll::-webkit-scrollbar-track,
+    .right::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .left-scroll::-webkit-scrollbar-thumb,
+    .right::-webkit-scrollbar-thumb {
+      background: var(--left-border);
+      border-radius: 3px;
+    }
+
+    /* Progress bar */
+    #progress-track {
+      height: 3px;
+      background: var(--left-border);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    #progress-fill {
+      height: 100%;
+      background: var(--left-link);
+      width: 0%;
+      transition: width 0.8s linear;
+      pointer-events: none;
+    }
+
+    /* Now playing border pulse */
+    @keyframes border-breathe {
+
+      0%,
+      100% {
+        border-left-color: transparent;
+        box-shadow: inset 2px 0 0 0 var(--left-link);
+      }
+
+      50% {
+        border-left-color: transparent;
+        box-shadow: inset 4px 0 0 0 var(--left-link);
+      }
+    }
+
+    body.is-playing ol.topics li.active {
+      animation: border-breathe 2.5s ease-in-out infinite;
+    }
+
+    /* Section nav */
+    .section-nav {
+      position: sticky;
+      top: 0;
+      margin: 0 -2rem 1.5rem;
+      padding: 0.6rem 1.25rem 0.6rem 2.5rem;
+      background: var(--right-bg);
+      border-bottom: 1px solid var(--right-border);
+      display: flex;
+      gap: 1.2rem;
+      z-index: 10;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: background-color 0.2s ease;
+    }
+
+    .section-nav a {
+      color: var(--left-meta);
+      text-decoration: none;
+      padding-bottom: 2px;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .section-nav a.active {
+      color: var(--left-link);
+      border-bottom-color: var(--left-link);
+    }
+
+    .section-nav a:hover {
+      color: var(--right-text);
+    }
+
+    /* Copy button */
+    .copy-btn {
+      margin-left: 0.5rem;
+      font-size: 0.95rem;
+      background: none;
+      border: none;
+      color: var(--left-meta);
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s;
+      padding: 0 0.1rem;
+      vertical-align: middle;
+      line-height: 1;
+    }
+
+    .right section:hover .copy-btn {
+      opacity: 1;
+    }
+
+    /* Mobile: single column */
+    @media (max-width: 800px) {
+      .layout {
+        display: block;
+      }
+
+      .left {
+        position: static;
+        height: auto;
+      }
+
+      #resizer {
+        display: none;
+      }
+
+      .right {
+        height: auto;
+        overflow-y: visible;
+        border-top: 1px solid var(--panel-divider);
+      }
+    }
+  </style>
 </head>
+
 <body>
 
 
-<!-- Help modal -->
-<div id="help-overlay" role="dialog" aria-modal="true" aria-label="Help">
-  <div id="help-modal">
-    <button id="help-close" aria-label="Close">×</button>
-    <h3>About</h3>
-    <p>video-lens fetches a YouTube transcript and uses AI to generate a summary report with key points, a timestamped outline, and an in-page player. <a href="https://github.com/kar2phi/video-lens" target="_blank">View source ↗</a></p>
-    <h3>Shortcuts</h3>
-    <div class="help-shortcuts">
-      <span class="help-key">Space</span><span class="help-desc">play / pause</span>
-      <span class="help-key">j / ←</span><span class="help-desc">seek back 15 s</span>
-      <span class="help-key">l / →</span><span class="help-desc">seek forward 15 s</span>
-      <span class="help-key">, / &lt;</span><span class="help-desc">slower speed</span>
-      <span class="help-key">. / &gt;</span><span class="help-desc">faster speed</span>
-    </div>
-  </div>
-</div>
-
-<div class="layout">
-
-  <!-- Left: sticky video + outline -->
-  <div class="left">
-    <div class="video-wrap">
-      <iframe
-        id="yt-player"
-        src="https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&controls=0"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowfullscreen>
-      </iframe>
-    </div>
-    <div id="progress-track"><div id="progress-fill"></div></div>
-    <div class="ctrl-bar">
-      <button id="play-pause-btn"><svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor"><polygon points="0,0 10,6 0,12"/></svg></button>
-      <div class="ctrl-divider"></div>
-      <div class="seek-group">
-        <button id="seek-back">← -15s</button>
-        <button id="seek-fwd">+15s →</button>
-      </div>
-      <div class="ctrl-divider"></div>
-      <div class="speed-group">
-        <button class="speed-btn active" data-speed="1">1×</button>
-        <button class="speed-btn" data-speed="1.25">1.25×</button>
-        <button class="speed-btn" data-speed="1.5">1.5×</button>
-        <button class="speed-btn" data-speed="1.75">1.75×</button>
-        <button class="speed-btn" data-speed="2">2×</button>
-      </div>
-      <div class="ctrl-divider ctrl-toggle-sep"></div>
-      <button id="controls-toggle-btn" class="ctrl-bar-icon-btn" title="Toggle YouTube controls">YT</button>
-    </div>
-    <div class="video-meta">
-      <h1>{{VIDEO_TITLE}}</h1>
-      <p class="meta-line">{{META_LINE}} · <a href="{{VIDEO_URL}}" target="_blank">Open on YouTube ↗</a></p>
-    </div>
-    <div class="left-scroll">
-      <div class="outline-section">
-        <h2>Outline</h2>
-        <ol class="topics">
-          {{OUTLINE}}
-        </ol>
+  <!-- Help modal -->
+  <div id="help-overlay" role="dialog" aria-modal="true" aria-label="Help">
+    <div id="help-modal">
+      <button id="help-close" aria-label="Close">×</button>
+      <h3>About</h3>
+      <p>video-lens fetches a YouTube transcript and uses AI to generate a summary report with key points, a timestamped
+        outline, and an in-page player. <a href="https://github.com/kar2phi/video-lens" target="_blank">View source
+          ↗</a></p>
+      <h3>Shortcuts</h3>
+      <div class="help-shortcuts">
+        <span class="help-key">Space</span><span class="help-desc">play / pause</span>
+        <span class="help-key">j / ←</span><span class="help-desc">seek back 5 s</span>
+        <span class="help-key">l / →</span><span class="help-desc">seek forward 5 s</span>
+        <span class="help-key">, / &lt;</span><span class="help-desc">slower speed</span>
+        <span class="help-key">. / &gt;</span><span class="help-desc">faster speed</span>
+        <span class="help-key">Esc</span><span class="help-desc">close help</span>
       </div>
     </div>
   </div>
 
-  <div id="resizer"></div>
+  <div class="layout">
 
-  <!-- Right: scrollable summary -->
-  <div class="right">
-
-    <nav class="section-nav">
-      <a href="#summary" class="active">Summary</a>
-      <a href="#key-points">Key Points</a>
-      <a href="#analysis">Analysis</a>
-      <div class="nav-actions">
-        <button id="md-export-btn" class="icon-btn" aria-label="Export as Markdown" title="Export as Markdown">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-        </button>
-        <button id="help-btn" class="icon-btn" aria-label="Help">?</button>
-        <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme">
-          <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
-        </button>
+    <!-- Left: sticky video + outline -->
+    <div class="left">
+      <div class="video-wrap">
+        <iframe id="yt-player" src="https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&controls=0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen>
+        </iframe>
       </div>
-    </nav>
+      <div id="progress-track">
+        <div id="progress-fill"></div>
+      </div>
+      <div class="ctrl-bar">
+        <button id="play-pause-btn"><svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
+            <polygon points="0,0 10,6 0,12" />
+          </svg></button>
+        <span id="time-display">–:–– / –:––</span>
+        <div class="ctrl-divider"></div>
+        <div class="seek-group">
+          <button id="seek-back">← -5s</button>
+          <button id="seek-fwd">+5s →</button>
+        </div>
+        <div class="ctrl-divider"></div>
+        <div class="speed-group">
+          <button class="speed-btn active" data-speed="1">1×</button>
+          <button class="speed-btn" data-speed="1.25">1.25×</button>
+          <button class="speed-btn" data-speed="1.5">1.5×</button>
+          <button class="speed-btn" data-speed="1.75">1.75×</button>
+          <button class="speed-btn" data-speed="2">2×</button>
+        </div>
+        <div class="ctrl-divider ctrl-toggle-sep"></div>
+        <button id="controls-toggle-btn" class="ctrl-bar-icon-btn" title="Toggle YouTube controls">YT</button>
+      </div>
+      <div class="video-meta">
+        <h1>{{VIDEO_TITLE}}</h1>
+        <p class="meta-line">{{META_LINE}} · <a href="{{VIDEO_URL}}" target="_blank">Open on YouTube ↗</a></p>
+      </div>
+      <div class="left-scroll">
+        <div class="outline-section">
+          <h2>Outline</h2>
+          <ol class="topics">
+            {{OUTLINE}}
+          </ol>
+        </div>
+      </div>
+    </div>
 
-    <section id="summary">
-      <h2>Summary</h2>
-      <p>{{SUMMARY}}</p>
-    </section>
+    <div id="resizer"></div>
 
-    <section id="key-points">
-      <h2>Key Points</h2>
-      <ul>
-        {{KEY_POINTS}}
-      </ul>
-    </section>
+    <!-- Right: scrollable summary -->
+    <div class="right">
 
-    <section id="analysis">
-      <h2>Analysis</h2>
-      {{ANALYSIS}}
-    </section>
+      <nav class="section-nav">
+        <a href="#summary" class="active">Summary</a>
+        <a href="#key-points">Key Points</a>
+        <a href="#analysis">Analysis</a>
+        <a href="#takeaway">Takeaway</a>
+        <div class="nav-actions">
+          <button id="md-export-btn" class="icon-btn" aria-label="Export as Markdown" title="Export as Markdown">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </button>
+          <button id="help-btn" class="icon-btn" aria-label="Help">?</button>
+          <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme">
+            <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+          </button>
+        </div>
+      </nav>
 
+      <section id="summary">
+        <h2>Summary</h2>
+        <p>{{SUMMARY}}</p>
+      </section>
+
+      <section id="key-points">
+        <h2>Key Points</h2>
+        <ul>
+          {{KEY_POINTS}}
+        </ul>
+      </section>
+
+      <section id="analysis">
+        <h2>Analysis</h2>
+        {{ANALYSIS}}
+      </section>
+
+      <section id="takeaway">
+        <h2>Takeaway</h2>
+        <p>{{TAKEAWAY}}</p>
+      </section>
+
+    </div>
   </div>
-</div>
 
-<script src="https://www.youtube.com/iframe_api"></script>
-<script>
-  var VIDEO_ID = "{{VIDEO_ID}}";
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    var VIDEO_ID = "{{VIDEO_ID}}";
 
-  // file:// fallback
-  (function() {
-    if (window.location.protocol !== 'file:') return;
-    var iframe = document.getElementById('yt-player');
-    var dir = window.location.pathname.replace(/\/[^\/]+$/, '');
-    var file = window.location.pathname.replace(/.*\//, '');
-    var notice = document.createElement('div');
-    notice.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;background:var(--video-bg);color:var(--left-text);font-family:inherit;gap:14px;';
-    notice.innerHTML =
-      '<div style="background:rgba(255,255,255,0.06);border:1px solid var(--left-border);border-radius:10px;padding:24px 28px;display:flex;flex-direction:column;align-items:center;gap:14px;">' +
-      '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-      '<strong style="font-size:14px;letter-spacing:0.01em;opacity:0.85">Video unavailable via file://</strong>' +
-      '<span style="font-size:12px;opacity:0.6;max-width:300px;line-height:1.5">YouTube blocks embedded players on local files. Serve the folder over HTTP:</span>' +
-      '<code style="font-size:11px;background:var(--left-border);padding:8px 12px;border-radius:6px;opacity:0.9;word-break:break-all;user-select:all">python3 -m http.server 8765 --directory ' + dir + '</code>' +
-      '<span style="font-size:11px;opacity:0.55">then open <a href="http://localhost:8765/' + file + '" style="color:var(--left-link)">http://localhost:8765/' + file + '</a></span>' +
-      '</div>';
-    iframe.parentNode.replaceChild(notice, iframe);
-  })();
+    // file:// fallback
+    (function () {
+      if (window.location.protocol !== 'file:') return;
+      var iframe = document.getElementById('yt-player');
+      var dir = window.location.pathname.replace(/\/[^\/]+$/, '');
+      var file = window.location.pathname.replace(/.*\//, '');
+      var notice = document.createElement('div');
+      notice.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;background:var(--video-bg);color:var(--left-text);font-family:inherit;gap:14px;';
+      notice.innerHTML =
+        '<div style="background:rgba(255,255,255,0.06);border:1px solid var(--left-border);border-radius:10px;padding:24px 28px;display:flex;flex-direction:column;align-items:center;gap:14px;">' +
+        '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+        '<strong style="font-size:14px;letter-spacing:0.01em;opacity:0.85">Video unavailable via file://</strong>' +
+        '<span style="font-size:12px;opacity:0.6;max-width:300px;line-height:1.5">YouTube blocks embedded players on local files. Serve the folder over HTTP:</span>' +
+        '<code style="font-size:11px;background:var(--left-border);padding:8px 12px;border-radius:6px;opacity:0.9;word-break:break-all;user-select:all">python3 -m http.server 8765 --directory ' + dir + '</code>' +
+        '<span style="font-size:11px;opacity:0.55">then open <a href="http://localhost:8765/' + file + '" style="color:var(--left-link)">http://localhost:8765/' + file + '</a></span>' +
+        '</div>';
+      iframe.parentNode.replaceChild(notice, iframe);
+    })();
 
-  // Theme toggle
-  (function() {
-    var html = document.documentElement;
-    var btn = document.getElementById('theme-toggle');
-    var icon = document.getElementById('theme-icon');
+    // Theme toggle
+    (function () {
+      var html = document.documentElement;
+      var btn = document.getElementById('theme-toggle');
+      var icon = document.getElementById('theme-icon');
 
-    var sunPath = '<circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.87" y2="5.87"/><line x1="18.13" y1="18.13" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.87" y2="18.13"/><line x1="18.13" y1="5.87" x2="19.78" y2="4.22"/>';
-    var moonPath = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+      var sunPath = '<circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.87" y2="5.87"/><line x1="18.13" y1="18.13" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.87" y2="18.13"/><line x1="18.13" y1="5.87" x2="19.78" y2="4.22"/>';
+      var moonPath = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
 
-    function applyTheme(dark) {
-      if (dark) {
-        html.setAttribute('data-theme', 'dark');
-        icon.innerHTML = sunPath;
-      } else {
-        html.removeAttribute('data-theme');
-        icon.innerHTML = moonPath;
+      function applyTheme(dark) {
+        if (dark) {
+          html.setAttribute('data-theme', 'dark');
+          icon.innerHTML = sunPath;
+        } else {
+          html.removeAttribute('data-theme');
+          icon.innerHTML = moonPath;
+        }
       }
-    }
 
-    var saved = localStorage.getItem('theme');
-    applyTheme(saved === 'dark');
+      var saved = localStorage.getItem('theme');
+      applyTheme(saved === 'dark');
 
-    btn.addEventListener('click', function() {
-      var isDark = html.getAttribute('data-theme') === 'dark';
-      var next = !isDark;
-      localStorage.setItem('theme', next ? 'dark' : 'light');
-      applyTheme(next);
-    });
-  })();
-
-  // Help modal
-  (function() {
-    var overlay = document.getElementById('help-overlay');
-    var helpBtn = document.getElementById('help-btn');
-    var closeBtn = document.getElementById('help-close');
-
-    function openHelp() { overlay.classList.add('open'); }
-    function closeHelp() { overlay.classList.remove('open'); }
-
-    helpBtn.addEventListener('click', openHelp);
-    closeBtn.addEventListener('click', closeHelp);
-    overlay.addEventListener('click', function(e) {
-      if (e.target === overlay) closeHelp();
-    });
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') closeHelp();
-    });
-  })();
-
-  // YT IFrame API
-  var ytPlayer;
-  var pendingSeek = null;
-  var ytControlsVisible = false;
-
-  function onPlayerReady(e) {
-    if (pendingSeek !== null) {
-      e.target.seekTo(pendingSeek, true);
-      e.target.playVideo();
-      pendingSeek = null;
-    }
-  }
-
-  function onPlayerStateChange(e) {
-    document.getElementById('play-pause-btn').innerHTML = e.data === 1
-      ? '<svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor"><rect x="0" y="0" width="3.5" height="12" rx="1"/><rect x="7.5" y="0" width="3.5" height="12" rx="1"/></svg>'
-      : '<svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor"><polygon points="0,0 10,6 0,12"/></svg>';
-  }
-
-  function onPlayerError(e) {
-    if (e.data !== 101 && e.data !== 150) return;  // only handle embed-disabled
-    var wrap = document.querySelector('.video-wrap');
-    wrap.innerHTML =
-      '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-      'padding:24px;text-align:center;background:var(--video-bg);color:var(--left-text);gap:14px;">' +
-      '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">' +
-      '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-      '<strong style="font-size:15px;opacity:0.8">Embedding disabled by video owner</strong>' +
-      '<span style="font-size:12px;opacity:0.55;max-width:280px">This video cannot be played here. Watch it directly on YouTube.</span>' +
-      '<a href="{{VIDEO_URL}}" target="_blank" style="display:inline-block;padding:10px 20px;border-radius:6px;' +
-      'background:var(--left-link);color:#fff;font-size:13px;font-weight:600;text-decoration:none;">Watch on YouTube</a>' +
-      '</div>';
-    // Hide controls since they're useless without a player
-    document.getElementById('progress-track').style.display = 'none';
-    document.querySelector('.ctrl-bar').style.display = 'none';
-  }
-
-  function onYouTubeIframeAPIReady() {
-    ytPlayer = new YT.Player('yt-player', {
-      events: {
-        onReady: onPlayerReady,
-        onStateChange: onPlayerStateChange,
-        onError: onPlayerError
-      }
-    });
-  }
-
-  // Controls toggle
-  document.getElementById('controls-toggle-btn').addEventListener('click', function() {
-    var savedTime = (ytPlayer && ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : 0;
-    ytControlsVisible = !ytControlsVisible;
-
-    // Save ref + allow before destroy() removes the iframe from the DOM
-    var oldIframe = document.getElementById('yt-player');
-    var wrap = oldIframe.parentNode;
-    var savedAllow = oldIframe.allow;
-    if (ytPlayer && ytPlayer.destroy) ytPlayer.destroy();
-
-    var newIframe = document.createElement('iframe');
-    newIframe.id = 'yt-player';
-    newIframe.allow = savedAllow;
-    newIframe.allowFullscreen = true;
-    newIframe.src = 'https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&controls=' + (ytControlsVisible ? '1' : '0');
-    wrap.appendChild(newIframe);
-
-    pendingSeek = savedTime;
-
-    document.querySelector('.ctrl-bar').classList.toggle('yt-native', ytControlsVisible);
-    document.getElementById('controls-toggle-btn').classList.toggle('active', ytControlsVisible);
-
-    // Re-init YT player on fresh iframe
-    ytPlayer = new YT.Player('yt-player', {
-      events: {
-        onReady: onPlayerReady,
-        onStateChange: onPlayerStateChange,
-        onError: onPlayerError
-      }
-    });
-  });
-
-  // Timestamp links — seek via API instead of reloading src
-  var links = document.querySelectorAll('a.ts');
-  var topicItems = Array.from(links).map(function(a) {
-    return { a: a, li: a.closest('li'), t: parseInt(a.getAttribute('data-t'), 10) };
-  });
-
-  function setActiveItem(li) {
-    topicItems.forEach(function(item) { item.li.classList.remove('active'); });
-    if (li) {
-      li.classList.add('active');
-      li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
-  }
-
-  function seekToTimestamp(t, li) {
-    if (ytPlayer && ytPlayer.seekTo) {
-      ytPlayer.seekTo(t, true);
-      ytPlayer.playVideo();
-    } else {
-      pendingSeek = t;
-    }
-    setActiveItem(li);
-    document.querySelector('.left').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  links.forEach(function(a) {
-    a.addEventListener('click', function(e) {
-      e.preventDefault();
-      seekToTimestamp(parseInt(this.getAttribute('data-t'), 10), this.closest('li'));
-    });
-  });
-
-  topicItems.forEach(function(item) {
-    item.li.style.cursor = 'pointer';
-    item.li.addEventListener('click', function(e) {
-      if (e.target.closest('a.ts')) return; // already handled by link
-      seekToTimestamp(item.t, item.li);
-    });
-  });
-
-  // Auto-sync outline with video position
-  setInterval(function() {
-    if (!ytPlayer || !ytPlayer.getCurrentTime) return;
-    var cur = ytPlayer.getCurrentTime();
-    var active = null;
-    topicItems.forEach(function(item) {
-      if (item.t <= cur) active = item.li;
-    });
-    // Only update if it changed
-    var current = document.querySelector('ol.topics li.active');
-    if (active !== current) setActiveItem(active);
-    var dur = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
-    if (dur > 0) {
-      document.getElementById('progress-fill').style.width = (cur / dur * 100) + '%';
-    }
-  }, 1000);
-
-  // Speed buttons
-  var speedBtns = document.querySelectorAll('.speed-btn');
-  speedBtns.forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var rate = parseFloat(this.getAttribute('data-speed'));
-      if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(rate);
-      speedBtns.forEach(function(b) { b.classList.remove('active'); });
-      this.classList.add('active');
-    });
-  });
-
-  document.getElementById('play-pause-btn').addEventListener('click', function() {
-    if (!ytPlayer || !ytPlayer.getPlayerState) return;
-    ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
-  });
-
-  // Seek ±15s
-  document.getElementById('seek-back').addEventListener('click', function() {
-    if (ytPlayer && ytPlayer.getCurrentTime)
-      ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 15), true);
-  });
-  document.getElementById('seek-fwd').addEventListener('click', function() {
-    if (ytPlayer && ytPlayer.getCurrentTime)
-      ytPlayer.seekTo(ytPlayer.getCurrentTime() + 15, true);
-  });
-
-  document.getElementById('progress-track').addEventListener('click', function(e) {
-    if (!ytPlayer || !ytPlayer.getDuration) return;
-    var pct = e.offsetX / this.offsetWidth;
-    ytPlayer.seekTo(ytPlayer.getDuration() * pct, true);
-    ytPlayer.playVideo();
-  });
-
-  (function() {
-    var navLinks = document.querySelectorAll('.section-nav a');
-    var clicking = false;
-    var clickTimer = null;
-    navLinks.forEach(function(a) {
-      a.addEventListener('click', function() {
-        navLinks.forEach(function(l) { l.classList.remove('active'); });
-        this.classList.add('active');
-        clicking = true;
-        clearTimeout(clickTimer);
-        clickTimer = setTimeout(function() { clicking = false; }, 1000);
+      btn.addEventListener('click', function () {
+        var isDark = html.getAttribute('data-theme') === 'dark';
+        var next = !isDark;
+        localStorage.setItem('theme', next ? 'dark' : 'light');
+        applyTheme(next);
       });
-    });
-    var rightEl = document.querySelector('.right');
-    var sections = Array.from(document.querySelectorAll('.right section'));
-    var hasScrolled = false;
-    rightEl.addEventListener('scroll', function() { hasScrolled = true; }, { once: true });
-    var io = new IntersectionObserver(function(entries) {
-      if (!hasScrolled || clicking) return;
-      entries.forEach(function(entry) {
-        if (entry.isIntersecting) {
-          var id = entry.target.id;
-          navLinks.forEach(function(a) {
-            a.classList.toggle('active', a.getAttribute('href') === '#' + id);
-          });
+    })();
+
+    // Help modal
+    (function () {
+      var overlay = document.getElementById('help-overlay');
+      var helpBtn = document.getElementById('help-btn');
+      var closeBtn = document.getElementById('help-close');
+
+      function openHelp() { overlay.classList.add('open'); }
+      function closeHelp() { overlay.classList.remove('open'); }
+
+      helpBtn.addEventListener('click', openHelp);
+      closeBtn.addEventListener('click', closeHelp);
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeHelp();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeHelp();
+      });
+    })();
+
+    // YT IFrame API
+    var ytPlayer;
+    var pendingSeek = null;
+    var ytControlsVisible = false;
+
+    function onPlayerReady(e) {
+      if (pendingSeek !== null) {
+        e.target.seekTo(pendingSeek, true);
+        e.target.playVideo();
+        pendingSeek = null;
+      }
+    }
+
+    function onPlayerStateChange(e) {
+      document.getElementById('play-pause-btn').innerHTML = e.data === 1
+        ? '<svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor"><rect x="0" y="0" width="3.5" height="12" rx="1"/><rect x="7.5" y="0" width="3.5" height="12" rx="1"/></svg>'
+        : '<svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor"><polygon points="0,0 10,6 0,12"/></svg>';
+      document.body.classList.toggle('is-playing', e.data === 1);
+    }
+
+    function onPlayerError(e) {
+      if (e.data !== 101 && e.data !== 150) return;  // only handle embed-disabled
+      var wrap = document.querySelector('.video-wrap');
+      wrap.innerHTML =
+        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'padding:24px;text-align:center;background:var(--video-bg);color:var(--left-text);gap:14px;">' +
+        '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">' +
+        '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+        '<strong style="font-size:15px;opacity:0.8">Embedding disabled by video owner</strong>' +
+        '<span style="font-size:12px;opacity:0.55;max-width:280px">This video cannot be played here. Watch it directly on YouTube.</span>' +
+        '<a href="{{VIDEO_URL}}" target="_blank" style="display:inline-block;padding:10px 20px;border-radius:6px;' +
+        'background:var(--left-link);color:#fff;font-size:13px;font-weight:600;text-decoration:none;">Watch on YouTube</a>' +
+        '</div>';
+      // Hide controls since they're useless without a player
+      document.getElementById('progress-track').style.display = 'none';
+      document.querySelector('.ctrl-bar').style.display = 'none';
+    }
+
+    function onYouTubeIframeAPIReady() {
+      ytPlayer = new YT.Player('yt-player', {
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange,
+          onError: onPlayerError
         }
       });
-    }, { root: rightEl, threshold: 0, rootMargin: '0px 0px -75% 0px' });
-    sections.forEach(function(s) { io.observe(s); });
-  })();
+    }
 
-  document.querySelectorAll('.right section').forEach(function(sec) {
-    var h2 = sec.querySelector('h2');
-    if (!h2) return;
-    var btn = document.createElement('button');
-    btn.className = 'copy-btn';
-    btn.textContent = '⎘';
-    btn.title = 'Copy section';
-    btn.addEventListener('click', function() {
-      var text = Array.from(sec.querySelectorAll('p, li'))
-        .map(function(el) { return el.innerText; }).join('\n');
-      navigator.clipboard.writeText(text).then(function() {
-        btn.textContent = '✓';
-        setTimeout(function() { btn.textContent = '⎘'; }, 1500);
+    // Controls toggle
+    document.getElementById('controls-toggle-btn').addEventListener('click', function () {
+      var savedTime = (ytPlayer && ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : 0;
+      ytControlsVisible = !ytControlsVisible;
+
+      // Save ref + allow before destroy() removes the iframe from the DOM
+      var oldIframe = document.getElementById('yt-player');
+      var wrap = oldIframe.parentNode;
+      var savedAllow = oldIframe.allow;
+      if (ytPlayer && ytPlayer.destroy) ytPlayer.destroy();
+
+      var newIframe = document.createElement('iframe');
+      newIframe.id = 'yt-player';
+      newIframe.allow = savedAllow;
+      newIframe.allowFullscreen = true;
+      newIframe.src = 'https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&controls=' + (ytControlsVisible ? '1' : '0');
+      wrap.appendChild(newIframe);
+
+      pendingSeek = savedTime;
+
+      document.querySelector('.ctrl-bar').classList.toggle('yt-native', ytControlsVisible);
+      document.getElementById('controls-toggle-btn').classList.toggle('active', ytControlsVisible);
+
+      // Re-init YT player on fresh iframe
+      ytPlayer = new YT.Player('yt-player', {
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange,
+          onError: onPlayerError
+        }
       });
     });
-    h2.appendChild(btn);
-  });
 
-  document.getElementById('md-export-btn').addEventListener('click', function() {
-    // Title
-    var title = document.querySelector('h1').innerText;
+    // Timestamp links — seek via API instead of reloading src
+    var links = document.querySelectorAll('a.ts');
+    var topicItems = Array.from(links).map(function (a) {
+      return { a: a, li: a.closest('li'), t: parseInt(a.getAttribute('data-t'), 10) };
+    });
 
-    // Meta line — strip the "Open on YouTube ↗" link text, keep the rest
-    var metaEl = document.querySelector('.meta-line');
-    var metaText = Array.from(metaEl.childNodes)
-      .filter(function(n) { return n.nodeType === 3; })  // text nodes only
-      .map(function(n) { return n.textContent; })
-      .join('').replace(/·\s*$/, '').trim();
-    var videoUrl = metaEl.querySelector('a') ? metaEl.querySelector('a').href : '';
-
-    // Summary
-    var summary = document.querySelector('#summary p').innerText;
-
-    // Key Points
-    var keyPoints = Array.from(document.querySelectorAll('#key-points li'))
-      .map(function(li) { return '- ' + li.innerText; }).join('\n');
-
-    // Analysis
-    var analysis = Array.from(document.querySelectorAll('#analysis p'))
-      .map(function(p) { return p.innerText; }).join('\n\n');
-
-    // Outline — each li has data-t (seconds) and innerText like "6:36 Topic title"
-    var outline = Array.from(document.querySelectorAll('.topics li')).map(function(li) {
-      var tsEl = li.querySelector('a.ts');
-      var t = (tsEl ? tsEl.getAttribute('data-t') : null) || '0';
-      var tsText = tsEl ? tsEl.innerText : '0:00';
-      var topicText = li.innerText.replace(tsText, '').trim();
-      var url = 'https://www.youtube.com/watch?v=' + VIDEO_ID + '&t=' + t;
-      return '- [' + tsText + '](' + url + ') ' + topicText;
-    }).join('\n');
-
-    var md = [
-      '# ' + title,
-      '',
-      metaText,
-      videoUrl ? '[Watch on YouTube](' + videoUrl + ')' : '',
-      '',
-      '> Generated by the [video-lens](https://github.com/kar2phi/video-lens) Claude skill.',
-      '',
-      '---',
-      '',
-      '## Outline',
-      '',
-      outline,
-      '',
-      '## Summary',
-      '',
-      summary,
-      '',
-      '## Key Points',
-      '',
-      keyPoints,
-      '',
-      '## Analysis',
-      '',
-      analysis,
-    ].join('\n');
-
-    // Trigger download
-    var blob = new Blob([md], { type: 'text/markdown' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    // filename: sanitised title + .md
-    a.download = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80) + '.md';
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
-
-  function cycleSpeed(dir) {
-    var speeds = [1, 1.25, 1.5, 1.75, 2];
-    var active = document.querySelector('.speed-btn.active');
-    if (!active) return;
-    var idx = speeds.indexOf(parseFloat(active.getAttribute('data-speed')));
-    var next = speeds[Math.max(0, Math.min(speeds.length - 1, idx + dir))];
-    if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(next);
-    speedBtns.forEach(function(b) { b.classList.remove('active'); });
-    document.querySelector('.speed-btn[data-speed="' + next + '"]').classList.add('active');
-  }
-
-  document.addEventListener('keydown', function(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === ' ') {
-      e.preventDefault();
-      if (ytPlayer && ytPlayer.getPlayerState) {
-        ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+    function setActiveItem(li) {
+      topicItems.forEach(function (item) { item.li.classList.remove('active'); });
+      if (li) {
+        li.classList.add('active');
+        li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
-    } else if (e.key === 'j' || e.key === 'ArrowLeft') {
-      if (ytPlayer && ytPlayer.getCurrentTime)
-        ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 15), true);
-    } else if (e.key === 'l' || e.key === 'ArrowRight') {
-      if (ytPlayer && ytPlayer.getCurrentTime)
-        ytPlayer.seekTo(ytPlayer.getCurrentTime() + 15, true);
-    } else if (e.key === '<' || e.key === ',') {
-      cycleSpeed(-1);
-    } else if (e.key === '>' || e.key === '.') {
-      cycleSpeed(1);
     }
-  });
 
-  // Draggable resizer
-  var resizer = document.getElementById('resizer');
-  resizer.addEventListener('mousedown', function(e) {
-    e.preventDefault();
-    resizer.classList.add('dragging');
-    document.addEventListener('mousemove', onDrag);
-    document.addEventListener('mouseup', stopDrag);
-  });
+    function seekToTimestamp(t, li) {
+      if (ytPlayer && ytPlayer.seekTo) {
+        ytPlayer.seekTo(t, true);
+        ytPlayer.playVideo();
+      } else {
+        pendingSeek = t;
+      }
+      setActiveItem(li);
+      document.querySelector('.left').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
-  function onDrag(e) {
-    var pct = (e.clientX / window.innerWidth) * 100;
-    pct = Math.min(Math.max(pct, 20), 80);
-    document.documentElement.style.setProperty('--left-w', pct + '%');
-  }
+    links.forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        seekToTimestamp(parseInt(this.getAttribute('data-t'), 10), this.closest('li'));
+      });
+    });
 
-  function stopDrag() {
-    resizer.classList.remove('dragging');
-    document.removeEventListener('mousemove', onDrag);
-    document.removeEventListener('mouseup', stopDrag);
-  }
-</script>
+    topicItems.forEach(function (item) {
+      item.li.style.cursor = 'pointer';
+      item.li.addEventListener('click', function (e) {
+        if (e.target.closest('a.ts')) return; // timestamp click seeks via link handler
+        if (item.li.querySelector('.outline-detail')) {
+          var wasExpanded = item.li.classList.contains('expanded');
+          // Accordion: collapse all manually-expanded items
+          document.querySelectorAll('ol.topics li.expanded').forEach(function (li) {
+            li.classList.remove('expanded');
+          });
+          // Toggle this one (if it was already expanded, it stays collapsed)
+          if (!wasExpanded) item.li.classList.add('expanded');
+        } else {
+          seekToTimestamp(item.t, item.li);
+        }
+      });
+    });
+
+    // Auto-sync outline with video position
+    setInterval(function () {
+      if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+      var cur = ytPlayer.getCurrentTime();
+      var active = null;
+      topicItems.forEach(function (item) {
+        if (item.t <= cur) active = item.li;
+      });
+      // Only update if it changed
+      var current = document.querySelector('ol.topics li.active');
+      if (active !== current) setActiveItem(active);
+      var dur = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
+      if (dur > 0) {
+        document.getElementById('progress-fill').style.width = (cur / dur * 100) + '%';
+      }
+    }, 1000);
+
+    // Speed buttons
+    var speedBtns = document.querySelectorAll('.speed-btn');
+    speedBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var rate = parseFloat(this.getAttribute('data-speed'));
+        if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(rate);
+        speedBtns.forEach(function (b) { b.classList.remove('active'); });
+        this.classList.add('active');
+      });
+    });
+
+    document.getElementById('play-pause-btn').addEventListener('click', function () {
+      if (!ytPlayer || !ytPlayer.getPlayerState) return;
+      ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+    });
+
+    // Seek ±5s
+    document.getElementById('seek-back').addEventListener('click', function () {
+      if (ytPlayer && ytPlayer.getCurrentTime)
+        ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
+    });
+    document.getElementById('seek-fwd').addEventListener('click', function () {
+      if (ytPlayer && ytPlayer.getCurrentTime)
+        ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
+    });
+
+    // Live time display
+    function formatTime(s) {
+      s = Math.floor(s || 0);
+      var h = Math.floor(s / 3600);
+      var m = Math.floor((s % 3600) / 60);
+      var sec = s % 60;
+      if (h > 0)
+        return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+      return m + ':' + String(sec).padStart(2, '0');
+    }
+    setInterval(function () {
+      if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+      var cur = ytPlayer.getCurrentTime();
+      var dur = ytPlayer.getDuration();
+      var el = document.getElementById('time-display');
+      if (el) el.textContent = formatTime(cur) + ' / ' + (dur > 0 ? formatTime(dur) : '–:––');
+    }, 500);
+
+    document.getElementById('progress-track').addEventListener('click', function (e) {
+      if (!ytPlayer || !ytPlayer.getDuration) return;
+      var pct = e.offsetX / this.offsetWidth;
+      ytPlayer.seekTo(ytPlayer.getDuration() * pct, true);
+      ytPlayer.playVideo();
+    });
+
+    (function () {
+      var navLinks = document.querySelectorAll('.section-nav a');
+      var clicking = false;
+      var clickTimer = null;
+      navLinks.forEach(function (a) {
+        a.addEventListener('click', function () {
+          navLinks.forEach(function (l) { l.classList.remove('active'); });
+          this.classList.add('active');
+          clicking = true;
+          clearTimeout(clickTimer);
+          clickTimer = setTimeout(function () { clicking = false; }, 1000);
+        });
+      });
+      var rightEl = document.querySelector('.right');
+      var sections = Array.from(document.querySelectorAll('.right section'));
+      var hasScrolled = false;
+      rightEl.addEventListener('scroll', function () { hasScrolled = true; }, { once: true });
+      var io = new IntersectionObserver(function (entries) {
+        if (!hasScrolled || clicking) return;
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            var id = entry.target.id;
+            navLinks.forEach(function (a) {
+              a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+            });
+          }
+        });
+      }, { root: rightEl, threshold: 0, rootMargin: '0px 0px -75% 0px' });
+      sections.forEach(function (s) { io.observe(s); });
+    })();
+
+    document.querySelectorAll('.right section').forEach(function (sec) {
+      var h2 = sec.querySelector('h2');
+      if (!h2) return;
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = '⎘';
+      btn.title = 'Copy section';
+      btn.addEventListener('click', function () {
+        var text = Array.from(sec.querySelectorAll('p, li'))
+          .map(function (el) { return el.innerText; }).join('\n');
+        navigator.clipboard.writeText(text).then(function () {
+          btn.textContent = '✓';
+          setTimeout(function () { btn.textContent = '⎘'; }, 1500);
+        });
+      });
+      h2.appendChild(btn);
+    });
+
+    document.getElementById('md-export-btn').addEventListener('click', function () {
+      // Title
+      var title = document.querySelector('h1').innerText;
+
+      // Meta line — strip the "Open on YouTube ↗" link text, keep the rest
+      var metaEl = document.querySelector('.meta-line');
+      var metaText = Array.from(metaEl.childNodes)
+        .filter(function (n) { return n.nodeType === 3; })  // text nodes only
+        .map(function (n) { return n.textContent; })
+        .join('').replace(/·\s*$/, '').trim();
+      var videoUrl = metaEl.querySelector('a') ? metaEl.querySelector('a').href : '';
+
+      // Summary
+      var summary = document.querySelector('#summary p').innerText;
+
+      // Key Points
+      var keyPoints = Array.from(document.querySelectorAll('#key-points li'))
+        .map(function (li) { return '- ' + li.innerText; }).join('\n');
+
+      // Analysis
+      var analysis = Array.from(document.querySelectorAll('#analysis p'))
+        .map(function (p) { return p.innerText; }).join('\n\n');
+
+      // Takeaway
+      var takeaway = document.querySelector('#takeaway p').innerText;
+
+      // Outline — each li has data-t (seconds), .outline-title and optional .outline-detail
+      var outline = Array.from(document.querySelectorAll('.topics li')).map(function (li) {
+        var tsEl = li.querySelector('a.ts');
+        var t = (tsEl ? tsEl.getAttribute('data-t') : null) || '0';
+        var tsText = tsEl ? tsEl.innerText : '0:00';
+        var titleEl = li.querySelector('.outline-title');
+        var detailEl = li.querySelector('.outline-detail');
+        var topicText = titleEl ? titleEl.innerText : li.innerText.replace(tsText, '').trim();
+        var detail = detailEl ? detailEl.innerText.trim() : '';
+        var url = 'https://www.youtube.com/watch?v=' + VIDEO_ID + '&t=' + t;
+        var line = '- [' + tsText + '](' + url + ') ' + topicText;
+        if (detail) line += ' — ' + detail;
+        return line;
+      }).join('\n');
+
+      var md = [
+        '# ' + title,
+        '',
+        metaText,
+        videoUrl ? '[Watch on YouTube](' + videoUrl + ')' : '',
+        '',
+        '> Generated by the [video-lens](https://github.com/kar2phi/video-lens) Claude skill.',
+        '',
+        '---',
+        '',
+        '## Outline',
+        '',
+        outline,
+        '',
+        '## Summary',
+        '',
+        summary,
+        '',
+        '## Key Points',
+        '',
+        keyPoints,
+        '',
+        '## Analysis',
+        '',
+        analysis,
+        '',
+        '## Takeaway',
+        '',
+        takeaway,
+      ].join('\n');
+
+      // Trigger download
+      var blob = new Blob([md], { type: 'text/markdown' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = window.location.pathname.split('/').pop().replace(/\.html$/, '.md');
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    function cycleSpeed(dir) {
+      var speeds = [1, 1.25, 1.5, 1.75, 2];
+      var active = document.querySelector('.speed-btn.active');
+      if (!active) return;
+      var idx = speeds.indexOf(parseFloat(active.getAttribute('data-speed')));
+      var next = speeds[Math.max(0, Math.min(speeds.length - 1, idx + dir))];
+      if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(next);
+      speedBtns.forEach(function (b) { b.classList.remove('active'); });
+      document.querySelector('.speed-btn[data-speed="' + next + '"]').classList.add('active');
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (ytPlayer && ytPlayer.getPlayerState) {
+          ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+        }
+      } else if (e.key === 'j' || e.key === 'ArrowLeft') {
+        if (ytPlayer && ytPlayer.getCurrentTime)
+          ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
+      } else if (e.key === 'l' || e.key === 'ArrowRight') {
+        if (ytPlayer && ytPlayer.getCurrentTime)
+          ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
+      } else if (e.key === '<' || e.key === ',') {
+        cycleSpeed(-1);
+      } else if (e.key === '>' || e.key === '.') {
+        cycleSpeed(1);
+      }
+    });
+
+    // Draggable resizer
+    var resizer = document.getElementById('resizer');
+    resizer.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      resizer.classList.add('dragging');
+      document.addEventListener('mousemove', onDrag);
+      document.addEventListener('mouseup', stopDrag);
+    });
+    resizer.addEventListener('dblclick', function () {
+      document.documentElement.style.removeProperty('--left-w');
+    });
+
+    function onDrag(e) {
+      var pct = (e.clientX / window.innerWidth) * 100;
+      pct = Math.min(Math.max(pct, 20), 80);
+      document.documentElement.style.setProperty('--left-w', pct + '%');
+    }
+
+    function stopDrag() {
+      resizer.classList.remove('dragging');
+      document.removeEventListener('mousemove', onDrag);
+      document.removeEventListener('mouseup', stopDrag);
+    }
+  </script>
 </body>
+
 </html>

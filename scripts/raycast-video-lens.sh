@@ -5,7 +5,7 @@
 # @raycast.title video-lens
 # @raycast.mode silent
 # @raycast.argument1 {"type": "text", "placeholder": "YouTube URL (leave blank to use clipboard)", "optional": true}
-# @raycast.argument2 {"type": "text", "placeholder": "Model (haiku/sonnet/opus, default: haiku)", "optional": true}
+# @raycast.argument2 {"type": "text", "placeholder": "Model (haiku/sonnet/opus, default: sonnet)", "optional": true}
 
 # Optional parameters:
 # @raycast.icon 📺
@@ -29,12 +29,12 @@ on run argv
   set ytURL to item 1 of argv
   set outputDir to item 2 of argv
   set modelInput to item 3 of argv
-  if modelInput is "sonnet" then
-    set modelId to "claude-sonnet-4-6"
+  if modelInput is "haiku" then
+    set modelId to "claude-haiku-4-5-20251001"
   else if modelInput is "opus" then
     set modelId to "claude-opus-4-6"
   else
-    set modelId to "claude-haiku-4-5-20251001"
+    set modelId to "claude-sonnet-4-6"
   end if
   set cmd to "cd " & outputDir & " && claude --dangerously-skip-permissions --allowedTools \"Bash,Read\" --model " & modelId & " \"/video-lens " & ytURL & "\""
 

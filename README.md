@@ -2,7 +2,9 @@
 
 **Turn any YouTube video into a polished research report.**
 
-video-lens is a [Claude Code](https://claude.ai/code) skill that fetches a YouTube transcript and generates a structured HTML report — executive summary, key points, timestamped topic outline, and an embedded in-page player. No API keys, no external services beyond Claude itself.
+video-lens is a [Claude Code](https://claude.ai/code) skill that fetches a YouTube transcript and generates a structured HTML report — executive summary, key points, analysis, takeaway, timestamped topic outline, and an embedded in-page player. No API keys, no external services beyond Claude itself.
+
+> **Consistent by design.** Every report uses the same polished HTML template, stored on your machine — so the layout, styles, and interactive features are always consistent, and you can always come back to the report later.
 
 <img src="docs/video-lens-example.png" alt="video-lens example report" width="700">
 
@@ -10,9 +12,11 @@ video-lens is a [Claude Code](https://claude.ai/code) skill that fetches a YouTu
 
 ## What you get
 
-- **Executive summary** — the 3-5 sentence version of the whole video
-- **Key takeaways** — bulleted, scannable insights
-- **Timestamped outline** — click any topic to jump straight to that moment in the player
+- **Executive summary** — 3–5 sentence overview
+- **Key points** — bulleted, scannable insights
+- **Analysis** — deeper themes and commentary
+- **Takeaway** — the single "so what?" conclusion (1–2 sentences)
+- **Timestamped outline** — click any topic to expand a micro-summary of that section; click the timestamp to jump the player to that moment. The outline auto-highlights the currently playing section as the video progresses. The fastest way to grasp what a video covers without reading the full report.
 - **In-page YouTube player** — watch while reading, keyboard shortcuts included
 - **Markdown export** — copy the full report as Markdown in one click
 - **Dark mode** — auto-detects system preference
@@ -35,7 +39,22 @@ video-lens is a [Claude Code](https://claude.ai/code) skill that fetches a YouTu
 
 ## Install
 
-### 1. Clone and install Python dependency
+### Quick install (skill only)
+
+No repo clone or Task required — just run:
+
+```bash
+mkdir -p ~/.claude/skills/video-lens && \
+curl -Lo ~/.claude/skills/video-lens/SKILL.md https://raw.githubusercontent.com/kar2phi/video-lens/main/skill/SKILL.md && \
+curl -Lo ~/.claude/skills/video-lens/template.html https://raw.githubusercontent.com/kar2phi/video-lens/main/skill/template.html && \
+pip install youtube-transcript-api
+```
+
+Then use `/video-lens <url>` in any Claude Code session.
+
+### Full install (with Raycast + dev tools)
+
+#### 1. Clone and install Python dependency
 
 ```bash
 git clone https://github.com/kar2phi/video-lens.git
@@ -43,7 +62,7 @@ cd video-lens
 pip install -r requirements.txt
 ```
 
-### 2. Install the Claude Code skill
+#### 2. Install the Claude Code skill
 
 ```bash
 task install-skill
@@ -51,7 +70,7 @@ task install-skill
 
 This copies `skill/SKILL.md` and `skill/template.html` into `~/.claude/skills/video-lens/`.
 
-### 3. (Optional) Install the Raycast script
+#### 3. (Optional) Install the Raycast script
 
 > **macOS only.** The Raycast script uses AppleScript, `pbpaste`, and iTerm2/Terminal.app — none of which are available on Windows or Linux.
 
