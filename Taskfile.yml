@@ -9,17 +9,88 @@ tasks:
     desc: Run template dev server with sample content
     cmds:
       - python3 scripts/yt_template_dev.py
-      - lsof -ti:8765 | xargs kill 2>/dev/null; sleep 0.2; python3 -m http.server 8765 --directory scripts & sleep 0.4 && (open "http://localhost:8765/sample_output.html" 2>/dev/null || xdg-open "http://localhost:8765/sample_output.html" 2>/dev/null || echo "Open http://localhost:8765/sample_output.html in your browser")
+      - lsof -ti:8765 | xargs kill 2>/dev/null; sleep 0.2; python3 -m http.server 8765 --directory scripts & sleep 1 && (open "http://localhost:8765/sample_output.html" 2>/dev/null || xdg-open "http://localhost:8765/sample_output.html" 2>/dev/null || echo "Open http://localhost:8765/sample_output.html in your browser")
 
   install-raycast:
-    desc: Copy scripts/video-lens.sh to ~/.raycast/scripts/ and make it executable
+    desc: "Copy scripts/raycast-video-lens.sh to ~/.raycast/scripts/ (AGENT=claude|gemini|codex|cursor|opencode|copilot)"
+    vars:
+      AGENT: '{{.AGENT | default "claude"}}'
     cmds:
-      - cp scripts/raycast-video-lens.sh ~/.raycast/scripts/video-lens.sh
+      - |
+        python3 - << 'PYEOF'
+        import os, sys
+        agent = "{{.AGENT}}"
+        # Use chr(92) for backslash to avoid YAML/shell escaping issues.
+        # Each \" pair in the AppleScript string cmd requires a literal backslash.
+        Q = chr(92) + '"'
+        # Per-agent: (skip-permissions flag, allowed-tools flag, prompt flag)
+        # prompt flag: prepended before the quoted prompt argument
+        # claude/gemini/codex/opencode take the prompt as a positional argument
+        # copilot/cursor require -p before the prompt
+        FLAGS = {
+            "claude":   ("--dangerously-skip-permissions", "--allowedTools " + Q + "Bash,Read" + Q, ""),
+            "gemini":   ("--yolo",                         "--allowed-tools " + Q + "read_file,run_shell_command" + Q, ""),
+            "codex":    ("-a never",                       "",                                                          ""),
+            "cursor":   ("--force",                        "",                                                          "-p"),
+            "opencode": ("",                               "",                                                          ""),
+            "copilot":  ("--allow-all-tools",              "",                                                          "-p"),
+        }
+        if agent == "windsurf":
+            sys.exit("Error: windsurf has no headless CLI — install-raycast is not supported for windsurf")
+        if agent not in FLAGS:
+            sys.exit("Unknown agent '{}'. Valid: {}".format(agent, ", ".join(FLAGS)))
+        skip_perm, tools, prompt_flag = FLAGS[agent]
+        src = open("scripts/raycast-video-lens.sh").read()
+        src = src.replace("opens Claude in iTerm2", "opens {} in iTerm2".format(agent.capitalize()))
+        src = src.replace("&& claude ", "&& {} ".format(agent))
+        if skip_perm:
+            src = src.replace("--dangerously-skip-permissions ", "{} ".format(skip_perm))
+        else:
+            src = src.replace("--dangerously-skip-permissions ", "")
+        old_tools = "--allowedTools " + Q + "Bash,Read" + Q
+        if tools:
+            src = src.replace(old_tools, tools)
+        else:
+            src = src.replace(" " + old_tools, "")
+        if prompt_flag:
+            # Insert prompt flag before the quoted skill invocation: \" → -p \"
+            old_prompt_prefix = ' ' + chr(92) + '"/video-lens '
+            new_prompt_prefix = ' ' + prompt_flag + ' ' + chr(92) + '"/video-lens '
+            src = src.replace(old_prompt_prefix, new_prompt_prefix)
+        if agent != "claude":
+            # copilot uses Claude model IDs but with dot notation (4.6 not 4-6).
+            # Others get short-name pass-through (user types the model name directly).
+            MODEL_MAPS = {
+                "gemini":   None,
+                "codex":    None,
+                "cursor":   None,
+                "opencode": None,
+                "copilot":  ("claude-haiku-4.5", "claude-sonnet-4.6", "claude-opus-4.6"),
+            }
+            model_map = MODEL_MAPS[agent]
+            if model_map:
+                haiku_id, sonnet_id, opus_id = model_map
+                src = src.replace("claude-haiku-4-5-20251001", haiku_id)
+                src = src.replace("claude-sonnet-4-6", sonnet_id)
+                src = src.replace("claude-opus-4-6", opus_id)
+            else:
+                src = src.replace("claude-haiku-4-5-20251001", "haiku")
+                src = src.replace("claude-sonnet-4-6", "sonnet")
+                src = src.replace("claude-opus-4-6", "opus")
+        dest = os.path.expanduser("~/.raycast/scripts/video-lens.sh")
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        open(dest, "w").write(src)
+        print("Installed video-lens raycast script for {} → {}".format(agent, dest))
+        PYEOF
       - chmod +x ~/.raycast/scripts/video-lens.sh
 
   install-skill:
-    desc: Copy SKILL.md and template.html into ~/.claude/skills/video-lens/
+    desc: "Install skill for a coding agent (AGENT=claude|copilot|gemini|cursor|windsurf|opencode|codex)"
+    vars:
+      AGENT: '{{.AGENT | default "claude"}}'
+      SKILL_DIR: '{{.HOME}}/.{{.AGENT}}/skills/video-lens'
     cmds:
-      - mkdir -p ~/.claude/skills/video-lens
-      - cp skill/SKILL.md ~/.claude/skills/video-lens/SKILL.md
-      - cp skill/template.html ~/.claude/skills/video-lens/template.html
+      - mkdir -p {{.SKILL_DIR}}
+      - sed 's|~/.claude/skills/video-lens/|~/.{{.AGENT}}/skills/video-lens/|g' skill/SKILL.md > {{.SKILL_DIR}}/SKILL.md
+      - cp skill/template.html {{.SKILL_DIR}}/template.html
+      - echo "Installed video-lens skill to {{.SKILL_DIR}}"

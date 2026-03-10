@@ -71,9 +71,14 @@
     /* ── Layout ── */
     .layout {
       display: grid;
-      grid-template-columns: var(--left-w, 55.5%) 6px 1fr;
+      grid-template-columns: var(--left-w, 45%) 6px 1fr;
       grid-template-rows: 1fr;
       min-height: 100vh;
+    }
+
+    /* Smooth transition only when snapping to a preset (not during drag) */
+    .layout.snapping {
+      transition: grid-template-columns 0.2s ease;
     }
 
     /* Resizer */
@@ -128,8 +133,8 @@
     .video-wrap {
       position: relative;
       width: 100%;
-      padding-top: 56.25%;
-      /* 16:9 */
+      /* Cap height so the video never overflows the panel; YouTube letterboxes when height-constrained */
+      padding-top: min(56.25%, calc(100vh - 220px));
       flex-shrink: 0;
       background: var(--video-bg);
     }
@@ -561,6 +566,29 @@
       opacity: 0.75;
     }
 
+    /* Split button segmented control */
+    .split-group {
+      display: flex;
+      border: 1px solid var(--left-border);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .split-group .split-btn {
+      border: none;
+      border-right: 1px solid var(--left-border);
+      border-radius: 0;
+      padding: 0.55rem 0.6rem;
+    }
+
+    .split-group .split-btn:last-child {
+      border-right: none;
+    }
+
+    .split-group .split-btn:hover {
+      opacity: 0.75;
+    }
+
     /* Seek button segmented control */
     .seek-group {
       display: flex;
@@ -582,10 +610,10 @@
 
     .ctrl-bar-icon-btn {
       font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 0.65rem;
+      font-size: 0.75rem;
       font-weight: 700;
       letter-spacing: 0.02em;
-      padding: 0.3rem 0.45rem;
+      padding: 0.45rem 0.55rem;
       border: 1px solid var(--left-border);
       border-radius: 4px;
       background: transparent;
@@ -607,7 +635,6 @@
       opacity: 1;
     }
 
-    .ctrl-bar.yt-native .ctrl-toggle-sep,
     .ctrl-bar.yt-native .seek-group,
     .ctrl-bar.yt-native #play-pause-btn,
     .ctrl-bar.yt-native #time-display,
@@ -615,8 +642,12 @@
       display: none;
     }
 
-    .ctrl-bar.yt-native .ctrl-divider:not(.ctrl-toggle-sep) {
+    .ctrl-bar.yt-native .ctrl-divider:not(:last-of-type) {
       display: none;
+    }
+
+    #controls-toggle-btn {
+      margin-left: auto;
     }
 
     .ctrl-divider {
@@ -776,6 +807,9 @@
         <span class="help-key">l / →</span><span class="help-desc">seek forward 5 s</span>
         <span class="help-key">, / &lt;</span><span class="help-desc">slower speed</span>
         <span class="help-key">. / &gt;</span><span class="help-desc">faster speed</span>
+        <span class="help-key">1</span><span class="help-desc">small layout (30%)</span>
+        <span class="help-key">2</span><span class="help-desc">medium layout (45%)</span>
+        <span class="help-key">3</span><span class="help-desc">large layout</span>
         <span class="help-key">Esc</span><span class="help-desc">close help</span>
       </div>
     </div>
@@ -795,25 +829,30 @@
         <div id="progress-fill"></div>
       </div>
       <div class="ctrl-bar">
-        <button id="play-pause-btn"><svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
+        <button id="play-pause-btn" title="Play / pause [Space]"><svg width="10" height="12" viewBox="0 0 10 12"
+            fill="currentColor">
             <polygon points="0,0 10,6 0,12" />
           </svg></button>
         <span id="time-display">–:–– / –:––</span>
         <div class="ctrl-divider"></div>
         <div class="seek-group">
-          <button id="seek-back">← -5s</button>
-          <button id="seek-fwd">+5s →</button>
+          <button id="seek-back" title="Seek back 5 s [j / ←]">← -5s</button>
+          <button id="seek-fwd" title="Seek forward 5 s [l / →]">+5s →</button>
         </div>
         <div class="ctrl-divider"></div>
         <div class="speed-group">
-          <button class="speed-btn active" data-speed="1">1×</button>
-          <button class="speed-btn" data-speed="1.25">1.25×</button>
-          <button class="speed-btn" data-speed="1.5">1.5×</button>
-          <button class="speed-btn" data-speed="1.75">1.75×</button>
-          <button class="speed-btn" data-speed="2">2×</button>
+          <button class="speed-btn active" data-speed="1" title="1× speed [, / .]">1×</button>
+          <button class="speed-btn" data-speed="1.25" title="1.25× speed [, / .]">1.25×</button>
+          <button class="speed-btn" data-speed="1.5" title="1.5× speed [, / .]">1.5×</button>
+          <button class="speed-btn" data-speed="1.75" title="1.75× speed [, / .]">1.75×</button>
+          <button class="speed-btn" data-speed="2" title="2× speed [, / .]">2×</button>
         </div>
-        <div class="ctrl-divider ctrl-toggle-sep"></div>
-        <button id="controls-toggle-btn" class="ctrl-bar-icon-btn" title="Toggle YouTube controls">YT</button>
+        <button id="controls-toggle-btn" class="ctrl-bar-icon-btn" title="Toggle YouTube controls [YT]">YT</button>
+        <div class="split-group">
+          <button class="split-btn" data-split="30" title="Small · 30% [1]">◫ S</button>
+          <button class="split-btn" data-split="45" title="Medium · 45% [2]">◫ M</button>
+          <button class="split-btn" data-split="auto" title="Large · fills height [3]">◫ L</button>
+        </div>
       </div>
       <div class="video-meta">
         <h1>{{VIDEO_TITLE}}</h1>
@@ -829,7 +868,7 @@
       </div>
     </div>
 
-    <div id="resizer"></div>
+    <div id="resizer" title="Drag to resize · double-click to reset"></div>
 
     <!-- Right: scrollable summary -->
     <div class="right">
@@ -848,8 +887,8 @@
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
           </button>
-          <button id="help-btn" class="icon-btn" aria-label="Help">?</button>
-          <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme">
+          <button id="help-btn" class="icon-btn" aria-label="Help" title="Help">?</button>
+          <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme" title="Toggle theme">
             <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
           </button>
@@ -885,23 +924,160 @@
   <script>
     var VIDEO_ID = "{{VIDEO_ID}}";
 
-    // file:// fallback
+    // file:// fallback – YouTube embeds require HTTP; overlay instructions on the left panel
     (function () {
       if (window.location.protocol !== 'file:') return;
-      var iframe = document.getElementById('yt-player');
-      var dir = window.location.pathname.replace(/\/[^\/]+$/, '');
-      var file = window.location.pathname.replace(/.*\//, '');
+
+      var rawPath = window.location.pathname;
+      var dir = decodeURIComponent(rawPath.replace(/\/[^/]+$/, ''));
+      var file = rawPath.replace(/.*\//, '');
+      var localUrl = 'http://localhost:8765/' + file;
+      var cmd = 'python3 -m http.server 8765 --directory "' + dir.replace(/"/g, '\\"') + '"';
+
+      function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
       var notice = document.createElement('div');
-      notice.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;background:var(--video-bg);color:var(--left-text);font-family:inherit;gap:14px;';
+      notice.id = 'fl-notice';
+      notice.setAttribute('style',
+        'position:absolute;inset:0;z-index:100;' +
+        'background:var(--left-bg);color:var(--left-text);' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'padding:2rem 1.5rem;' +
+        'font-family:"DM Sans",system-ui,sans-serif;'
+      );
+
       notice.innerHTML =
-        '<div style="background:rgba(255,255,255,0.06);border:1px solid var(--left-border);border-radius:10px;padding:24px 28px;display:flex;flex-direction:column;align-items:center;gap:14px;">' +
-        '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-        '<strong style="font-size:14px;letter-spacing:0.01em;opacity:0.85">Video unavailable via file://</strong>' +
-        '<span style="font-size:12px;opacity:0.6;max-width:300px;line-height:1.5">YouTube blocks embedded players on local files. Serve the folder over HTTP:</span>' +
-        '<code style="font-size:11px;background:var(--left-border);padding:8px 12px;border-radius:6px;opacity:0.9;word-break:break-all;user-select:all">python3 -m http.server 8765 --directory ' + dir + '</code>' +
-        '<span style="font-size:11px;opacity:0.55">then open <a href="http://localhost:8765/' + file + '" style="color:var(--left-link)">http://localhost:8765/' + file + '</a></span>' +
+        '<div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:22px;">' +
+
+        // ── Header: icon + title + description ──────────────────────────────────
+        '<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;">' +
+        '<div style="width:46px;height:46px;background:var(--video-bg);border:1px solid var(--left-border);border-radius:10px;display:flex;align-items:center;justify-content:center;">' +
+        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55">' +
+        '<rect x="2" y="2" width="20" height="20" rx="5"/>' +
+        '<polygon points="10,7.5 17,12 10,16.5" fill="currentColor" stroke="none"/>' +
+        '</svg>' +
+        '</div>' +
+        '<div>' +
+        '<p style="font-size:15px;font-weight:600;color:var(--left-text);margin:0 0 6px;line-height:1.3;">Serve to enable video playback</p>' +
+        '<p style="font-size:12px;color:var(--left-meta);line-height:1.65;max-width:290px;margin:0 auto;">' +
+        'YouTube blocks embeds opened via\u00a0' +
+        '<code style="font-size:10.5px;background:var(--left-border);padding:1px 5px;border-radius:3px;font-family:monospace">file://</code>' +
+        '.\u00a0Start a local HTTP server to enable playback.' +
+        '</p>' +
+        '</div>' +
+        '</div>' +
+
+        // ── Step 1: Start server ─────────────────────────────────────────────────
+        '<div style="display:flex;flex-direction:column;gap:8px;">' +
+        '<p style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--left-heading);margin:0;">' +
+        '\u2460\u00a0Start server' +
+        '</p>' +
+        '<div style="background:var(--video-bg);border:1px solid var(--left-border);border-radius:8px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;">' +
+        '<code id="fl-cmd" style="flex:1;font-size:11px;font-family:\'SF Mono\',\'Fira Code\',\'Menlo\',monospace;line-height:1.65;word-break:break-all;user-select:all;color:var(--left-text);">' + esc(cmd) + '</code>' +
+        '<button id="fl-copy" style="flex-shrink:0;margin-top:2px;padding:5px 11px;font-size:11px;font-family:inherit;font-weight:500;background:var(--toggle-bg);color:var(--toggle-text);border:none;border-radius:5px;cursor:pointer;white-space:nowrap;">Copy</button>' +
+        '</div>' +
+        '</div>' +
+
+        // ── Step 2: Open report ──────────────────────────────────────────────────
+        '<div style="display:flex;flex-direction:column;gap:8px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+        '<p style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--left-heading);margin:0;">' +
+        '\u2461\u00a0Open report' +
+        '</p>' +
+        '<div style="font-size:10.5px;color:var(--left-meta);display:flex;align-items:center;gap:4px;">' +
+        '<span id="fl-dot" style="font-size:8px;line-height:1">\u25cf</span>' +
+        '<span id="fl-stxt">Checking\u2026</span>' +
+        '</div>' +
+        '</div>' +
+        '<a id="fl-open" href="' + esc(localUrl) + '" style="display:flex;align-items:center;justify-content:center;padding:11px 16px;background:var(--left-link);color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:500;opacity:0.3;pointer-events:none;transition:opacity 0.25s ease;">' +
+        'Open localhost:8765 \u2197' +
+        '</a>' +
+        '<div id="fl-cd" style="text-align:center;font-size:11px;color:var(--left-meta);min-height:18px;display:flex;align-items:center;justify-content:center;gap:8px;"></div>' +
+        '</div>' +
+
         '</div>';
-      iframe.parentNode.replaceChild(notice, iframe);
+
+      document.querySelector('.left').appendChild(notice);
+
+      // ── Copy to clipboard ────────────────────────────────────────────────────
+      var copyBtn = document.getElementById('fl-copy');
+      copyBtn.addEventListener('click', function () {
+        function onCopied() {
+          copyBtn.textContent = 'Copied \u2713';
+          copyBtn.style.background = 'rgba(39,174,96,0.15)';
+          copyBtn.style.color = '#27ae60';
+          setTimeout(function () {
+            copyBtn.textContent = 'Copy';
+            copyBtn.style.background = 'var(--toggle-bg)';
+            copyBtn.style.color = 'var(--toggle-text)';
+          }, 2000);
+        }
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(cmd).then(onCopied);
+        } else {
+          var r = document.createRange();
+          r.selectNode(document.getElementById('fl-cmd'));
+          window.getSelection().removeAllRanges();
+          window.getSelection().addRange(r);
+          try { document.execCommand('copy'); } catch (e) { }
+          onCopied();
+        }
+      });
+
+      // ── Localhost server detection ───────────────────────────────────────────
+      var dotEl = document.getElementById('fl-dot');
+      var stxtEl = document.getElementById('fl-stxt');
+      var openBtn = document.getElementById('fl-open');
+      var cdEl = document.getElementById('fl-cd');
+      var serverUp = false, cdTimer = null, pollTimer = null;
+
+      function enableOpen() {
+        openBtn.style.opacity = '1';
+        openBtn.style.pointerEvents = 'auto';
+      }
+
+      function setStatus(up) {
+        dotEl.style.color = up ? '#27ae60' : 'var(--left-meta)';
+        stxtEl.textContent = up ? 'Running \u2713' : 'Not running';
+      }
+
+      function startCountdown() {
+        if (cdTimer) return;
+        var s = 5;
+        function tick() {
+          if (s <= 0) { clearInterval(cdTimer); window.location.href = localUrl; return; }
+          cdEl.innerHTML =
+            'Opening in ' + s + 's\u2026\u00a0' +
+            '<button id="fl-stay" style="background:none;border:none;font:inherit;font-size:11px;color:var(--left-link);cursor:pointer;padding:0;text-decoration:underline;">Stay</button>';
+          document.getElementById('fl-stay').addEventListener('click', cancelCd);
+          s--;
+        }
+        tick();
+        cdTimer = setInterval(tick, 1000);
+      }
+
+      function cancelCd() {
+        if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
+        cdEl.innerHTML = '';
+      }
+
+      function checkServer() {
+        fetch('http://localhost:8765/', { mode: 'no-cors', cache: 'no-store' })
+          .then(function () {
+            if (serverUp) return;
+            serverUp = true;
+            clearInterval(pollTimer);
+            setStatus(true);
+            enableOpen();
+            startCountdown();
+          })
+          .catch(function () {
+            if (!serverUp) setStatus(false);
+          });
+      }
+
+      checkServer();
+      pollTimer = setInterval(checkServer, 2000);
     })();
 
     // Theme toggle
@@ -1112,232 +1288,271 @@
       });
     });
 
-    document.getElementById('play-pause-btn').addEventListener('click', function () {
-      if (!ytPlayer || !ytPlayer.getPlayerState) return;
-      ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
-    });
 
-    // Seek ±5s
-    document.getElementById('seek-back').addEventListener('click', function () {
+  document.getElementById('play-pause-btn').addEventListener('click', function () {
+    if (!ytPlayer || !ytPlayer.getPlayerState) return;
+    ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+  });
+
+  // Seek ±5s
+  document.getElementById('seek-back').addEventListener('click', function () {
+    if (ytPlayer && ytPlayer.getCurrentTime)
+      ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
+  });
+  document.getElementById('seek-fwd').addEventListener('click', function () {
+    if (ytPlayer && ytPlayer.getCurrentTime)
+      ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
+  });
+
+  // Live time display
+  function formatTime(s) {
+    s = Math.floor(s || 0);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    if (h > 0)
+      return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    return m + ':' + String(sec).padStart(2, '0');
+  }
+  setInterval(function () {
+    if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+    var cur = ytPlayer.getCurrentTime();
+    var dur = ytPlayer.getDuration();
+    var el = document.getElementById('time-display');
+    if (el) el.textContent = formatTime(cur) + ' / ' + (dur > 0 ? formatTime(dur) : '–:––');
+  }, 500);
+
+  document.getElementById('progress-track').addEventListener('click', function (e) {
+    if (!ytPlayer || !ytPlayer.getDuration) return;
+    var pct = e.offsetX / this.offsetWidth;
+    ytPlayer.seekTo(ytPlayer.getDuration() * pct, true);
+    ytPlayer.playVideo();
+  });
+
+  (function () {
+    var navLinks = document.querySelectorAll('.section-nav a');
+    var clicking = false;
+    var clickTimer = null;
+    navLinks.forEach(function (a) {
+      a.addEventListener('click', function () {
+        navLinks.forEach(function (l) { l.classList.remove('active'); });
+        this.classList.add('active');
+        clicking = true;
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(function () { clicking = false; }, 1000);
+      });
+    });
+    var rightEl = document.querySelector('.right');
+    var sections = Array.from(document.querySelectorAll('.right section'));
+    var hasScrolled = false;
+    rightEl.addEventListener('scroll', function () { hasScrolled = true; }, { once: true });
+    var io = new IntersectionObserver(function (entries) {
+      if (!hasScrolled || clicking) return;
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          var id = entry.target.id;
+          navLinks.forEach(function (a) {
+            a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+          });
+        }
+      });
+    }, { root: rightEl, threshold: 0, rootMargin: '0px 0px -75% 0px' });
+    sections.forEach(function (s) { io.observe(s); });
+  })();
+
+  document.querySelectorAll('.right section').forEach(function (sec) {
+    var h2 = sec.querySelector('h2');
+    if (!h2) return;
+    var btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = '⎘';
+    btn.title = 'Copy section';
+    btn.addEventListener('click', function () {
+      var text = Array.from(sec.querySelectorAll('p, li'))
+        .map(function (el) { return el.innerText; }).join('\n');
+      navigator.clipboard.writeText(text).then(function () {
+        btn.textContent = '✓';
+        setTimeout(function () { btn.textContent = '⎘'; }, 1500);
+      });
+    });
+    h2.appendChild(btn);
+  });
+
+  document.getElementById('md-export-btn').addEventListener('click', function () {
+    // Title
+    var title = document.querySelector('h1').innerText;
+
+    // Meta line — strip the "Open on YouTube ↗" link text, keep the rest
+    var metaEl = document.querySelector('.meta-line');
+    var metaText = Array.from(metaEl.childNodes)
+      .filter(function (n) { return n.nodeType === 3; })  // text nodes only
+      .map(function (n) { return n.textContent; })
+      .join('').replace(/·\s*$/, '').trim();
+    var videoUrl = metaEl.querySelector('a') ? metaEl.querySelector('a').href : '';
+
+    // Summary
+    var summary = document.querySelector('#summary p').innerText;
+
+    // Key Points
+    var keyPoints = Array.from(document.querySelectorAll('#key-points li'))
+      .map(function (li) { return '- ' + li.innerText; }).join('\n');
+
+    // Analysis
+    var analysis = Array.from(document.querySelectorAll('#analysis p'))
+      .map(function (p) { return p.innerText; }).join('\n\n');
+
+    // Takeaway
+    var takeaway = document.querySelector('#takeaway p').innerText;
+
+    // Outline — each li has data-t (seconds), .outline-title and optional .outline-detail
+    var outline = Array.from(document.querySelectorAll('.topics li')).map(function (li) {
+      var tsEl = li.querySelector('a.ts');
+      var t = (tsEl ? tsEl.getAttribute('data-t') : null) || '0';
+      var tsText = tsEl ? tsEl.innerText : '0:00';
+      var titleEl = li.querySelector('.outline-title');
+      var detailEl = li.querySelector('.outline-detail');
+      var topicText = titleEl ? titleEl.innerText : li.innerText.replace(tsText, '').trim();
+      var detail = detailEl ? detailEl.innerText.trim() : '';
+      var url = 'https://www.youtube.com/watch?v=' + VIDEO_ID + '&t=' + t;
+      var line = '- [' + tsText + '](' + url + ') ' + topicText;
+      if (detail) line += ' — ' + detail;
+      return line;
+    }).join('\n');
+
+    var md = [
+      '# ' + title,
+      '',
+      metaText,
+      videoUrl ? '[Watch on YouTube](' + videoUrl + ')' : '',
+      '',
+      '> Generated by the [video-lens](https://github.com/kar2phi/video-lens) Claude skill.',
+      '',
+      '---',
+      '',
+      '## Outline',
+      '',
+      outline,
+      '',
+      '## Summary',
+      '',
+      summary,
+      '',
+      '## Key Points',
+      '',
+      keyPoints,
+      '',
+      '## Analysis',
+      '',
+      analysis,
+      '',
+      '## Takeaway',
+      '',
+      takeaway,
+    ].join('\n');
+
+    // Trigger download
+    var blob = new Blob([md], { type: 'text/markdown' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = window.location.pathname.split('/').pop().replace(/\.html$/, '.md');
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  function cycleSpeed(dir) {
+    var speeds = [1, 1.25, 1.5, 1.75, 2];
+    var active = document.querySelector('.speed-btn.active');
+    if (!active) return;
+    var idx = speeds.indexOf(parseFloat(active.getAttribute('data-speed')));
+    var next = speeds[Math.max(0, Math.min(speeds.length - 1, idx + dir))];
+    if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(next);
+    speedBtns.forEach(function (b) { b.classList.remove('active'); });
+    document.querySelector('.speed-btn[data-speed="' + next + '"]').classList.add('active');
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === ' ') {
+      e.preventDefault();
+      if (ytPlayer && ytPlayer.getPlayerState) {
+        ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+      }
+    } else if (e.key === 'j' || e.key === 'ArrowLeft') {
       if (ytPlayer && ytPlayer.getCurrentTime)
         ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
-    });
-    document.getElementById('seek-fwd').addEventListener('click', function () {
+    } else if (e.key === 'l' || e.key === 'ArrowRight') {
       if (ytPlayer && ytPlayer.getCurrentTime)
         ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
-    });
-
-    // Live time display
-    function formatTime(s) {
-      s = Math.floor(s || 0);
-      var h = Math.floor(s / 3600);
-      var m = Math.floor((s % 3600) / 60);
-      var sec = s % 60;
-      if (h > 0)
-        return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
-      return m + ':' + String(sec).padStart(2, '0');
+    } else if (e.key === '<' || e.key === ',') {
+      cycleSpeed(-1);
+    } else if (e.key === '>' || e.key === '.') {
+      cycleSpeed(1);
+    } else if (e.key === '1') {
+      document.querySelector('[data-split="30"]').click();
+    } else if (e.key === '2') {
+      document.querySelector('[data-split="45"]').click();
+    } else if (e.key === '3') {
+      document.querySelector('[data-split="auto"]').click();
     }
-    setInterval(function () {
-      if (!ytPlayer || !ytPlayer.getCurrentTime) return;
-      var cur = ytPlayer.getCurrentTime();
-      var dur = ytPlayer.getDuration();
-      var el = document.getElementById('time-display');
-      if (el) el.textContent = formatTime(cur) + ' / ' + (dur > 0 ? formatTime(dur) : '–:––');
-    }, 500);
+  });
 
-    document.getElementById('progress-track').addEventListener('click', function (e) {
-      if (!ytPlayer || !ytPlayer.getDuration) return;
-      var pct = e.offsetX / this.offsetWidth;
-      ytPlayer.seekTo(ytPlayer.getDuration() * pct, true);
-      ytPlayer.playVideo();
-    });
+  // Draggable resizer + split presets
+  var resizer = document.getElementById('resizer');
+  var layout = document.querySelector('.layout');
+  var SPLIT_KEY = 'video-lens:split';
+  var DEFAULT_SPLIT = 45;
 
-    (function () {
-      var navLinks = document.querySelectorAll('.section-nav a');
-      var clicking = false;
-      var clickTimer = null;
-      navLinks.forEach(function (a) {
-        a.addEventListener('click', function () {
-          navLinks.forEach(function (l) { l.classList.remove('active'); });
-          this.classList.add('active');
-          clicking = true;
-          clearTimeout(clickTimer);
-          clickTimer = setTimeout(function () { clicking = false; }, 1000);
-        });
-      });
-      var rightEl = document.querySelector('.right');
-      var sections = Array.from(document.querySelectorAll('.right section'));
-      var hasScrolled = false;
-      rightEl.addEventListener('scroll', function () { hasScrolled = true; }, { once: true });
-      var io = new IntersectionObserver(function (entries) {
-        if (!hasScrolled || clicking) return;
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) {
-            var id = entry.target.id;
-            navLinks.forEach(function (a) {
-              a.classList.toggle('active', a.getAttribute('href') === '#' + id);
-            });
-          }
-        });
-      }, { root: rightEl, threshold: 0, rootMargin: '0px 0px -75% 0px' });
-      sections.forEach(function (s) { io.observe(s); });
-    })();
+  // Restore saved split on load
+  (function () {
+    var saved = localStorage.getItem(SPLIT_KEY);
+    if (saved) document.documentElement.style.setProperty('--left-w', saved + '%');
+  })();
 
-    document.querySelectorAll('.right section').forEach(function (sec) {
-      var h2 = sec.querySelector('h2');
-      if (!h2) return;
-      var btn = document.createElement('button');
-      btn.className = 'copy-btn';
-      btn.textContent = '⎘';
-      btn.title = 'Copy section';
-      btn.addEventListener('click', function () {
-        var text = Array.from(sec.querySelectorAll('p, li'))
-          .map(function (el) { return el.innerText; }).join('\n');
-        navigator.clipboard.writeText(text).then(function () {
-          btn.textContent = '✓';
-          setTimeout(function () { btn.textContent = '⎘'; }, 1500);
-        });
-      });
-      h2.appendChild(btn);
-    });
+  resizer.addEventListener('mousedown', function (e) {
+    e.preventDefault();
+    resizer.classList.add('dragging');
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('mouseup', stopDrag);
+  });
+  resizer.addEventListener('dblclick', function () {
+    document.documentElement.style.setProperty('--left-w', DEFAULT_SPLIT + '%');
+    localStorage.removeItem(SPLIT_KEY);
+  });
 
-    document.getElementById('md-export-btn').addEventListener('click', function () {
-      // Title
-      var title = document.querySelector('h1').innerText;
+  function onDrag(e) {
+    var pct = (e.clientX / window.innerWidth) * 100;
+    pct = Math.min(Math.max(pct, 20), maxVideoSplit());
+    document.documentElement.style.setProperty('--left-w', pct + '%');
+  }
 
-      // Meta line — strip the "Open on YouTube ↗" link text, keep the rest
-      var metaEl = document.querySelector('.meta-line');
-      var metaText = Array.from(metaEl.childNodes)
-        .filter(function (n) { return n.nodeType === 3; })  // text nodes only
-        .map(function (n) { return n.textContent; })
-        .join('').replace(/·\s*$/, '').trim();
-      var videoUrl = metaEl.querySelector('a') ? metaEl.querySelector('a').href : '';
+  function stopDrag() {
+    resizer.classList.remove('dragging');
+    document.removeEventListener('mousemove', onDrag);
+    document.removeEventListener('mouseup', stopDrag);
+    var cur = document.documentElement.style.getPropertyValue('--left-w');
+    if (cur) localStorage.setItem(SPLIT_KEY, parseFloat(cur).toFixed(1));
+  }
 
-      // Summary
-      var summary = document.querySelector('#summary p').innerText;
+  // Split preset buttons
+  // L is dynamic: the exact panel % where the video fills height without letterboxing
+  function maxVideoSplit() {
+    var maxH = window.innerHeight - 220; // matches the calc(100vh - 220px) cap in CSS
+    var maxW = maxH * 16 / 9;
+    return Math.min(80, Math.max(20, (maxW / window.innerWidth) * 100));
+  }
 
-      // Key Points
-      var keyPoints = Array.from(document.querySelectorAll('#key-points li'))
-        .map(function (li) { return '- ' + li.innerText; }).join('\n');
-
-      // Analysis
-      var analysis = Array.from(document.querySelectorAll('#analysis p'))
-        .map(function (p) { return p.innerText; }).join('\n\n');
-
-      // Takeaway
-      var takeaway = document.querySelector('#takeaway p').innerText;
-
-      // Outline — each li has data-t (seconds), .outline-title and optional .outline-detail
-      var outline = Array.from(document.querySelectorAll('.topics li')).map(function (li) {
-        var tsEl = li.querySelector('a.ts');
-        var t = (tsEl ? tsEl.getAttribute('data-t') : null) || '0';
-        var tsText = tsEl ? tsEl.innerText : '0:00';
-        var titleEl = li.querySelector('.outline-title');
-        var detailEl = li.querySelector('.outline-detail');
-        var topicText = titleEl ? titleEl.innerText : li.innerText.replace(tsText, '').trim();
-        var detail = detailEl ? detailEl.innerText.trim() : '';
-        var url = 'https://www.youtube.com/watch?v=' + VIDEO_ID + '&t=' + t;
-        var line = '- [' + tsText + '](' + url + ') ' + topicText;
-        if (detail) line += ' — ' + detail;
-        return line;
-      }).join('\n');
-
-      var md = [
-        '# ' + title,
-        '',
-        metaText,
-        videoUrl ? '[Watch on YouTube](' + videoUrl + ')' : '',
-        '',
-        '> Generated by the [video-lens](https://github.com/kar2phi/video-lens) Claude skill.',
-        '',
-        '---',
-        '',
-        '## Outline',
-        '',
-        outline,
-        '',
-        '## Summary',
-        '',
-        summary,
-        '',
-        '## Key Points',
-        '',
-        keyPoints,
-        '',
-        '## Analysis',
-        '',
-        analysis,
-        '',
-        '## Takeaway',
-        '',
-        takeaway,
-      ].join('\n');
-
-      // Trigger download
-      var blob = new Blob([md], { type: 'text/markdown' });
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = window.location.pathname.split('/').pop().replace(/\.html$/, '.md');
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
-
-    function cycleSpeed(dir) {
-      var speeds = [1, 1.25, 1.5, 1.75, 2];
-      var active = document.querySelector('.speed-btn.active');
-      if (!active) return;
-      var idx = speeds.indexOf(parseFloat(active.getAttribute('data-speed')));
-      var next = speeds[Math.max(0, Math.min(speeds.length - 1, idx + dir))];
-      if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(next);
-      speedBtns.forEach(function (b) { b.classList.remove('active'); });
-      document.querySelector('.speed-btn[data-speed="' + next + '"]').classList.add('active');
-    }
-
-    document.addEventListener('keydown', function (e) {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === ' ') {
-        e.preventDefault();
-        if (ytPlayer && ytPlayer.getPlayerState) {
-          ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
-        }
-      } else if (e.key === 'j' || e.key === 'ArrowLeft') {
-        if (ytPlayer && ytPlayer.getCurrentTime)
-          ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
-      } else if (e.key === 'l' || e.key === 'ArrowRight') {
-        if (ytPlayer && ytPlayer.getCurrentTime)
-          ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
-      } else if (e.key === '<' || e.key === ',') {
-        cycleSpeed(-1);
-      } else if (e.key === '>' || e.key === '.') {
-        cycleSpeed(1);
-      }
-    });
-
-    // Draggable resizer
-    var resizer = document.getElementById('resizer');
-    resizer.addEventListener('mousedown', function (e) {
-      e.preventDefault();
-      resizer.classList.add('dragging');
-      document.addEventListener('mousemove', onDrag);
-      document.addEventListener('mouseup', stopDrag);
-    });
-    resizer.addEventListener('dblclick', function () {
-      document.documentElement.style.removeProperty('--left-w');
-    });
-
-    function onDrag(e) {
-      var pct = (e.clientX / window.innerWidth) * 100;
-      pct = Math.min(Math.max(pct, 20), 80);
+  document.querySelectorAll('.split-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var raw = this.getAttribute('data-split');
+      var pct = raw === 'auto' ? maxVideoSplit() : parseInt(raw, 10);
+      layout.classList.add('snapping');
       document.documentElement.style.setProperty('--left-w', pct + '%');
-    }
-
-    function stopDrag() {
-      resizer.classList.remove('dragging');
-      document.removeEventListener('mousemove', onDrag);
-      document.removeEventListener('mouseup', stopDrag);
-    }
-  </script>
-</body>
-
-</html>
+      localStorage.setItem(SPLIT_KEY, pct.toFixed(1));
+      setTimeout(function () { layout.classList.remove('snapping'); }, 250);
+    });
+  });
+</script>
+  </body>
+  
+  </html>

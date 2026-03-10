@@ -113,19 +113,36 @@ Read the `LANG:` line from the transcript output. Write the entire summary (Summ
 
 Also read `CHANNEL:`, `PUBLISHED:`, `VIEWS:`, and `DURATION:` from the command output. Read `DURATION:` from the metadata — do not recompute from the transcript. Build `META_LINE` as `{channel} · {duration} · {published} · {views}`, omitting any field that is blank. If all metadata fields are empty (YouTube page scraping failed), set `META_LINE` to an empty string and proceed — the summary can still be generated from the transcript alone.
 
-Analyse the full transcript and produce:
+Analyse the full transcript and produce a structured, high-signal summary designed for someone who wants to quickly understand and learn from the video. Prioritise clarity, insight, and usefulness over exhaustiveness. Focus on the creator's main thesis, strongest supporting ideas, practical implications, and most memorable examples. Avoid transcript-like repetition, filler, and minor digressions. Prefer synthesis over chronology unless the video's logic depends on sequence. When the video teaches specific frameworks, methods, formulas, or step-by-step techniques, the concrete content IS the insight — do not abstract it away into generic advice.
 
-**Summary** — For opinion, analysis, interview, or essay videos: open with one sentence stating the creator's **central thesis or core question**. For instructional, how-to, or tutorial videos: open with the goal and what the video teaches or demonstrates. Follow with 1–2 sentences of the key conclusion or outcome. If the video expresses a clear stance, recommendation, or caveat, end with one sentence characterising the creator's position or tone. Total: 2–4 sentences. This is the TL;DR.
+Produce these five sections:
 
-**Analysis** — 2–4 paragraphs covering the main argument or narrative arc, supporting detail, and key takeaways (see Length-Based Adjustments table for paragraph count). Open each paragraph with a topic sentence in `<strong>`. Use `<strong>` for key facts, named concepts, and core claims; use `<em>` for 1–2 phrases per paragraph where the author's phrasing matters (quotes, hedged claims, rhetorical emphasis).
+**Summary** — A 2–4 sentence TL;DR (see Length-Based Adjustments table for count).
 
-**Key Points** — Concise bullet points (see Length-Based Adjustments table for count). Each `<li>` must follow this pattern:
+- For opinion, analysis, interview, or essay videos: open with one sentence stating the creator's **central thesis, core argument, or guiding question**.
+- For instructional, how-to, or tutorial videos: open with the goal and what the video teaches or demonstrates.
+- Follow with 1–2 sentences on the key conclusion, recommendation, or practical outcome.
+- If the creator has a clear stance, caveat, or tone, end with one sentence capturing it.
+
+**Key Points** — What does the video **give** you? Each bullet states a specific claim, fact, framework, or technique the viewer can take away (see Length-Based Adjustments table for count). Each `<li>` must follow this pattern:
 ```html
-<li><strong>Core claim or term</strong> — explain the significance or implication, not just the surface fact. Optionally include <em>speaker's own phrasing</em> when it adds colour. If there is a distinct practical consequence, add it as a natural follow-on sentence.</li>
+<li><strong>Core claim, concept, or term</strong> — explain why it matters, what it changes, or what the viewer should understand from it. Do not merely restate the heading. Optionally include <em>the speaker's own phrasing</em> when it adds colour or precision. If there is a distinct practical consequence, add it as a natural follow-on sentence.</li>
 ```
-Use `<strong>` for the key term/claim and `<em>` for speaker's own words or nuanced phrasing. Each bullet's text after the dash must add insight beyond what the bold heading already says — do not restate the heading in different words. Keep the list focused — no padding.
+Rules:
+- When the video introduces named frameworks, formulas, or techniques, include the **actual formulation** — `"I help [audience] achieve [benefit]"` is more useful than `"she presents a benefit-focused formula."`
+- Prioritise insight over inventory. Include only points that materially improve understanding.
+- Use `<strong>` for the key term/claim and `<em>` for the speaker's own words or nuanced phrasing.
+- Keep the list focused — no padding.
 
-**Takeaway** — 1–2 sentences: the single most important insight or conclusion a viewer should carry away. For practical content, frame it as a call to action; for informational or analytical content, frame it as the key thing to remember. This is not a repeat of the Summary — it distils the "so what?"
+**Analysis** — What does the video **mean**? 2–4 paragraphs explaining how the ideas connect, why they matter, and what the viewer should understand beyond the bullet points (see Length-Based Adjustments table for paragraph count). Rules:
+- Open each paragraph with a topic sentence in `<strong>`.
+- Focus on: the main argument or narrative arc, the strongest supporting examples or evidence, and the practical or conceptual takeaway.
+- Analysis may reference concepts from Key Points but must add depth the bullets cannot — context, causality, connections between ideas, implications, or the speaker's reasoning.
+- Prefer synthesis over chronology: explain how the ideas relate rather than recounting the video minute by minute.
+- Mention examples, anecdotes, or demonstrations only if they materially clarify the point.
+- Use `<strong>` for key facts, named concepts, and core claims; use `<em>` for 1–2 phrases per paragraph where the speaker's phrasing is especially revealing.
+
+**Takeaway** — The "so what?" in 1–3 sentences. For practical content, frame it as an action or principle that points back to the concrete tools in Key Points. For analytical or opinion content, frame it as the key conclusion or lens to retain. For wide-ranging content (interviews, roundups), state the overarching theme or the most consequential point. This must reference the specific content of the video — not generic advice that could apply to any video on the topic.
 
 **Outline** — A list of the major topics/segments with their start times. Each entry has two parts:
 
@@ -145,6 +162,7 @@ For videos longer than 60 minutes, use `H:MM:SS` as the display label (e.g. `▶
 - **Faithfulness** — Preserve the creator's stance, tone, and emphasis. Do not editorialize or insert your own opinion.
 - **Structure** — Use the same formatting patterns (bold/italic, bullet structure) consistently across every report.
 - **Language fidelity** — Write in the video's original language. Do not translate, paraphrase into another language, or mix languages.
+- **Style** — Write in a clear, confident, information-dense style. Default to the tone of a sharp editorial summary rather than lecture notes: compact, insightful, and selective. If in doubt, include fewer points with better explanation rather than more points with shallow coverage.
 
 #### Length-Based Adjustments
 
@@ -196,7 +214,7 @@ Values to fill:
 | `SUMMARY` | 2–4 sentence TL;DR — for opinion/analysis: thesis + conclusion + stance; for tutorials/how-to: goal + outcome. Plain text (goes inside an existing `<p>`) |
 | `ANALYSIS` | 2–4 `<p>` tags; `<strong>` on key facts/concepts, `<em>` on speaker's own phrasing |
 | `KEY_POINTS` | 5–7 `<li>` tags: `<strong>term</strong> — insight/implication`, optionally with `<em>` |
-| `TAKEAWAY` | 1–2 sentence actionable conclusion, plain text (goes inside an existing `<p>`) |
+| `TAKEAWAY` | 1–3 sentence "so what?" — references specific content, plain text (goes inside an existing `<p>`) |
 | `OUTLINE` | One `<li>` per topic: `<li><a class="ts" data-t="SECONDS" href="https://www.youtube.com/watch?v=VIDEOID&t=SECONDS" target="_blank">▶ M:SS</a> — <span class="outline-title">Short Title</span><span class="outline-detail">Detail sentence.</span></li>` (where `VIDEOID` = the actual video ID). Title: 3–8 words, scannable. Detail: one sentence of context. (For videos > 60 min use `▶ H:MM:SS` as the display label; `data-t` and `&t=` always use raw seconds.) |
 
 Run this as a single Bash command, filling in the real values inline. Use `"..."` strings for single-line values and `"""..."""` triple-quoted strings for multi-line HTML values (ANALYSIS, KEY_POINTS, OUTLINE). Replace `OUTPUT_PATH` with the absolute output path from Step 4.
