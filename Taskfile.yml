@@ -9,7 +9,9 @@ tasks:
     desc: Run template dev server with sample content
     cmds:
       - python3 scripts/yt_template_dev.py
-      - lsof -ti:8765 | xargs kill 2>/dev/null; sleep 0.2; python3 -m http.server 8765 --directory scripts & sleep 1 && (open "http://localhost:8765/sample_output.html" 2>/dev/null || xdg-open "http://localhost:8765/sample_output.html" 2>/dev/null || echo "Open http://localhost:8765/sample_output.html in your browser")
+      - lsof -ti:8765 | xargs kill 2>/dev/null; sleep 0.2; python3 -m http.server 8765 --directory "$HOME/Downloads" & sleep 1 && (open "http://localhost:8765/sample_output.html" 2>/dev/null || xdg-open "http://localhost:8765/sample_output.html" 2>/dev/null || echo "Open http://localhost:8765/sample_output.html in your browser")
+
+
 
   install-raycast:
     desc: "Copy scripts/raycast-video-lens.sh to ~/.raycast/scripts/ (AGENT=claude|gemini|codex|cursor|opencode|copilot)"
@@ -90,6 +92,13 @@ tasks:
       AGENT: '{{.AGENT | default "claude"}}'
       SKILL_DIR: '{{.HOME}}/.{{.AGENT}}/skills/video-lens'
     cmds:
+      - |
+        python3 - <<'PYEOF'
+        valid = {'claude','copilot','gemini','cursor','windsurf','opencode','codex'}
+        agent = '{{.AGENT}}'
+        if agent not in valid:
+            raise SystemExit(f'Unknown AGENT "{agent}". Valid: {sorted(valid)}')
+        PYEOF
       - mkdir -p {{.SKILL_DIR}}
       - sed 's|~/.claude/skills/video-lens/|~/.{{.AGENT}}/skills/video-lens/|g' skill/SKILL.md > {{.SKILL_DIR}}/SKILL.md
       - cp skill/template.html {{.SKILL_DIR}}/template.html

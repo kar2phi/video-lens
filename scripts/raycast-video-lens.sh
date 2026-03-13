@@ -24,6 +24,8 @@ if [[ ! "$ytURL" =~ ^https?://(www\.)?(youtube\.com|youtu\.be)/ ]]; then
   exit 1
 fi
 
+ytURL="$(printf '%s' "$ytURL" | tr -dc 'A-Za-z0-9/:?=&._%-')"
+
 osascript - "$ytURL" "$HOME/Downloads" "$2" <<'EOF'
 on run argv
   set ytURL to item 1 of argv
@@ -36,7 +38,7 @@ on run argv
   else
     set modelId to "claude-sonnet-4-6"
   end if
-  set cmd to "cd " & outputDir & " && claude --dangerously-skip-permissions --allowedTools \"Bash,Read\" --model " & modelId & " \"/video-lens " & ytURL & "\""
+  set cmd to "cd " & quoted form of outputDir & " && claude --dangerously-skip-permissions --allowedTools \"Bash,Read\" --model " & modelId & " \"/video-lens " & ytURL & "\""
 
   if application "iTerm2" is running or (exists application "iTerm2") then
     tell application "iTerm2"

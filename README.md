@@ -36,6 +36,7 @@ Works with [Claude Code](https://claude.ai/code), [GitHub Copilot](https://githu
 | [Task](https://taskfile.dev)                               | Install / dev commands (`brew install go-task` or [download](https://taskfile.dev/installation/)) |
 | **Optional:** [Raycast](https://www.raycast.com)           | Trigger from anywhere via hotkey (macOS; all agents except Windsurf)                              |
 | **Optional:** [iTerm2](https://iterm2.com) or Terminal.app | Used by the Raycast script                                                                        |
+| **Optional:** [Deno](https://deno.com)                     | Required by yt-dlp as a JavaScript runtime. Install: `brew install deno`                          |
 
 > **Note:** video-lens only works for videos that have captions/subtitles available. Videos with captions disabled will produce an error.
 
@@ -70,6 +71,9 @@ mkdir -p ~/.claude/skills/video-lens && \
 curl -Lo ~/.claude/skills/video-lens/SKILL.md https://raw.githubusercontent.com/kar2phi/video-lens/main/skill/SKILL.md && \
 curl -Lo ~/.claude/skills/video-lens/template.html https://raw.githubusercontent.com/kar2phi/video-lens/main/skill/template.html && \
 pip install youtube-transcript-api
+
+# Optional: deno is required by yt-dlp as a JavaScript runtime
+brew install deno
 ```
 
 Then use `/video-lens <url>` in any Claude Code session.
@@ -84,6 +88,9 @@ Then use `/video-lens <url>` in any Claude Code session.
 git clone https://github.com/kar2phi/video-lens.git
 cd video-lens
 pip install -r requirements.txt
+
+# Optional: deno is required by yt-dlp as a JavaScript runtime
+brew install deno
 ```
 
 #### 2. Install the skill

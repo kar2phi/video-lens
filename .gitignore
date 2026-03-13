@@ -1,1 +1,5 @@
-scripts/sample_output.html
+__pycache__/
+*.pyc
+.venv/
+.env
+.DS_Store

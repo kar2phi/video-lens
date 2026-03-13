@@ -7,9 +7,10 @@ Usage:
     python scripts/yt_template_dev.py
 """
 import os
+import re
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '..', 'skill', 'template.html')
-OUTPUT_PATH = os.path.join(os.path.dirname(__file__), 'sample_output.html')
+OUTPUT_PATH = os.path.expanduser('~/Downloads/sample_output.html')
 
 # ── Hardcoded content for https://www.youtube.com/watch?v=3Y1G9najGiI ──────
 # AWS re:Invent 2025 — Werner Vogels final keynote
@@ -21,59 +22,99 @@ CONTENT = {
 
     "VIDEO_URL": "https://www.youtube.com/watch?v=3Y1G9najGiI",
 
-    "META_LINE": "AWS Events · 1h 16m · Dec 4 2025 · 13.8M views",
+    "META_LINE": "AWS Events · 1h 16m · Dec 5 2025 · 13.8M views",
 
     "SUMMARY": (
-        "In his final re:Invent keynote, Dr. Werner Vogels introduces the &ldquo;Renaissance "
-        "Developer&rdquo; framework &mdash; arguing that AI will not make developers obsolete, "
-        "but will demand they evolve by cultivating curiosity, systems thinking, precise "
-        "communication, ownership, and polymathic breadth. He draws parallels between today&rsquo;s "
-        "converging golden ages in AI, robotics, and space travel and the original Renaissance, "
-        "where curiosity, new tools, and cross-disciplinary thinking fueled breakthroughs. The "
-        "keynote features a live demonstration of spec-driven development in the Kiro IDE by Clare "
-        "Liguori, and closes with a call for developers to take pride in the unseen craft of "
-        "their work."
+        "Werner Vogels uses his final AWS re:Invent keynote &mdash; after 14 consecutive years &mdash; "
+        "to argue that today&rsquo;s AI moment is not the end of developers but the start of a new "
+        "Renaissance, one that will transform the role rather than eliminate it. He introduces the "
+        "&ldquo;Renaissance Developer&rdquo; framework: five qualities &mdash; curiosity, systems "
+        "thinking, communication with precision, ownership, and polymathism &mdash; that distinguish "
+        "builders who will thrive in an AI-driven world. His most concrete warning is the concept of "
+        "&ldquo;verification debt&rdquo;: AI generates code faster than humans can understand it, "
+        "creating a gap where quality problems enter production unless deliberate mechanisms like "
+        "spec-driven development and code reviews are in place. The keynote closes with an appeal to "
+        "professional pride in the invisible craft of keeping reliable systems running."
     ),
 
-    "ANALYSIS": """
-<p><strong>Werner Vogels frames AI not as a threat to developers but as the latest in a long line of transformative tools</strong>, from assembly language and compilers through structured programming, object-oriented design, cloud computing, and modern IDEs. He opens by announcing this will be his final re:Invent keynote &mdash; not because he is leaving Amazon, but because <em>&ldquo;you are owed young, fresh, new voices.&rdquo;</em> He then addresses the question on every developer&rsquo;s mind &mdash; &ldquo;Will AI take my job?&rdquo; &mdash; and reframes it: <strong>AI will not make you obsolete, if you evolve</strong>. The work, he insists, remains yours, not the tool&rsquo;s.</p>
-<p><strong>The centrepiece of the talk is the &ldquo;Renaissance Developer&rdquo; framework, built around five qualities.</strong> First, <strong>be curious</strong>: protect the instinct to take things apart, embrace failure as a learning mechanism, and keep learning socially through communities and travel. Second, <strong>think in systems</strong>: drawing on ecologist Donella Meadows and the Yellowstone wolves example, Vogels argues that changing one part of a system cascades unpredictably, so developers must understand feedback loops and leverage points. Third, <strong>communicate with precision</strong>: in an era of natural-language prompts, ambiguity is the enemy, and specifications are the antidote.</p>
-<p><strong>Clare Liguori demonstrates the practical expression of precise communication through the Kiro IDE&rsquo;s spec-driven development workflow.</strong> She explains how vibe coding often produces code that doesn&rsquo;t match the developer&rsquo;s intent, because <em>&ldquo;out of a very short prompt, there&rsquo;s probably a million possible different final outcomes.&rdquo;</em> Kiro addresses this by generating requirements, designs, and tasks from a prompt &mdash; giving developers an opportunity to refine what they mean before any code is written. She walks through a real production feature (system notifications) where spec-driven development <strong>shipped the feature in roughly half the time</strong> compared to pure vibe coding.</p>
-<p><strong>The final two qualities &mdash; ownership and polymathy &mdash; round out Vogels&rsquo; vision for the modern developer.</strong> On ownership, he warns of <strong>&ldquo;verification debt&rdquo;</strong>: AI generates code faster than humans can comprehend it, creating a dangerous gap before production. He stresses <strong>mechanisms over good intentions</strong>, illustrating with Bezos&rsquo;s Andon Cord story at Amazon and the S3 team&rsquo;s durability reviews. On polymathy, he urges developers to become <em>&ldquo;T-shaped&rdquo;</em> &mdash; deep in one domain but broad enough to see how their work fits the larger system, following the example of Turing Award winner Jim Gray. He closes with a heartfelt tribute to the unseen craft of software engineering: <em>&ldquo;The best builders do things properly, even when nobody&rsquo;s watching.&rdquo;</em></p>
-""",
-
     "KEY_POINTS": """
-<li><strong>The &ldquo;Renaissance Developer&rdquo; framework</strong> &mdash; Vogels distils five qualities developers need to thrive alongside AI: curiosity, systems thinking, precise communication, ownership, and polymathic breadth. These mirror the traits that drove breakthroughs during the original Renaissance.</li>
-<li><strong>AI will not make developers obsolete &mdash; if they evolve</strong> &mdash; Every generation of developers has faced a wave of change (compilers, OOP, cloud, IDEs). AI is the latest, and the pattern holds: <em>&ldquo;the work is yours, not that of the tools.&rdquo;</em></li>
-<li><strong>Spec-driven development reduces ambiguity</strong> &mdash; The Kiro IDE generates requirements, designs, and tasks from natural-language prompts before writing code, giving developers a checkpoint to refine intent. Clare Liguori reports this <strong>halved delivery time</strong> on a real production feature compared to vibe coding alone.</li>
-<li><strong>Verification debt is the new technical debt</strong> &mdash; AI produces code faster than humans can understand it, allowing unvalidated software to reach production. Vogels urges more human-to-human code reviews as the critical control point in an AI-driven workflow.</li>
-<li><strong>Mechanisms beat good intentions</strong> &mdash; Illustrated by Bezos&rsquo;s Andon Cord story and S3&rsquo;s durability reviews, the principle is that systemic problems persist until a concrete mechanism &mdash; not just awareness &mdash; forces corrective action.</li>
-<li><strong>Systems thinking reveals hidden cascades</strong> &mdash; Using Donella Meadows&rsquo; work and the Yellowstone wolves reintroduction, Vogels shows that altering one component (a retry policy, a cache, team ownership) reshapes the behaviour of the entire system. He assigns Meadows&rsquo; <em>&ldquo;Leverage Points&rdquo;</em> paper as homework.</li>
-<li><strong>T-shaped developers outperform specialists</strong> &mdash; Deep domain expertise matters, but breadth &mdash; understanding cost, performance, business context &mdash; enables better architectural decisions. Jim Gray exemplified this by diagnosing a database layout flaw simply by <em>listening to the disc drives</em>.</li>
+<li><strong>AI will not make developers obsolete &mdash; if they evolve</strong> &mdash; Vogels reframes the keynote&rsquo;s central question from &ldquo;Will AI take my job?&rdquo; to &ldquo;Will AI make me obsolete?&rdquo; and answers: &ldquo;Absolutely not &mdash; if you evolve.&rdquo;
+<p>Every generation of developers has faced a wave of change &mdash; compilers, structured programming, object-oriented languages, cloud infrastructure &mdash; and each time the role transformed rather than disappeared. Vogels argues the pattern holds: some tasks will be automated and some skills will become obsolete, but builders who continuously adapt remain essential. His core refrain, repeated throughout the talk, is <em>&ldquo;the work is yours, not that of the tools&rdquo;</em> &mdash; including regulatory and quality responsibility that cannot be offloaded to an AI.</p></li>
+<li><strong>The Renaissance Developer framework: five qualities for the AI era</strong> &mdash; Drawing on the 15th-century Renaissance as an analogy for today&rsquo;s convergence of AI, robotics, and space exploration, Vogels proposes five qualities: <strong>curiosity</strong>, <strong>systems thinking</strong>, <strong>precision communication</strong>, <strong>ownership</strong>, and <strong>polymathism</strong>.
+<p>The Renaissance analogy is precise: new tools (pencil, microscope, printing press) and cross-disciplinary thinking were inseparable from the era&rsquo;s scientific breakthroughs. Da Vinci worked across painting, engineering, economics, and invention simultaneously. Today&rsquo;s convergence of multiple technological golden ages reinforces each other in the same way. Vogels argues the same mental qualities that made Renaissance scientists effective &mdash; curiosity, bold experimentation, building bridges between fields &mdash; are directly applicable to the challenge of developing software in an AI-assisted world.</p></li>
+<li><strong>Curiosity + the Yerkes-Dodson learning curve</strong> &mdash; Real learning happens on the rising slope of the Yerkes-Dodson bell curve, where curiosity meets challenge; too little pressure leads to disengagement, too much to overwhelm.
+<p>Vogels uses this psychological law to frame experimentation and failure as essential, not incidental. He draws an analogy to language acquisition: grammar study only takes you so far &mdash; <em>&ldquo;real learning begins where you stumble into a conversation.&rdquo;</em> Software works the same way: the failed build and the broken assumption teach you how a system actually behaves, in ways that documentation cannot. Learning is also social: conferences, user groups, and conversations with other builders are not optional enrichment but a required part of staying sharp.</p></li>
+<li><strong>Systems thinking: structure and feedback loops determine behavior</strong> &mdash; Donella Meadows&rsquo; definition: <em>&ldquo;A system is a set of things, interconnected in such a way that they produce their own patterns of behavior over time.&rdquo;</em>
+<p>The Yellowstone wolf trophic cascade is Vogels&rsquo; central illustration: removing wolves caused elk to overgraze, rivers to erode, and the entire park ecosystem to degrade &mdash; even though wolves never touched the rivers. Reintroducing them in 2010 reversed the damage. The software lesson: every service, API, queue, and team ownership boundary is part of a larger system with feedback loops. Add a cache and you shift traffic flow; change team ownership and you change delivery pace. <strong>Structure changes, behavior changes; feedback changes, outcome changes.</strong> Meadows&rsquo; paper &ldquo;Leverage Points: Places to Intervene in a System&rdquo; is assigned as homework.</p></li>
+<li><strong>Communication with precision: specifications reduce the ambiguity of natural language</strong> &mdash; In AI-assisted coding, developers communicate in natural language (ambiguous) rather than programming languages (precise), making specifications the critical bridge between intent and correct output.
+<p>Vogels notes that natural language works for humans because we use tone, context, and shared knowledge to disambiguate. Machines need precision &mdash; which is why programming languages were invented. As AI tools take natural-language prompts, the ambiguity problem re-enters. He references Dijkstra&rsquo;s formal-specification methods and the Apollo Guidance Computer&rsquo;s 145,000-line codebase (guided by meticulous specs) as proof that spec-driven development produces correct, verifiable software. The same principle applies to communicating with a business stakeholder: Werner&rsquo;s &ldquo;Frugal Architect&rdquo; tiering of Amazon&rsquo;s homepage (Tier 1/2/3 by availability requirement) is presented as a communication tool, not just an engineering one.</p></li>
+<li><strong>Kiro IDE and spec-driven development: requirements &rarr; design &rarr; tasks before code</strong> &mdash; Clare Liguori&rsquo;s Kiro IDE replaces a single ambiguous vibe-coding prompt with a structured workflow: Kiro generates <strong>requirements, design, and tasks</strong> from the developer&rsquo;s description, which the developer refines before any code is written.
+<p>The key insight from building Kiro with Kiro: a prompt like &ldquo;build me a web trivia game&rdquo; has <em>&ldquo;probably a million different possible final outcomes,&rdquo;</em> but only one is what you had in mind. With vibe coding, the AI guesses and you iterate on code; with spec-driven development, you iterate on the spec first. In a production case study (system notifications for the Kiro IDE), the spec workflow surfaced a much larger architectural problem &mdash; building on Electron&rsquo;s native notification API across a 2-million-line codebase &mdash; at the design stage rather than in the code. The feature shipped in roughly half the time of an equivalent vibe-coded approach.</p></li>
+<li><strong>Verification debt: AI generates code faster than humans can comprehend it</strong> &mdash; When you write code yourself, comprehension comes with the act of creation; when the machine writes it, you must rebuild that comprehension during review &mdash; a gap Vogels calls <strong>verification debt</strong>.
+<p>This gap is one of two main challenges Vogels hears from developers adopting AI tools (the other being hallucination). The practical consequence: code can move toward production before anyone has truly validated what it does. Code reviews therefore become <em>more</em> important in an AI-driven world, not less &mdash; they are the control point where human judgment re-enters the loop. Vogels specifically calls out the knowledge-transfer value of human-to-human reviews: seniors bring pattern recognition and hard-earned judgment, juniors bring fresh eyes, and together they grow the next generation of builders in a way that AI cannot replicate.</p></li>
+<li><strong>Mechanisms, not good intentions, ensure quality</strong> &mdash; Everyone at Amazon had good intentions about product quality, but nothing changed until Bezos introduced a <em>mechanism</em>: a button customer-service agents could press to make a product unlisted, triggering automatic alarms.
+<p>The Andon Cord story (adapted from Toyota&rsquo;s manufacturing principle: no car leaves the line with a known defect) illustrates that <strong>mechanisms convert good intentions into consistent outcomes</strong>. The S3 team&rsquo;s durability reviews &mdash; pausing any change touching durability to model risks, list threats, and map guardrails &mdash; turn durability from a property of code into an <em>&ldquo;organizational habit.&rdquo;</em> In an AI-driven world, the same logic applies to hallucination and verification debt: good intentions are not enough; you need spec-driven workflows, automated testing pipelines, and mandatory code reviews as structural mechanisms.</p></li>
+<li><strong>Become a polymath: T-shaped over I-shaped</strong> &mdash; I-shaped developers are deep in one domain only; T-shaped developers combine that depth with broad cross-disciplinary knowledge that lets them see how their work fits into a larger system.
+<p>Jim Gray &mdash; Turing Award winner and inventor of database transactions &mdash; exemplifies the T-shape: he could diagnose a wrong database layout by listening to the rattling of disks for 30 seconds, a <em>&ldquo;sixth sense built from decades of experience.&rdquo;</em> But his curiosity extended far beyond databases to people, business, and other technologies. His work on the Sloan Digital Sky Survey shows how deep database expertise, applied to an entirely different domain (astronomy), was transformative. Vogels&rsquo; advice: develop deep domain expertise, but cultivate the range to connect it to adjacent disciplines &mdash; <em>&ldquo;broaden your T.&rdquo;</em></p></li>
 """,
 
     "OUTLINE": """
-<li><a class="ts" data-t="0" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=0" target="_blank">▶ 0:00</a> — <span class="outline-title">Opening Cinematic: Eras of Developers</span><span class="outline-detail">A time-travel skit shows developers from the 1960s punch-card era through cloud computing, each facing the same fear that new tools will make them obsolete.</span></li>
-<li><a class="ts" data-t="308" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=308" target="_blank">▶ 5:08</a> — <span class="outline-title">Werner&rsquo;s Final re:Invent Keynote</span><span class="outline-detail">Vogels announces this is his last re:Invent keynote after 14 years, saying he wants younger AWS voices to take the stage.</span></li>
-<li><a class="ts" data-t="463" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=463" target="_blank">▶ 7:43</a> — <span class="outline-title">&ldquo;Will AI Take My Job?&rdquo;</span><span class="outline-detail">He reframes the question from job replacement to personal evolution, asserting developers will not become obsolete if they adapt.</span></li>
-<li><a class="ts" data-t="562" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=562" target="_blank">▶ 9:22</a> — <span class="outline-title">History of Developer Tool Evolution</span><span class="outline-detail">A walk through compilers, structured programming, C++, microservices, cloud, and IDEs shows that tools have always transformed &mdash; and developers have always adapted.</span></li>
-<li><a class="ts" data-t="932" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=932" target="_blank">▶ 15:32</a> — <span class="outline-title">The Renaissance Parallel</span><span class="outline-detail">Vogels compares today&rsquo;s converging golden ages in AI, robotics, and space to the Renaissance, where curiosity and new tools like the printing press drove breakthroughs.</span></li>
-<li><a class="ts" data-t="1198" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=1198" target="_blank">▶ 19:58</a> — <span class="outline-title">Quality 1: Be Curious</span><span class="outline-detail">Curiosity, willingness to fail, and social learning are presented as the foundation &mdash; with the Yerkes-Dodson stress curve illustrating the optimal learning zone.</span></li>
-<li><a class="ts" data-t="1470" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=1470" target="_blank">▶ 24:30</a> — <span class="outline-title">Learning from Global Customers</span><span class="outline-detail">Stories from Africa and Latin America showcase developers solving real-world problems &mdash; from Ocean Cleanup&rsquo;s AI river models to Rwanda&rsquo;s data-driven healthcare and KOKO Networks&rsquo; micro-fuel dispensers.</span></li>
-<li><a class="ts" data-t="2025" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=2025" target="_blank">▶ 33:45</a> — <span class="outline-title">Quality 2: Think in Systems</span><span class="outline-detail">Drawing on Donella Meadows and the Yellowstone wolves reintroduction, Vogels explains how feedback loops and trophic cascades apply directly to distributed software architecture.</span></li>
-<li><a class="ts" data-t="2284" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=2284" target="_blank">▶ 38:04</a> — <span class="outline-title">Quality 3: Communicate with Precision</span><span class="outline-detail">Using Amazon&rsquo;s tier-based availability model and the ambiguity of natural language, Vogels argues specifications are essential for reducing miscommunication with both humans and AI.</span></li>
-<li><a class="ts" data-t="2558" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=2558" target="_blank">▶ 42:38</a> — <span class="outline-title">Clare Liguori: Kiro IDE &amp; Spec-Driven Dev</span><span class="outline-detail">Clare demonstrates how Kiro&rsquo;s spec-driven workflow &mdash; requirements, designs, tasks &mdash; halved feature delivery time compared to vibe coding by letting developers refine intent before code generation.</span></li>
-<li><a class="ts" data-t="3308" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=3308" target="_blank">▶ 55:08</a> — <span class="outline-title">Quality 4: Own Your Software Quality</span><span class="outline-detail">Vogels introduces &ldquo;verification debt,&rdquo; warns against treating vibe coding as gambling, and stresses that regulatory responsibility remains with the developer, not the AI.</span></li>
-<li><a class="ts" data-t="3560" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=3560" target="_blank">▶ 59:20</a> — <span class="outline-title">Mechanisms Over Good Intentions</span><span class="outline-detail">The Bezos Andon Cord story and S3 durability reviews illustrate that systemic quality requires concrete mechanisms, not just awareness &mdash; especially as AI accelerates code production.</span></li>
-<li><a class="ts" data-t="3929" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=3929" target="_blank">▶ 1:05:29</a> — <span class="outline-title">Quality 5: Become a Polymath</span><span class="outline-detail">Using Jim Gray&rsquo;s career as the exemplar, Vogels urges developers to become T-shaped &mdash; deep in one domain but broad enough to see cross-cutting trade-offs.</span></li>
-<li><a class="ts" data-t="4312" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=4312" target="_blank">▶ 1:11:52</a> — <span class="outline-title">Closing: Pride in Unseen Craft</span><span class="outline-detail">Vogels ends with an emotional tribute to the invisible work of software engineering &mdash; clean deployments, silent rollbacks &mdash; and signs off with &ldquo;Werner out.&rdquo;</span></li>
+<li><a class="ts" data-t="0" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=0" target="_blank">&#9654; 0:00:00</a> &mdash; <span class="outline-title">Opening Cinematic</span><span class="outline-detail">A short film traces recurring &ldquo;end of the developer&rdquo; fears across technology eras &mdash; punch cards, COBOL, cloud &mdash; framing the keynote&rsquo;s central question.</span></li>
+<li><a class="ts" data-t="314" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=314" target="_blank">&#9654; 0:05:14</a> &mdash; <span class="outline-title">Werner&rsquo;s Farewell &amp; Central Question</span><span class="outline-detail">Werner announces this is his final re:Invent keynote after 14 years, then addresses the question every customer asks: &ldquo;Will AI make me obsolete?&rdquo;</span></li>
+<li><a class="ts" data-t="573" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=573" target="_blank">&#9654; 0:09:33</a> &mdash; <span class="outline-title">History of Developer Evolution</span><span class="outline-detail">From assembly and COBOL to compilers, OOP, microservices, and cloud &mdash; each wave automated tasks and required new skills, and developers adapted every time.</span></li>
+<li><a class="ts" data-t="876" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=876" target="_blank">&#9654; 0:14:36</a> &mdash; <span class="outline-title">A New Renaissance</span><span class="outline-detail">Vogels argues that today&rsquo;s convergence of AI, robotics, and space travel mirrors the 15th-century Renaissance, where curiosity, new tools, and cross-disciplinary thinking exploded simultaneously.</span></li>
+<li><a class="ts" data-t="1189" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=1189" target="_blank">&#9654; 0:19:49</a> &mdash; <span class="outline-title">Quality 1: Be Curious</span><span class="outline-detail">Curiosity drives learning; the Yerkes-Dodson Law locates peak learning on the rising slope between disengagement and overwhelm, where curiosity meets real challenge.</span></li>
+<li><a class="ts" data-t="1510" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=1510" target="_blank">&#9654; 0:25:10</a> &mdash; <span class="outline-title">Learning from the Field: Africa &amp; Latin America</span><span class="outline-detail">Real-world examples from Vogels&rsquo; travels &mdash; Ocean Cleanup&rsquo;s AI river model, Rwanda&rsquo;s health intelligence center, and KOKO Networks&rsquo; ethanol ATMs in Nairobi &mdash; show developers solving humanity&rsquo;s hardest problems.</span></li>
+<li><a class="ts" data-t="2000" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=2000" target="_blank">&#9654; 0:33:20</a> &mdash; <span class="outline-title">Quality 2: Think in Systems</span><span class="outline-detail">Donella Meadows&rsquo; systems theory and the Yellowstone wolf trophic cascade illustrate how a single feedback loop can reshape an entire system &mdash; a lesson directly applicable to software architecture.</span></li>
+<li><a class="ts" data-t="2284" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=2284" target="_blank">&#9654; 0:38:04</a> &mdash; <span class="outline-title">Quality 3: Communicate with Precision</span><span class="outline-detail">Natural language is ambiguous; specifications reduce that ambiguity, both when communicating with AI tools and when aligning engineering decisions with business stakeholders.</span></li>
+<li><a class="ts" data-t="2574" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=2574" target="_blank">&#9654; 0:42:54</a> &mdash; <span class="outline-title">Kiro IDE: Spec-Driven Development Demo</span><span class="outline-detail">Clare Liguori walks through how the Kiro IDE was built using spec-driven development &mdash; requirements, design, and tasks generated and refined before any code is written &mdash; cutting development time by ~50%.</span></li>
+<li><a class="ts" data-t="3219" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=3219" target="_blank">&#9654; 0:53:39</a> &mdash; <span class="outline-title">Quality 4: Be an Owner</span><span class="outline-detail">Vogels introduces &ldquo;verification debt&rdquo; and &ldquo;hallucination&rdquo; as the two main challenges of AI coding, arguing that vibe coding without ownership is gambling &mdash; regulatory and quality responsibility remains yours.</span></li>
+<li><a class="ts" data-t="3595" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=3595" target="_blank">&#9654; 0:59:55</a> &mdash; <span class="outline-title">Mechanisms vs. Good Intentions</span><span class="outline-detail">The Amazon Andon Cord story and S3&rsquo;s durability reviews demonstrate that mechanisms &mdash; not intentions &mdash; convert quality goals into consistent outcomes; code reviews matter more in an AI-driven world, not less.</span></li>
+<li><a class="ts" data-t="3916" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=3916" target="_blank">&#9654; 1:05:16</a> &mdash; <span class="outline-title">Quality 5: Become a Polymath</span><span class="outline-detail">Jim Gray&rsquo;s T-shaped expertise &mdash; deep database mastery plus broad curiosity &mdash; enabled breakthrough work in astronomy; Vogels urges developers to &ldquo;broaden their T&rdquo; beyond single-domain depth.</span></li>
+<li><a class="ts" data-t="4279" href="https://www.youtube.com/watch?v=3Y1G9najGiI&t=4279" target="_blank">&#9654; 1:11:19</a> &mdash; <span class="outline-title">Summary &amp; Closing: Professional Pride</span><span class="outline-detail">The five Renaissance Developer qualities are recapped, and Vogels closes with a call to take pride in the invisible craft of building reliable systems &mdash; the clean deployments and overnight uptime that no customer will ever see.</span></li>
 """,
 
     "TAKEAWAY": (
-        "AI is transforming the developer&rsquo;s toolkit, not replacing the developer &mdash; "
-        "but only those who actively evolve will thrive. Cultivate curiosity, think in systems, "
-        "communicate with precision through specifications, own the quality of what you ship, "
-        "and broaden your expertise beyond a single domain."
+        "The practical consequence of AI-assisted development that most developers underestimate is "
+        "&ldquo;verification debt&rdquo;: when the machine writes the code, comprehension must be "
+        "rebuilt during review, and that gap &mdash; between generation speed and comprehension speed "
+        "&mdash; is where unvalidated software reaches production. Spec-driven development, as "
+        "demonstrated with the Kiro IDE (requirements &rarr; design &rarr; tasks, all refined before "
+        "any code is written), is the most concrete mechanism to close this gap: it front-loads "
+        "disambiguation, catches AI hallucinations at the design stage, and in the Kiro team&rsquo;s "
+        "own experience cut development time roughly in half compared to vibe coding. The risk is not "
+        "AI replacing you; it is developers who treat AI-generated output as finished product, "
+        "abdicating ownership of code they do not understand."
+    ),
+
+    "DESCRIPTION_SECTION": (
+        '<details class="description-details">'
+        "<summary>YouTube Description</summary>"
+        '<div class="video-description">'
+        "Join Amazon.com CTO Dr. Werner Vogels for the definitive developer keynote of 2025. "
+        "Software developers and architects will discover how their tools, patterns, and practices "
+        "are evolving in an AI-driven world that demands scalable, reliable, and price-performant "
+        "solutions. Drawing from AWS&#x27;s pioneering work, they&#x27;ll share real-world insights "
+        "and architectural principles that are shaping modern development. Learn how AI innovations "
+        "are transforming software development and operations within AWS, and how you can embrace "
+        "these advances to build better solutions.<br><br>"
+        "Learn more about AWS events: "
+        '<a href="https://go.aws/events" target="_blank" rel="noopener">https://go.aws/events</a><br>'
+        " <br>"
+        "Subscribe: <br>"
+        'More AWS videos: <a href="http://bit.ly/2O3zS75" target="_blank" rel="noopener">http://bit.ly/2O3zS75</a> <br>'
+        'More AWS events videos: <a href="http://bit.ly/316g9t4" target="_blank" rel="noopener">http://bit.ly/316g9t4</a><br><br>'
+        "ABOUT AWS<br>"
+        "Amazon Web Services (AWS) hosts events, both online and in-person, bringing the cloud "
+        "computing community together to connect, collaborate, and learn from AWS experts. "
+        "AWS is the world&#x27;s most comprehensive and broadly adopted cloud platform, offering "
+        "over 200 fully featured services from data centers globally. Millions of "
+        "customers\u2014including the fastest-growing startups, largest enterprises, and leading "
+        "government agencies\u2014are using AWS to lower costs, become more agile, and innovate "
+        "faster.<br><br>"
+        "#AWSreInvent #AWSEvents"
+        "</div>"
+        "</details>"
     ),
 }
 # ─────────────────────────────────────────────────────────────────────────────
@@ -87,6 +128,14 @@ def render():
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"Rendered → {OUTPUT_PATH}")
+    remaining = re.findall(r'\{\{[A-Z_]+\}\}', html)
+    if remaining:
+        print(f"WARNING: unreplaced template placeholders: {remaining}")
+    template_keys = set(re.findall(r'\{\{([A-Z_]+)\}\}', open(TEMPLATE_PATH).read()))
+    content_keys = set(CONTENT.keys())
+    unused = content_keys - template_keys
+    if unused:
+        print(f"WARNING: CONTENT keys not in template: {unused}")
 
 
 if __name__ == "__main__":

@@ -148,6 +148,13 @@
       display: block;
     }
 
+    #yt-overlay {
+      position: absolute;
+      inset: 0;
+      cursor: pointer;
+      z-index: 2;
+    }
+
     .video-meta {
       padding: 0.9rem 1.2rem;
       overflow-y: visible;
@@ -244,6 +251,23 @@
 
     ul li {
       margin-bottom: 0.5rem;
+    }
+
+    #key-points li {
+      margin-bottom: 1.1rem;
+    }
+
+    #key-points li:last-child {
+      margin-bottom: 0;
+    }
+
+    #key-points li p {
+      margin-top: 0.45rem;
+      margin-bottom: 0;
+      font-size: 0.93rem;
+      line-height: 1.75;
+      color: var(--right-text);
+      opacity: 0.82;
     }
 
     strong {
@@ -746,23 +770,130 @@
       color: var(--right-text);
     }
 
-    /* Copy button */
-    .copy-btn {
-      margin-left: 0.5rem;
-      font-size: 0.95rem;
-      background: none;
-      border: none;
+    .video-description {
+      white-space: pre-wrap;
+      font-size: 0.88rem;
+      line-height: 1.65;
+      font-family: 'DM Sans', system-ui, sans-serif;
       color: var(--left-meta);
-      cursor: pointer;
-      opacity: 0;
-      transition: opacity 0.15s;
-      padding: 0 0.1rem;
-      vertical-align: middle;
-      line-height: 1;
     }
 
-    .right section:hover .copy-btn {
+    .video-description a {
+      color: var(--left-link);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .video-description a:hover {
+      opacity: 0.8;
+    }
+
+    /* ── Section info button + tooltip ── */
+    .section-info {
+      position: relative;
+      background: none;
+      border: none;
+      cursor: help;
+      color: var(--left-meta);
+      font-size: 0.65rem;
+      padding: 0 0.2rem;
+      vertical-align: middle;
+      line-height: 1;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+
+    .section-info:hover,
+    .section-info:focus {
       opacity: 1;
+      outline: none;
+    }
+
+    .right section:hover .section-info {
+      opacity: 0.85;
+    }
+
+    .section-info::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: 0;
+      left: calc(100% + 6px);
+      bottom: auto;
+      transform: none;
+      background: var(--left-text);
+      color: var(--left-bg);
+      font-size: 0.72rem;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
+      white-space: normal;
+      width: 200px;
+      padding: 5px 9px;
+      border-radius: 5px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 100;
+    }
+
+    .section-info:hover::after,
+    .section-info:focus::after {
+      opacity: 1;
+    }
+
+    /* ── YouTube Description subsection (inside Summary) ── */
+    .description-details {
+      margin-top: 1.4rem;
+      padding-top: 0;
+    }
+
+    .description-details>summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: var(--left-link);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      user-select: none;
+      margin-bottom: 0;
+    }
+
+    .description-details>summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .description-details>summary::before {
+      content: '';
+      display: inline-block;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 4px 0 4px 6px;
+      border-color: transparent transparent transparent var(--left-link);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    .description-details[open]>summary::before {
+      transform: rotate(90deg);
+    }
+
+    .description-details>summary:hover {
+      color: var(--left-text);
+    }
+
+    .description-details>summary:hover::before {
+      border-color: transparent transparent transparent var(--left-text);
+    }
+
+    .description-details .video-description {
+      margin-top: 0.8rem;
     }
 
     /* Mobile: single column */
@@ -797,16 +928,16 @@
     <div id="help-modal">
       <button id="help-close" aria-label="Close">×</button>
       <h3>About</h3>
-      <p>video-lens fetches a YouTube transcript and uses AI to generate a summary report with key points, a timestamped
-        outline, and an in-page player. <a href="https://github.com/kar2phi/video-lens" target="_blank">View source
-          ↗</a></p>
+      <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player. <a href="https://github.com/kar2phi/video-lens" target="_blank">View source ↗</a></p>
       <h3>Shortcuts</h3>
       <div class="help-shortcuts">
-        <span class="help-key">Space</span><span class="help-desc">play / pause</span>
+        <span class="help-key">k / Space</span><span class="help-desc">play / pause</span>
         <span class="help-key">j / ←</span><span class="help-desc">seek back 5 s</span>
         <span class="help-key">l / →</span><span class="help-desc">seek forward 5 s</span>
         <span class="help-key">, / &lt;</span><span class="help-desc">slower speed</span>
         <span class="help-key">. / &gt;</span><span class="help-desc">faster speed</span>
+        <span class="help-key">c</span><span class="help-desc">captions on/off</span>
+        <span class="help-key">f</span><span class="help-desc">fullscreen</span>
         <span class="help-key">1</span><span class="help-desc">small layout (30%)</span>
         <span class="help-key">2</span><span class="help-desc">medium layout (45%)</span>
         <span class="help-key">3</span><span class="help-desc">large layout</span>
@@ -820,16 +951,17 @@
     <!-- Left: sticky video + outline -->
     <div class="left">
       <div class="video-wrap">
-        <iframe id="yt-player" src="https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&controls=0"
+        <iframe id="yt-player" src="https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&rel=0&controls=0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen>
         </iframe>
+        <div id="yt-overlay" aria-hidden="true"></div>
       </div>
       <div id="progress-track">
         <div id="progress-fill"></div>
       </div>
       <div class="ctrl-bar">
-        <button id="play-pause-btn" title="Play / pause [Space]"><svg width="10" height="12" viewBox="0 0 10 12"
+        <button id="play-pause-btn" title="Play / pause [k / Space]"><svg width="10" height="12" viewBox="0 0 10 12"
             fill="currentColor">
             <polygon points="0,0 10,6 0,12" />
           </svg></button>
@@ -848,11 +980,6 @@
           <button class="speed-btn" data-speed="2" title="2× speed [, / .]">2×</button>
         </div>
         <button id="controls-toggle-btn" class="ctrl-bar-icon-btn" title="Toggle YouTube controls [YT]">YT</button>
-        <div class="split-group">
-          <button class="split-btn" data-split="30" title="Small · 30% [1]">◫ S</button>
-          <button class="split-btn" data-split="45" title="Medium · 45% [2]">◫ M</button>
-          <button class="split-btn" data-split="auto" title="Large · fills height [3]">◫ L</button>
-        </div>
       </div>
       <div class="video-meta">
         <h1>{{VIDEO_TITLE}}</h1>
@@ -875,9 +1002,8 @@
 
       <nav class="section-nav">
         <a href="#summary" class="active">Summary</a>
-        <a href="#key-points">Key Points</a>
-        <a href="#analysis">Analysis</a>
         <a href="#takeaway">Takeaway</a>
+        <a href="#key-points">Key Points</a>
         <div class="nav-actions">
           <button id="md-export-btn" class="icon-btn" aria-label="Export as Markdown" title="Export as Markdown">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -898,6 +1024,12 @@
       <section id="summary">
         <h2>Summary</h2>
         <p>{{SUMMARY}}</p>
+        {{DESCRIPTION_SECTION}}
+      </section>
+
+      <section id="takeaway">
+        <h2>Takeaway</h2>
+        <p>{{TAKEAWAY}}</p>
       </section>
 
       <section id="key-points">
@@ -905,16 +1037,6 @@
         <ul>
           {{KEY_POINTS}}
         </ul>
-      </section>
-
-      <section id="analysis">
-        <h2>Analysis</h2>
-        {{ANALYSIS}}
-      </section>
-
-      <section id="takeaway">
-        <h2>Takeaway</h2>
-        <p>{{TAKEAWAY}}</p>
       </section>
 
     </div>
@@ -941,13 +1063,13 @@
       notice.setAttribute('style',
         'position:absolute;inset:0;z-index:100;' +
         'background:var(--left-bg);color:var(--left-text);' +
-        'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow-y:auto;' +
         'padding:2rem 1.5rem;' +
         'font-family:"DM Sans",system-ui,sans-serif;'
       );
 
       notice.innerHTML =
-        '<div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:22px;">' +
+        '<div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:22px;margin:auto 0;">' +
 
         // ── Header: icon + title + description ──────────────────────────────────
         '<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;">' +
@@ -997,7 +1119,7 @@
 
         '</div>';
 
-      document.querySelector('.left').appendChild(notice);
+      document.querySelector('.video-wrap').appendChild(notice);
 
       // ── Copy to clipboard ────────────────────────────────────────────────────
       var copyBtn = document.getElementById('fl-copy');
@@ -1133,6 +1255,60 @@
     var ytPlayer;
     var pendingSeek = null;
     var ytControlsVisible = false;
+    var ccEnabled = false;
+
+    function toggleFullscreen() {
+      var el = document.querySelector('.video-wrap');
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } else {
+        (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+      }
+    }
+
+    function syncFullscreenBtn() {
+      var active = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      // In fullscreen give YouTube native controls; restore custom overlay when exiting
+      if (!ytControlsVisible) {
+        document.getElementById('yt-overlay').style.display = active ? 'none' : '';
+      }
+    }
+    document.addEventListener('fullscreenchange', syncFullscreenBtn);
+    document.addEventListener('webkitfullscreenchange', syncFullscreenBtn);
+
+    function buildIframeSrc() {
+      return 'https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&rel=0&controls='
+        + (ytControlsVisible ? '1' : '0')
+        + (ccEnabled ? '&cc_load_policy=1' : '');
+    }
+
+    function rebuildIframe(savedTime) {
+      var oldIframe = document.getElementById('yt-player');
+      var wrap = oldIframe.parentNode;
+      var savedAllow = oldIframe.allow;
+      if (ytPlayer && ytPlayer.destroy) ytPlayer.destroy();
+      var newIframe = document.createElement('iframe');
+      newIframe.id = 'yt-player';
+      newIframe.allow = savedAllow;
+      newIframe.allowFullscreen = true;
+      newIframe.src = buildIframeSrc();
+      wrap.appendChild(newIframe);
+      pendingSeek = savedTime;
+      ytPlayer = new YT.Player('yt-player', {
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange,
+          onError: onPlayerError
+        }
+      });
+    }
+
+    function toggleCaptions() {
+      if (!ytPlayer) return;
+      var savedTime = (ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : 0;
+      ccEnabled = !ccEnabled;
+      rebuildIframe(savedTime);
+    }
 
     function onPlayerReady(e) {
       if (pendingSeek !== null) {
@@ -1149,410 +1325,433 @@
       document.body.classList.toggle('is-playing', e.data === 1);
     }
 
-    function onPlayerError(e) {
-      if (e.data !== 101 && e.data !== 150) return;  // only handle embed-disabled
-      var wrap = document.querySelector('.video-wrap');
-      wrap.innerHTML =
-        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-        'padding:24px;text-align:center;background:var(--video-bg);color:var(--left-text);gap:14px;">' +
-        '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">' +
-        '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-        '<strong style="font-size:15px;opacity:0.8">Embedding disabled by video owner</strong>' +
-        '<span style="font-size:12px;opacity:0.55;max-width:280px">This video cannot be played here. Watch it directly on YouTube.</span>' +
-        '<a href="{{VIDEO_URL}}" target="_blank" style="display:inline-block;padding:10px 20px;border-radius:6px;' +
-        'background:var(--left-link);color:#fff;font-size:13px;font-weight:600;text-decoration:none;">Watch on YouTube</a>' +
-        '</div>';
-      // Hide controls since they're useless without a player
-      document.getElementById('progress-track').style.display = 'none';
-      document.querySelector('.ctrl-bar').style.display = 'none';
-    }
-
-    function onYouTubeIframeAPIReady() {
-      ytPlayer = new YT.Player('yt-player', {
-        events: {
-          onReady: onPlayerReady,
-          onStateChange: onPlayerStateChange,
-          onError: onPlayerError
-        }
-      });
-    }
-
-    // Controls toggle
-    document.getElementById('controls-toggle-btn').addEventListener('click', function () {
-      var savedTime = (ytPlayer && ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : 0;
-      ytControlsVisible = !ytControlsVisible;
-
-      // Save ref + allow before destroy() removes the iframe from the DOM
-      var oldIframe = document.getElementById('yt-player');
-      var wrap = oldIframe.parentNode;
-      var savedAllow = oldIframe.allow;
-      if (ytPlayer && ytPlayer.destroy) ytPlayer.destroy();
-
-      var newIframe = document.createElement('iframe');
-      newIframe.id = 'yt-player';
-      newIframe.allow = savedAllow;
-      newIframe.allowFullscreen = true;
-      newIframe.src = 'https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&controls=' + (ytControlsVisible ? '1' : '0');
-      wrap.appendChild(newIframe);
-
-      pendingSeek = savedTime;
-
-      document.querySelector('.ctrl-bar').classList.toggle('yt-native', ytControlsVisible);
-      document.getElementById('controls-toggle-btn').classList.toggle('active', ytControlsVisible);
-
-      // Re-init YT player on fresh iframe
-      ytPlayer = new YT.Player('yt-player', {
-        events: {
-          onReady: onPlayerReady,
-          onStateChange: onPlayerStateChange,
-          onError: onPlayerError
-        }
-      });
-    });
-
-    // Timestamp links — seek via API instead of reloading src
-    var links = document.querySelectorAll('a.ts');
-    var topicItems = Array.from(links).map(function (a) {
-      return { a: a, li: a.closest('li'), t: parseInt(a.getAttribute('data-t'), 10) };
-    });
-
-    function setActiveItem(li) {
-      topicItems.forEach(function (item) { item.li.classList.remove('active'); });
-      if (li) {
-        li.classList.add('active');
-        li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      function onPlayerError(e) {
+        if (e.data !== 101 && e.data !== 150) return;  // only handle embed-disabled
+        var wrap = document.querySelector('.video-wrap');
+        wrap.innerHTML =
+          '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+          'padding:24px;text-align:center;background:var(--video-bg);color:var(--left-text);gap:14px;">' +
+          '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">' +
+          '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+          '<strong style="font-size:15px;opacity:0.8">Embedding disabled by video owner</strong>' +
+          '<span style="font-size:12px;opacity:0.55;max-width:280px">This video cannot be played here. Watch it directly on YouTube.</span>' +
+          '<a href="{{VIDEO_URL}}" target="_blank" style="display:inline-block;padding:10px 20px;border-radius:6px;' +
+          'background:var(--left-link);color:#fff;font-size:13px;font-weight:600;text-decoration:none;">Watch on YouTube</a>' +
+          '</div>';
+        // Hide controls since they're useless without a player
+        document.getElementById('progress-track').style.display = 'none';
+        document.querySelector('.ctrl-bar').style.display = 'none';
       }
-    }
 
-    function seekToTimestamp(t, li) {
-      if (ytPlayer && ytPlayer.seekTo) {
-        ytPlayer.seekTo(t, true);
-        ytPlayer.playVideo();
-      } else {
-        pendingSeek = t;
+      function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('yt-player', {
+          events: {
+            onReady: onPlayerReady,
+            onStateChange: onPlayerStateChange,
+            onError: onPlayerError
+          }
+        });
       }
-      setActiveItem(li);
-      document.querySelector('.left').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
 
-    links.forEach(function (a) {
-      a.addEventListener('click', function (e) {
-        e.preventDefault();
-        seekToTimestamp(parseInt(this.getAttribute('data-t'), 10), this.closest('li'));
+      // Controls toggle
+      document.getElementById('controls-toggle-btn').addEventListener('click', function () {
+        var savedTime = (ytPlayer && ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : 0;
+        ytControlsVisible = !ytControlsVisible;
+        document.querySelector('.ctrl-bar').classList.toggle('yt-native', ytControlsVisible);
+        document.getElementById('controls-toggle-btn').classList.toggle('active', ytControlsVisible);
+        document.getElementById('yt-overlay').style.display = ytControlsVisible ? 'none' : '';
+        rebuildIframe(savedTime);
       });
-    });
 
-    topicItems.forEach(function (item) {
-      item.li.style.cursor = 'pointer';
-      item.li.addEventListener('click', function (e) {
-        if (e.target.closest('a.ts')) return; // timestamp click seeks via link handler
-        if (item.li.querySelector('.outline-detail')) {
-          var wasExpanded = item.li.classList.contains('expanded');
-          // Accordion: collapse all manually-expanded items
-          document.querySelectorAll('ol.topics li.expanded').forEach(function (li) {
-            li.classList.remove('expanded');
-          });
-          // Toggle this one (if it was already expanded, it stays collapsed)
-          if (!wasExpanded) item.li.classList.add('expanded');
+      // Timestamp links — seek via API instead of reloading src
+      var links = document.querySelectorAll('a.ts');
+      var topicItems = Array.from(links).map(function (a) {
+        return { a: a, li: a.closest('li'), t: parseInt(a.getAttribute('data-t'), 10) };
+      });
+
+      function setActiveItem(li) {
+        topicItems.forEach(function (item) { item.li.classList.remove('active'); });
+        if (li) {
+          li.classList.add('active');
+          li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }
+
+      function seekToTimestamp(t, li) {
+        if (ytPlayer && ytPlayer.seekTo) {
+          ytPlayer.seekTo(t, true);
+          ytPlayer.playVideo();
         } else {
-          seekToTimestamp(item.t, item.li);
+          pendingSeek = t;
         }
-      });
-    });
+        setActiveItem(li);
+        document.querySelector('.left').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
 
-    // Auto-sync outline with video position
-    setInterval(function () {
-      if (!ytPlayer || !ytPlayer.getCurrentTime) return;
-      var cur = ytPlayer.getCurrentTime();
-      var active = null;
+      links.forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          seekToTimestamp(parseInt(this.getAttribute('data-t'), 10), this.closest('li'));
+        });
+      });
+
       topicItems.forEach(function (item) {
-        if (item.t <= cur) active = item.li;
+        item.li.style.cursor = 'pointer';
+        item.li.addEventListener('click', function (e) {
+          if (e.target.closest('a.ts')) return; // timestamp click seeks via link handler
+          if (item.li.querySelector('.outline-detail')) {
+            var wasExpanded = item.li.classList.contains('expanded');
+            // Accordion: collapse all manually-expanded items
+            document.querySelectorAll('ol.topics li.expanded').forEach(function (li) {
+              li.classList.remove('expanded');
+            });
+            // Toggle this one (if it was already expanded, it stays collapsed)
+            if (!wasExpanded) item.li.classList.add('expanded');
+          } else {
+            seekToTimestamp(item.t, item.li);
+          }
+        });
       });
-      // Only update if it changed
-      var current = document.querySelector('ol.topics li.active');
-      if (active !== current) setActiveItem(active);
-      var dur = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
-      if (dur > 0) {
-        document.getElementById('progress-fill').style.width = (cur / dur * 100) + '%';
+
+      // Auto-sync outline with video position
+      setInterval(function () {
+        if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+        var cur = ytPlayer.getCurrentTime();
+        var active = null;
+        topicItems.forEach(function (item) {
+          if (item.t <= cur) active = item.li;
+        });
+        // Only update if it changed
+        var current = document.querySelector('ol.topics li.active');
+        if (active !== current) setActiveItem(active);
+        var dur = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
+        if (dur > 0) {
+          document.getElementById('progress-fill').style.width = (cur / dur * 100) + '%';
+        }
+      }, 1000);
+
+      // Speed buttons
+      var speedBtns = document.querySelectorAll('.speed-btn');
+      speedBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var rate = parseFloat(this.getAttribute('data-speed'));
+          if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(rate);
+          speedBtns.forEach(function (b) { b.classList.remove('active'); });
+          this.classList.add('active');
+        });
+      });
+
+
+      document.getElementById('play-pause-btn').addEventListener('click', function () {
+        if (!ytPlayer || !ytPlayer.getPlayerState) return;
+        ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+      });
+
+      // Overlay intercepts clicks on the video area so the iframe never steals keyboard focus
+      document.getElementById('yt-overlay').addEventListener('click', function () {
+        if (!ytPlayer || !ytPlayer.getPlayerState) return;
+        ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+        document.body.focus();
+      });
+
+      // Seek ±5s
+      document.getElementById('seek-back').addEventListener('click', function () {
+        if (ytPlayer && ytPlayer.getCurrentTime)
+          ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
+      });
+      document.getElementById('seek-fwd').addEventListener('click', function () {
+        if (ytPlayer && ytPlayer.getCurrentTime)
+          ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
+      });
+
+      // Live time display
+      function formatTime(s) {
+        s = Math.floor(s || 0);
+        var h = Math.floor(s / 3600);
+        var m = Math.floor((s % 3600) / 60);
+        var sec = s % 60;
+        if (h > 0)
+          return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+        return m + ':' + String(sec).padStart(2, '0');
       }
-    }, 1000);
+      setInterval(function () {
+        if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+        var cur = ytPlayer.getCurrentTime();
+        var dur = ytPlayer.getDuration();
+        var el = document.getElementById('time-display');
+        if (el) el.textContent = formatTime(cur) + ' / ' + (dur > 0 ? formatTime(dur) : '–:––');
+      }, 500);
 
-    // Speed buttons
-    var speedBtns = document.querySelectorAll('.speed-btn');
-    speedBtns.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var rate = parseFloat(this.getAttribute('data-speed'));
-        if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(rate);
-        speedBtns.forEach(function (b) { b.classList.remove('active'); });
-        this.classList.add('active');
+      document.getElementById('progress-track').addEventListener('click', function (e) {
+        if (!ytPlayer || !ytPlayer.getDuration) return;
+        var pct = e.offsetX / this.offsetWidth;
+        ytPlayer.seekTo(ytPlayer.getDuration() * pct, true);
+        ytPlayer.playVideo();
       });
-    });
 
-
-  document.getElementById('play-pause-btn').addEventListener('click', function () {
-    if (!ytPlayer || !ytPlayer.getPlayerState) return;
-    ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
-  });
-
-  // Seek ±5s
-  document.getElementById('seek-back').addEventListener('click', function () {
-    if (ytPlayer && ytPlayer.getCurrentTime)
-      ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
-  });
-  document.getElementById('seek-fwd').addEventListener('click', function () {
-    if (ytPlayer && ytPlayer.getCurrentTime)
-      ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
-  });
-
-  // Live time display
-  function formatTime(s) {
-    s = Math.floor(s || 0);
-    var h = Math.floor(s / 3600);
-    var m = Math.floor((s % 3600) / 60);
-    var sec = s % 60;
-    if (h > 0)
-      return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
-    return m + ':' + String(sec).padStart(2, '0');
-  }
-  setInterval(function () {
-    if (!ytPlayer || !ytPlayer.getCurrentTime) return;
-    var cur = ytPlayer.getCurrentTime();
-    var dur = ytPlayer.getDuration();
-    var el = document.getElementById('time-display');
-    if (el) el.textContent = formatTime(cur) + ' / ' + (dur > 0 ? formatTime(dur) : '–:––');
-  }, 500);
-
-  document.getElementById('progress-track').addEventListener('click', function (e) {
-    if (!ytPlayer || !ytPlayer.getDuration) return;
-    var pct = e.offsetX / this.offsetWidth;
-    ytPlayer.seekTo(ytPlayer.getDuration() * pct, true);
-    ytPlayer.playVideo();
-  });
-
-  (function () {
-    var navLinks = document.querySelectorAll('.section-nav a');
-    var clicking = false;
-    var clickTimer = null;
-    navLinks.forEach(function (a) {
-      a.addEventListener('click', function () {
-        navLinks.forEach(function (l) { l.classList.remove('active'); });
-        this.classList.add('active');
-        clicking = true;
-        clearTimeout(clickTimer);
-        clickTimer = setTimeout(function () { clicking = false; }, 1000);
-      });
-    });
-    var rightEl = document.querySelector('.right');
-    var sections = Array.from(document.querySelectorAll('.right section'));
-    var hasScrolled = false;
-    rightEl.addEventListener('scroll', function () { hasScrolled = true; }, { once: true });
-    var io = new IntersectionObserver(function (entries) {
-      if (!hasScrolled || clicking) return;
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          var id = entry.target.id;
-          navLinks.forEach(function (a) {
-            a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+      (function () {
+        var navLinks = document.querySelectorAll('.section-nav a');
+        var clicking = false;
+        var clickTimer = null;
+        navLinks.forEach(function (a) {
+          a.addEventListener('click', function () {
+            navLinks.forEach(function (l) { l.classList.remove('active'); });
+            this.classList.add('active');
+            clicking = true;
+            clearTimeout(clickTimer);
+            clickTimer = setTimeout(function () { clicking = false; }, 1000);
           });
+        });
+        var rightEl = document.querySelector('.right');
+        var sections = Array.from(document.querySelectorAll('.right section'));
+        var hasScrolled = false;
+        rightEl.addEventListener('scroll', function () { hasScrolled = true; }, { once: true });
+        var io = new IntersectionObserver(function (entries) {
+          if (!hasScrolled || clicking) return;
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              var id = entry.target.id;
+              navLinks.forEach(function (a) {
+                a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+              });
+            }
+          });
+        }, { root: rightEl, threshold: 0, rootMargin: '0px 0px -75% 0px' });
+        sections.forEach(function (s) { io.observe(s); });
+      })();
+
+      var SECTION_TOOLTIPS = {
+        'summary': 'A short overview of the video\'s core argument and conclusion.',
+        'takeaway': 'The one thing to take away — going further than the summary.',
+        'key-points': 'Key concepts and insights — each with analytical depth added.'
+      };
+
+      // Normalize YouTube Description <details> blocks — handles LLM output that deviates
+      // from the expected format (e.g. <pre> instead of <div class="video-description">)
+      (function () {
+        document.querySelectorAll('details').forEach(function (details) {
+          var sum = details.querySelector(':scope > summary');
+          if (!sum || sum.textContent.trim() !== 'YouTube Description') return;
+          if (!details.classList.contains('description-details')) {
+            details.classList.add('description-details');
+          }
+          var pre = details.querySelector(':scope > pre');
+          if (pre) {
+            var rawText = pre.textContent;
+            var div = document.createElement('div');
+            div.className = 'video-description';
+            div.innerHTML = rawText
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+              .replace(/(https?:\/\/[^\s<>"'\)\]]+)/g, function (url) {
+                return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + url + '</a>';
+              });
+            pre.parentNode.replaceChild(div, pre);
+          }
+        });
+      })();
+
+      // Open all links in the YouTube description in a new tab
+      document.querySelectorAll('.video-description a').forEach(function (a) {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+      });
+
+      document.querySelectorAll('.right section').forEach(function (sec) {
+        var h2 = sec.querySelector('h2');
+        if (!h2) return;
+
+        // Info button
+        var infoTooltip = SECTION_TOOLTIPS[sec.id];
+        if (infoTooltip) {
+          var infoBtn = document.createElement('button');
+          infoBtn.className = 'section-info';
+          infoBtn.textContent = 'ⓘ';
+          infoBtn.setAttribute('data-tooltip', infoTooltip);
+          infoBtn.setAttribute('aria-label', infoTooltip);
+          h2.appendChild(infoBtn);
         }
       });
-    }, { root: rightEl, threshold: 0, rootMargin: '0px 0px -75% 0px' });
-    sections.forEach(function (s) { io.observe(s); });
-  })();
 
-  document.querySelectorAll('.right section').forEach(function (sec) {
-    var h2 = sec.querySelector('h2');
-    if (!h2) return;
-    var btn = document.createElement('button');
-    btn.className = 'copy-btn';
-    btn.textContent = '⎘';
-    btn.title = 'Copy section';
-    btn.addEventListener('click', function () {
-      var text = Array.from(sec.querySelectorAll('p, li'))
-        .map(function (el) { return el.innerText; }).join('\n');
-      navigator.clipboard.writeText(text).then(function () {
-        btn.textContent = '✓';
-        setTimeout(function () { btn.textContent = '⎘'; }, 1500);
+      document.getElementById('md-export-btn').addEventListener('click', function () {
+        // Title
+        var title = document.querySelector('h1').innerText;
+
+        // Meta line — strip the "Open on YouTube ↗" link text, keep the rest
+        var metaEl = document.querySelector('.meta-line');
+        var metaText = Array.from(metaEl.childNodes)
+          .filter(function (n) { return n.nodeType === 3; })  // text nodes only
+          .map(function (n) { return n.textContent; })
+          .join('').replace(/·\s*$/, '').trim();
+        var videoUrl = metaEl.querySelector('a') ? metaEl.querySelector('a').href : '';
+
+        // Summary
+        var summary = document.querySelector('#summary p').innerText;
+
+        // Description (optional — only present when yt-dlp was used)
+        var descEl = document.querySelector('.description-details .video-description');
+        var description = descEl ? descEl.innerText.trim() : '';
+
+        // Key Points
+        var keyPoints = Array.from(document.querySelectorAll('#key-points li'))
+          .map(function (li) {
+            var detail = li.querySelector('p');
+            var headline = Array.from(li.childNodes)
+              .filter(function (n) { return n.nodeType === 3 || (n.nodeType === 1 && n.tagName !== 'P'); })
+              .map(function (n) { return n.textContent; }).join('').trim();
+            var line = '- ' + headline;
+            if (detail) line += '\n  ' + detail.innerText.trim();
+            return line;
+          }).join('\n');
+
+        // Takeaway
+        var takeaway = document.querySelector('#takeaway p').innerText;
+
+        // Outline — each li has data-t (seconds), .outline-title and optional .outline-detail
+        var outline = Array.from(document.querySelectorAll('.topics li')).map(function (li) {
+          var tsEl = li.querySelector('a.ts');
+          var t = (tsEl ? tsEl.getAttribute('data-t') : null) || '0';
+          var tsText = tsEl ? tsEl.innerText : '0:00';
+          var titleEl = li.querySelector('.outline-title');
+          var detailEl = li.querySelector('.outline-detail');
+          var topicText = titleEl ? titleEl.innerText : li.innerText.replace(tsText, '').trim();
+          var detail = detailEl ? detailEl.innerText.trim() : '';
+          var url = 'https://www.youtube.com/watch?v=' + VIDEO_ID + '&t=' + t;
+          var line = '- [' + tsText + '](' + url + ') ' + topicText;
+          if (detail) line += ' — ' + detail;
+          return line;
+        }).join('\n');
+
+        var md = [
+          '# ' + title,
+          '',
+          metaText,
+          videoUrl ? '[Watch on YouTube](' + videoUrl + ')' : '',
+          '',
+          '> Generated by the [video-lens](https://github.com/kar2phi/video-lens) Claude skill.',
+          '',
+          '---',
+          '',
+          '## Outline',
+          '',
+          outline,
+          '',
+          '## Summary',
+          '',
+          summary,
+          '',
+          '## Takeaway',
+          '',
+          takeaway,
+          '',
+          '## Key Points',
+          '',
+          keyPoints,
+        ].concat(description ? ['', '## YouTube Description', '', description] : []).join('\n');
+
+        // Trigger download
+        var blob = new Blob([md], { type: 'text/markdown' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = window.location.pathname.split('/').pop().replace(/\.html$/, '.md');
+        a.click();
+        URL.revokeObjectURL(a.href);
       });
-    });
-    h2.appendChild(btn);
-  });
 
-  document.getElementById('md-export-btn').addEventListener('click', function () {
-    // Title
-    var title = document.querySelector('h1').innerText;
-
-    // Meta line — strip the "Open on YouTube ↗" link text, keep the rest
-    var metaEl = document.querySelector('.meta-line');
-    var metaText = Array.from(metaEl.childNodes)
-      .filter(function (n) { return n.nodeType === 3; })  // text nodes only
-      .map(function (n) { return n.textContent; })
-      .join('').replace(/·\s*$/, '').trim();
-    var videoUrl = metaEl.querySelector('a') ? metaEl.querySelector('a').href : '';
-
-    // Summary
-    var summary = document.querySelector('#summary p').innerText;
-
-    // Key Points
-    var keyPoints = Array.from(document.querySelectorAll('#key-points li'))
-      .map(function (li) { return '- ' + li.innerText; }).join('\n');
-
-    // Analysis
-    var analysis = Array.from(document.querySelectorAll('#analysis p'))
-      .map(function (p) { return p.innerText; }).join('\n\n');
-
-    // Takeaway
-    var takeaway = document.querySelector('#takeaway p').innerText;
-
-    // Outline — each li has data-t (seconds), .outline-title and optional .outline-detail
-    var outline = Array.from(document.querySelectorAll('.topics li')).map(function (li) {
-      var tsEl = li.querySelector('a.ts');
-      var t = (tsEl ? tsEl.getAttribute('data-t') : null) || '0';
-      var tsText = tsEl ? tsEl.innerText : '0:00';
-      var titleEl = li.querySelector('.outline-title');
-      var detailEl = li.querySelector('.outline-detail');
-      var topicText = titleEl ? titleEl.innerText : li.innerText.replace(tsText, '').trim();
-      var detail = detailEl ? detailEl.innerText.trim() : '';
-      var url = 'https://www.youtube.com/watch?v=' + VIDEO_ID + '&t=' + t;
-      var line = '- [' + tsText + '](' + url + ') ' + topicText;
-      if (detail) line += ' — ' + detail;
-      return line;
-    }).join('\n');
-
-    var md = [
-      '# ' + title,
-      '',
-      metaText,
-      videoUrl ? '[Watch on YouTube](' + videoUrl + ')' : '',
-      '',
-      '> Generated by the [video-lens](https://github.com/kar2phi/video-lens) Claude skill.',
-      '',
-      '---',
-      '',
-      '## Outline',
-      '',
-      outline,
-      '',
-      '## Summary',
-      '',
-      summary,
-      '',
-      '## Key Points',
-      '',
-      keyPoints,
-      '',
-      '## Analysis',
-      '',
-      analysis,
-      '',
-      '## Takeaway',
-      '',
-      takeaway,
-    ].join('\n');
-
-    // Trigger download
-    var blob = new Blob([md], { type: 'text/markdown' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = window.location.pathname.split('/').pop().replace(/\.html$/, '.md');
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
-
-  function cycleSpeed(dir) {
-    var speeds = [1, 1.25, 1.5, 1.75, 2];
-    var active = document.querySelector('.speed-btn.active');
-    if (!active) return;
-    var idx = speeds.indexOf(parseFloat(active.getAttribute('data-speed')));
-    var next = speeds[Math.max(0, Math.min(speeds.length - 1, idx + dir))];
-    if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(next);
-    speedBtns.forEach(function (b) { b.classList.remove('active'); });
-    document.querySelector('.speed-btn[data-speed="' + next + '"]').classList.add('active');
-  }
-
-  document.addEventListener('keydown', function (e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === ' ') {
-      e.preventDefault();
-      if (ytPlayer && ytPlayer.getPlayerState) {
-        ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+      function cycleSpeed(dir) {
+        var speeds = [1, 1.25, 1.5, 1.75, 2];
+        var active = document.querySelector('.speed-btn.active');
+        if (!active) return;
+        var idx = speeds.indexOf(parseFloat(active.getAttribute('data-speed')));
+        var next = speeds[Math.max(0, Math.min(speeds.length - 1, idx + dir))];
+        if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(next);
+        speedBtns.forEach(function (b) { b.classList.remove('active'); });
+        document.querySelector('.speed-btn[data-speed="' + next + '"]').classList.add('active');
       }
-    } else if (e.key === 'j' || e.key === 'ArrowLeft') {
-      if (ytPlayer && ytPlayer.getCurrentTime)
-        ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
-    } else if (e.key === 'l' || e.key === 'ArrowRight') {
-      if (ytPlayer && ytPlayer.getCurrentTime)
-        ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
-    } else if (e.key === '<' || e.key === ',') {
-      cycleSpeed(-1);
-    } else if (e.key === '>' || e.key === '.') {
-      cycleSpeed(1);
-    } else if (e.key === '1') {
-      document.querySelector('[data-split="30"]').click();
-    } else if (e.key === '2') {
-      document.querySelector('[data-split="45"]').click();
-    } else if (e.key === '3') {
-      document.querySelector('[data-split="auto"]').click();
-    }
-  });
 
-  // Draggable resizer + split presets
-  var resizer = document.getElementById('resizer');
-  var layout = document.querySelector('.layout');
-  var SPLIT_KEY = 'video-lens:split';
-  var DEFAULT_SPLIT = 45;
+      document.addEventListener('keydown', function (e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (e.key === ' ' || e.key === 'k') {
+          e.preventDefault();
+          if (ytPlayer && ytPlayer.getPlayerState) {
+            ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+          }
+        } else if (e.key === 'j' || e.key === 'ArrowLeft') {
+          if (ytPlayer && ytPlayer.getCurrentTime)
+            ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
+        } else if (e.key === 'l' || e.key === 'ArrowRight') {
+          if (ytPlayer && ytPlayer.getCurrentTime)
+            ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
+        } else if (e.key === 'c') {
+          toggleCaptions();
+        } else if (e.key === 'f') {
+          e.preventDefault();
+          toggleFullscreen();
+        } else if (e.key === '<' || e.key === ',') {
+          cycleSpeed(-1);
+        } else if (e.key === '>' || e.key === '.') {
+          cycleSpeed(1);
+        } else if (e.key === '1') {
+          applySplit(30);
+        } else if (e.key === '2') {
+          applySplit(45);
+        } else if (e.key === '3') {
+          applySplit(maxVideoSplit());
+        }
+      });
 
-  // Restore saved split on load
-  (function () {
-    var saved = localStorage.getItem(SPLIT_KEY);
-    if (saved) document.documentElement.style.setProperty('--left-w', saved + '%');
-  })();
+      // Draggable resizer + split presets
+      var resizer = document.getElementById('resizer');
+      var layout = document.querySelector('.layout');
+      var SPLIT_KEY = 'video-lens:split';
+      var DEFAULT_SPLIT = 45;
 
-  resizer.addEventListener('mousedown', function (e) {
-    e.preventDefault();
-    resizer.classList.add('dragging');
-    document.addEventListener('mousemove', onDrag);
-    document.addEventListener('mouseup', stopDrag);
-  });
-  resizer.addEventListener('dblclick', function () {
-    document.documentElement.style.setProperty('--left-w', DEFAULT_SPLIT + '%');
-    localStorage.removeItem(SPLIT_KEY);
-  });
+      // Restore saved split on load
+      (function () {
+        var saved = localStorage.getItem(SPLIT_KEY);
+        if (saved) document.documentElement.style.setProperty('--left-w', saved + '%');
+      })();
 
-  function onDrag(e) {
-    var pct = (e.clientX / window.innerWidth) * 100;
-    pct = Math.min(Math.max(pct, 20), maxVideoSplit());
-    document.documentElement.style.setProperty('--left-w', pct + '%');
-  }
+      resizer.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        resizer.classList.add('dragging');
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('mouseup', stopDrag);
+      });
+      resizer.addEventListener('dblclick', function () {
+        document.documentElement.style.setProperty('--left-w', DEFAULT_SPLIT + '%');
+        localStorage.removeItem(SPLIT_KEY);
+      });
 
-  function stopDrag() {
-    resizer.classList.remove('dragging');
-    document.removeEventListener('mousemove', onDrag);
-    document.removeEventListener('mouseup', stopDrag);
-    var cur = document.documentElement.style.getPropertyValue('--left-w');
-    if (cur) localStorage.setItem(SPLIT_KEY, parseFloat(cur).toFixed(1));
-  }
+      function onDrag(e) {
+        var pct = (e.clientX / window.innerWidth) * 100;
+        pct = Math.min(Math.max(pct, 20), maxVideoSplit());
+        document.documentElement.style.setProperty('--left-w', pct + '%');
+      }
 
-  // Split preset buttons
-  // L is dynamic: the exact panel % where the video fills height without letterboxing
-  function maxVideoSplit() {
-    var maxH = window.innerHeight - 220; // matches the calc(100vh - 220px) cap in CSS
-    var maxW = maxH * 16 / 9;
-    return Math.min(80, Math.max(20, (maxW / window.innerWidth) * 100));
-  }
+      function stopDrag() {
+        resizer.classList.remove('dragging');
+        document.removeEventListener('mousemove', onDrag);
+        document.removeEventListener('mouseup', stopDrag);
+        var cur = document.documentElement.style.getPropertyValue('--left-w');
+        if (cur) localStorage.setItem(SPLIT_KEY, parseFloat(cur).toFixed(1));
+      }
 
-  document.querySelectorAll('.split-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var raw = this.getAttribute('data-split');
-      var pct = raw === 'auto' ? maxVideoSplit() : parseInt(raw, 10);
-      layout.classList.add('snapping');
-      document.documentElement.style.setProperty('--left-w', pct + '%');
-      localStorage.setItem(SPLIT_KEY, pct.toFixed(1));
-      setTimeout(function () { layout.classList.remove('snapping'); }, 250);
-    });
-  });
-</script>
-  </body>
-  
-  </html>
+      // Split preset buttons
+      // L is dynamic: the exact panel % where the video fills height without letterboxing
+      function maxVideoSplit() {
+        var maxH = window.innerHeight - 220; // matches the calc(100vh - 220px) cap in CSS
+        var maxW = maxH * 16 / 9;
+        return Math.min(80, Math.max(20, (maxW / window.innerWidth) * 100));
+      }
+
+      function applySplit(pct) {
+        layout.classList.add('snapping');
+        document.documentElement.style.setProperty('--left-w', pct + '%');
+        localStorage.setItem(SPLIT_KEY, pct.toFixed(1));
+        setTimeout(function () { layout.classList.remove('snapping'); }, 250);
+      }
+    </script>
+</body>
+
+</html>
