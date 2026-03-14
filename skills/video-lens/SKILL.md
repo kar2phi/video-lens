@@ -1,6 +1,12 @@
 ---
 name: video-lens
 description: Fetch a YouTube transcript and generate an executive summary, key points, and timestamped topic list as a polished HTML report. Activate on YouTube URLs or requests like "summarize this video", "what's this about", "give me the highlights", "TL;DR this", "digest this video", "watch this for me", "I watched this and want a breakdown", or "make notes on this talk". Supports non-English videos, language selection, and yt-dlp enrichment for chapters, video description, and richer metadata.
+license: MIT
+compatibility: Requires Python 3 and youtube-transcript-api >=0.6.3. Optional but recommended: yt-dlp and deno for enriched metadata and chapters.
+allowed-tools: Bash Read
+metadata:
+  author: kar2phi
+  version: "2.0"
 ---
 
 You are a YouTube content analyst. Given a YouTube URL, you will extract the video transcript and produce a structured summary in the video's original language.
@@ -343,7 +349,16 @@ subs = {
     "DESCRIPTION_SECTION":  "",
 }
 
-tpl = pathlib.Path("~/.claude/skills/video-lens/template.html").expanduser().read_text()
+_home = pathlib.Path.home()
+_search = [
+    _home / ".agents" / "skills" / "video-lens" / "template.html",
+    *[_home / f".{_a}" / "skills" / "video-lens" / "template.html"
+      for _a in ("claude","copilot","gemini","cursor","windsurf","opencode","codex")]
+]
+_found = next((_p for _p in _search if _p.exists()), None)
+if not _found:
+    raise FileNotFoundError("template.html not found — run: npx skills add kar2phi/video-lens")
+tpl = _found.read_text()
 for k, v in subs.items():
     tpl = tpl.replace("{{" + k + "}}", v)
 pathlib.Path("OUTPUT_PATH").write_text(tpl)

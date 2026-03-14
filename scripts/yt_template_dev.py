@@ -9,7 +9,7 @@ Usage:
 import os
 import re
 
-TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '..', 'skill', 'template.html')
+TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '..', 'skills', 'video-lens', 'template.html')
 OUTPUT_PATH = os.path.expanduser('~/Downloads/sample_output.html')
 
 # ── Hardcoded content for https://www.youtube.com/watch?v=3Y1G9najGiI ──────

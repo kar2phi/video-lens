@@ -2,11 +2,7 @@
 
 **Turn any YouTube video into a polished research report.**
 
-video-lens is a coding agent skill that fetches a YouTube transcript and generates a structured HTML report — executive summary, key points, analysis, takeaway, timestamped topic outline, and an embedded in-page player. No API keys, no external services beyond the coding agent itself.
-
-Works with [Claude Code](https://claude.ai/code), [GitHub Copilot](https://github.com/features/copilot), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Cursor](https://cursor.com), [Windsurf](https://windsurf.com), [OpenCode](https://opencode.ai), [Codex](https://openai.com/codex), and any agent that supports the SKILL.md format.
-
-> **Consistent by design.** Every report uses the same polished HTML template, stored on your machine — so the layout, styles, and interactive features are always consistent, and you can always come back to the report later.
+video-lens is a coding agent skill that fetches a YouTube transcript and generates a structured HTML report — executive summary, takeaway, key points with analysis, timestamped topic outline, and an embedded in-page player.
 
 <img src="docs/video-lens-example.png" alt="video-lens example report" width="700">
 
@@ -14,29 +10,26 @@ Works with [Claude Code](https://claude.ai/code), [GitHub Copilot](https://githu
 
 ## What you get
 
-- **Executive summary** — 3–5 sentence overview
-- **Key points** — bulleted, scannable insights
-- **Analysis** — deeper themes and commentary
-- **Takeaway** — the single "so what?" conclusion (1–2 sentences)
-- **Timestamped outline** — click any topic to expand a micro-summary of that section; click the timestamp to jump the player to that moment. The outline auto-highlights the currently playing section as the video progresses. The fastest way to grasp what a video covers without reading the full report.
-- **In-page YouTube player** — watch while reading; space/j/l to control playback; `?` opens shortcut help
-- **Playback speed** — 1×, 1.25×, 1.5×, 1.75×, 2× (keyboard: `,` / `.`)
-- **Resizable layout** — drag the divider to adjust video vs. content width; preset sizes S / M / L; layout is remembered across sessions
+- **Executive summary** — 3–5 sentence TL;DR overview
+- **Takeaway** — the single most important insight (1–3 sentences)
+- **Key points** — bulleted, scannable insights with supporting detail
+- **Timestamped outline** — click topics to expand summaries; click timestamps to jump the player
+- **In-page YouTube player** — watch while reading; auto-highlights the current section
+- **Keyboard shortcuts** — playback speed, layout resize (S/M/L), navigation, and more (`?` for help)
 - **Markdown export** — copy the full report as Markdown in one click
-- **Dark mode** — auto-detects system preference
+- **Dark mode** — auto-detects system preference; remembered across sessions
 
 ---
 
 ## Requirements
 
-| Tool                                                       | Purpose                                                                                           |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| A supported coding agent                                   | Runs the skill (see [Supported Agents](#supported-agents))                                        |
-| Python 3                                                   | Fetches the transcript                                                                            |
-| [Task](https://taskfile.dev)                               | Install / dev commands (`brew install go-task` or [download](https://taskfile.dev/installation/)) |
-| **Optional:** [Raycast](https://www.raycast.com)           | Trigger from anywhere via hotkey (macOS; all agents except Windsurf)                              |
-| **Optional:** [iTerm2](https://iterm2.com) or Terminal.app | Used by the Raycast script                                                                        |
-| **Optional:** [Deno](https://deno.com)                     | Required by yt-dlp as a JavaScript runtime. Install: `brew install deno`                          |
+| Tool                                             | Purpose                                                    |
+| ------------------------------------------------ | ---------------------------------------------------------- |
+| A supported coding agent                         | Runs the skill (see [Supported Agents](#supported-agents)) |
+| Python 3                                         | Fetches the transcript                                     |
+| **Optional:** [Raycast](https://www.raycast.com) | Trigger from anywhere via hotkey (macOS)                   |
+| **Optional:** [Task](https://taskfile.dev)       | Install/dev commands alias (`brew install go-task`)        |
+| **Optional:** [Deno](https://deno.com)           | Required by yt-dlp (`brew install deno`)                   |
 
 > **Note:** video-lens only works for videos that have captions/subtitles available. Videos with captions disabled will produce an error.
 
@@ -44,50 +37,48 @@ Works with [Claude Code](https://claude.ai/code), [GitHub Copilot](https://githu
 
 ## Supported Agents
 
-video-lens uses the universal [SKILL.md](https://agents.md/) format. Pass the `AGENT` parameter to install for your tool:
+video-lens uses the universal [SKILL.md](https://agents.md/) format — any agent that supports it can run this skill.
 
-| Agent                                                     | Install command                     |
-| --------------------------------------------------------- | ----------------------------------- |
-| [Claude Code](https://claude.ai/code)                     | `task install-skill` (default)      |
-| [GitHub Copilot](https://github.com/features/copilot)     | `task install-skill AGENT=copilot`  |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `task install-skill AGENT=gemini`   |
-| [Cursor](https://cursor.com)                              | `task install-skill AGENT=cursor`   |
-| [Windsurf](https://windsurf.com)                          | `task install-skill AGENT=windsurf` |
-| [OpenCode](https://opencode.ai)                           | `task install-skill AGENT=opencode` |
-| [Codex](https://openai.com/codex)                         | `task install-skill AGENT=codex`    |
-
-Each command copies `SKILL.md` and `template.html` into `~/.{agent}/skills/video-lens/`.
+[![Install with skills CLI](https://img.shields.io/badge/skills-kar2phi%2Fvideo--lens-blue?logo=npm)](https://skills.sh/kar2phi/video-lens)
 
 ---
 
 ## Install
 
-### Quick install (Claude Code)
+### Option A — skills CLI (recommended)
+
+```bash
+npx skills add kar2phi/video-lens
+pip install youtube-transcript-api yt-dlp
+brew install deno  # optional, needed by yt-dlp
+```
+
+Then use `/video-lens <url>` in any supported agent.
+
+### Option B — Manual install (Claude Code, no clone needed)
 
 No repo clone or Task required — just run:
 
 ```bash
 mkdir -p ~/.claude/skills/video-lens && \
-curl -Lo ~/.claude/skills/video-lens/SKILL.md https://raw.githubusercontent.com/kar2phi/video-lens/main/skill/SKILL.md && \
-curl -Lo ~/.claude/skills/video-lens/template.html https://raw.githubusercontent.com/kar2phi/video-lens/main/skill/template.html && \
-pip install youtube-transcript-api
+curl -Lo ~/.claude/skills/video-lens/SKILL.md https://raw.githubusercontent.com/kar2phi/video-lens/main/skills/video-lens/SKILL.md && \
+curl -Lo ~/.claude/skills/video-lens/template.html https://raw.githubusercontent.com/kar2phi/video-lens/main/skills/video-lens/template.html && \
+pip install youtube-transcript-api yt-dlp
 
 # Optional: deno is required by yt-dlp as a JavaScript runtime
 brew install deno
 ```
 
-Then use `/video-lens <url>` in any Claude Code session.
+> **Other agents:** Replace `~/.claude/` with `~/.copilot/`, `~/.gemini/`, `~/.cursor/`, etc. in the commands above. Or use `npx skills add kar2phi/video-lens` to install for all detected agents at once.
 
-> **Other agents:** Replace `~/.claude/` with `~/.copilot/`, `~/.gemini/`, `~/.cursor/`, etc. in the commands above. Or clone the repo and use `task install-skill AGENT=<name>` (see below).
+### Option C — Full install (with Raycast + dev tools)
 
-### Full install (with Raycast + dev tools)
-
-#### 1. Clone and install Python dependency
+#### 1. Clone and install Python dependencies
 
 ```bash
 git clone https://github.com/kar2phi/video-lens.git
 cd video-lens
-pip install -r requirements.txt
+task install-libraries
 
 # Optional: deno is required by yt-dlp as a JavaScript runtime
 brew install deno
@@ -96,20 +87,13 @@ brew install deno
 #### 2. Install the skill
 
 ```bash
-task install-skill                # Claude Code (default)
-task install-skill AGENT=copilot  # GitHub Copilot
-task install-skill AGENT=gemini   # Gemini CLI
-# ... see Supported Agents table above
+task install-skill-local
 ```
 
-This copies `skill/SKILL.md` and `skill/template.html` into `~/.{agent}/skills/video-lens/`.
-
-#### 3. (Optional) Install the Raycast script
-
-> **macOS only.** The Raycast script uses AppleScript, `pbpaste`, and iTerm2/Terminal.app — none of which are available on Windows or Linux.
+#### 3. (Optional) Install the Raycast script for Claude
 
 ```bash
-task install-raycast
+task install-raycast AGENT=claude
 ```
 
 Requires Raycast. The script opens a new iTerm2 tab (or Terminal.app if iTerm2 isn't installed), launches Claude with the required permissions, and runs the skill.
@@ -136,7 +120,7 @@ Reports are saved to `~/Downloads/`.
 
 ## Dev server
 
-To iterate on `skill/template.html` without running a real video:
+To iterate on `skills/video-lens/template.html` without running a real video:
 
 ```bash
 task dev
@@ -150,9 +134,10 @@ Opens a rendered sample report at `http://localhost:8765/sample_output.html`.
 
 ```
 video-lens/
-  skill/
-    SKILL.md          ← skill prompt (source of truth)
-    template.html     ← HTML report template (source of truth)
+  skills/
+    video-lens/
+      SKILL.md          ← skill prompt (source of truth)
+      template.html     ← HTML report template (source of truth)
   scripts/
     raycast-video-lens.sh ← Raycast script (source of truth)
     yt_template_dev.py← Dev server helper
@@ -160,13 +145,13 @@ video-lens/
   requirements.txt
 ```
 
-**Always edit files in this repo, then deploy with `task install-skill` (or `task install-skill AGENT=<name>`) and `task install-raycast`.** Never edit directly in `~/.{agent}/skills/` or `~/.raycast/scripts/`.
+**Always edit files in this repo, then deploy with `task install-skill-local AGENT=claude` and `task install-raycast AGENT=claude`.** Never edit directly in `~/.{agent}/skills/` or `~/.raycast/scripts/`.
 
 ---
 
 ## Contributing
 
-PRs welcome. Keep the skill prompt in `skill/SKILL.md` and the HTML template in `skill/template.html` — those are the sources of truth.
+PRs welcome. Keep the skill prompt in `skills/video-lens/SKILL.md` and the HTML template in `skills/video-lens/template.html` — those are the sources of truth.
 
 ## License
 

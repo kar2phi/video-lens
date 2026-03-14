@@ -1,7 +1,7 @@
 version: '3'
 
 tasks:
-  install:
+  install-libraries:
     desc: Install Python dependencies
     cmd: pip install -r requirements.txt
 
@@ -10,8 +10,6 @@ tasks:
     cmds:
       - python3 scripts/yt_template_dev.py
       - lsof -ti:8765 | xargs kill 2>/dev/null; sleep 0.2; python3 -m http.server 8765 --directory "$HOME/Downloads" & sleep 1 && (open "http://localhost:8765/sample_output.html" 2>/dev/null || xdg-open "http://localhost:8765/sample_output.html" 2>/dev/null || echo "Open http://localhost:8765/sample_output.html in your browser")
-
-
 
   install-raycast:
     desc: "Copy scripts/raycast-video-lens.sh to ~/.raycast/scripts/ (AGENT=claude|gemini|codex|cursor|opencode|copilot)"
@@ -87,19 +85,25 @@ tasks:
       - chmod +x ~/.raycast/scripts/video-lens.sh
 
   install-skill:
-    desc: "Install skill for a coding agent (AGENT=claude|copilot|gemini|cursor|windsurf|opencode|codex)"
+    desc: Install skill for all detected agents via npx skills CLI
+    cmd: npx skills add kar2phi/video-lens
+
+  install-skill-local:
+    desc: "Sync skill files from repo to a local agent skill dir (AGENT=claude|gemini|opencode|cursor)"
     vars:
-      AGENT: '{{.AGENT | default "claude"}}'
-      SKILL_DIR: '{{.HOME}}/.{{.AGENT}}/skills/video-lens'
+      AGENT: '{{.AGENT}}'
     cmds:
       - |
-        python3 - <<'PYEOF'
-        valid = {'claude','copilot','gemini','cursor','windsurf','opencode','codex'}
-        agent = '{{.AGENT}}'
-        if agent not in valid:
-            raise SystemExit(f'Unknown AGENT "{agent}". Valid: {sorted(valid)}')
-        PYEOF
-      - mkdir -p {{.SKILL_DIR}}
-      - sed 's|~/.claude/skills/video-lens/|~/.{{.AGENT}}/skills/video-lens/|g' skill/SKILL.md > {{.SKILL_DIR}}/SKILL.md
-      - cp skill/template.html {{.SKILL_DIR}}/template.html
-      - echo "Installed video-lens skill to {{.SKILL_DIR}}"
+        agent="{{.AGENT}}"
+        case "$agent" in
+          claude)   dir="$HOME/.claude/skills" ;;
+          gemini)   dir="$HOME/.gemini/skills" ;;
+          opencode) dir="$HOME/.opencode/skills" ;;
+          cursor)   dir="$HOME/.cursor/skills" ;;
+          "") echo "Error: AGENT is required. Usage: task install-skill-local AGENT=claude" && exit 1 ;;
+          *) echo "Error: Unknown agent '$agent'. Valid: claude, gemini, opencode, cursor" && exit 1 ;;
+        esac
+        mkdir -p "$dir/video-lens"
+        cp skills/video-lens/SKILL.md "$dir/video-lens/SKILL.md"
+        cp skills/video-lens/template.html "$dir/video-lens/template.html"
+        echo "Synced skills/video-lens/ → $dir/video-lens/"
