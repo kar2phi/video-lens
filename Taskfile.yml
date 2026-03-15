@@ -5,11 +5,19 @@ tasks:
     desc: Install Python dependencies
     cmd: pip install -r requirements.txt
 
+  test:
+    desc: Run fast integration tests (no LLM invocation)
+    cmd: pytest tests/test_e2e.py -v -m "not slow"
+
+  test-full:
+    desc: Run all tests including real Claude session (slow, requires API key)
+    cmd: pytest tests/test_e2e.py -v
+
   dev:
     desc: Run template dev server with sample content
     cmds:
       - python3 scripts/yt_template_dev.py
-      - lsof -ti:8765 | xargs kill 2>/dev/null; sleep 0.2; python3 -m http.server 8765 --directory "$HOME/Downloads" & sleep 1 && (open "http://localhost:8765/sample_output.html" 2>/dev/null || xdg-open "http://localhost:8765/sample_output.html" 2>/dev/null || echo "Open http://localhost:8765/sample_output.html in your browser")
+      - bash skills/video-lens/scripts/serve_report.sh ~/Downloads/sample_output.html
 
   install-raycast:
     desc: "Copy scripts/raycast-video-lens.sh to ~/.raycast/scripts/ (AGENT=claude|gemini|codex|cursor|opencode|copilot)"
@@ -106,4 +114,5 @@ tasks:
         mkdir -p "$dir/video-lens"
         cp skills/video-lens/SKILL.md "$dir/video-lens/SKILL.md"
         cp skills/video-lens/template.html "$dir/video-lens/template.html"
+        rsync -a --delete --exclude='__pycache__' skills/video-lens/scripts/ "$dir/video-lens/scripts/"
         echo "Synced skills/video-lens/ → $dir/video-lens/"
