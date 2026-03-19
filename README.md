@@ -18,7 +18,7 @@ video-lens is a coding agent skill that fetches a YouTube transcript and generat
 - **Keyboard shortcuts** — playback speed, layout resize (S/M/L), navigation, and more (`?` for help)
 - **Markdown export** — copy the full report as Markdown in one click
 - **Dark mode** — auto-detects system preference; remembered across sessions
-- **Video gallery** — browse, search, and filter all your saved reports by title, channel, tag, or keyword
+- **Video gallery** — browse, search, and filter all your saved reports by title, channel, tag, or keyword; shows thumbnails, summaries, and tags at a glance
 
 ---
 
@@ -113,7 +113,11 @@ Claude fetches the transcript, generates the report, and opens it in your browse
 
 ### Gallery
 
-After generating reports, browse them in the gallery:
+Browse, search, and filter all your saved reports by title, channel, tag, or keyword:
+
+<img src="docs/video-lens-gallery-example.png" alt="video-lens gallery" width="700">
+
+After generating reports, open the gallery:
 
 ```
 /video-lens-gallery
