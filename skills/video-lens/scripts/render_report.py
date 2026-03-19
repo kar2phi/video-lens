@@ -5,7 +5,7 @@ Usage: echo '{"VIDEO_ID": "...", ...}' | python3 render_report.py OUTPUT_PATH
 
 Reads JSON from stdin with these keys:
     VIDEO_ID, VIDEO_TITLE, VIDEO_URL, META_LINE, SUMMARY,
-    KEY_POINTS, TAKEAWAY, OUTLINE, DESCRIPTION_SECTION
+    KEY_POINTS, TAKEAWAY, OUTLINE, DESCRIPTION_SECTION, VIDEO_LENS_META
 
 Discovers template.html via multi-agent path search.
 """
@@ -16,7 +16,7 @@ import sys
 
 EXPECTED_KEYS = {
     "VIDEO_ID", "VIDEO_TITLE", "VIDEO_URL", "META_LINE", "SUMMARY",
-    "KEY_POINTS", "TAKEAWAY", "OUTLINE", "DESCRIPTION_SECTION",
+    "KEY_POINTS", "TAKEAWAY", "OUTLINE", "DESCRIPTION_SECTION", "VIDEO_LENS_META",
 }
 
 AGENT_DIRS = ("agents", "claude", "copilot", "gemini", "cursor", "windsurf", "opencode", "codex")

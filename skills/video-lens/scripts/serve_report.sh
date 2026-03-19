@@ -21,20 +21,28 @@ if [ ! -f "$HTML_PATH" ]; then
     exit 1
 fi
 
-DIR="$(dirname "$HTML_PATH")"
+DIR="$(cd "$(dirname "$HTML_PATH")" && pwd)"
 FILE="$(basename "$HTML_PATH")"
 PORT=8765
+
+if [[ "$(basename "$DIR")" == "reports" ]]; then
+  SERVE_DIR="$(dirname "$DIR")"
+  URL_PATH="reports/$FILE"
+else
+  SERVE_DIR="$DIR"
+  URL_PATH="$FILE"
+fi
 
 # Kill any existing server on the port
 lsof -ti:"$PORT" | xargs kill 2>/dev/null || true
 sleep 0.2
 
 # Start HTTP server in background
-python3 -m http.server "$PORT" --directory "$DIR" &>/dev/null &
+python3 -m http.server "$PORT" --directory "$SERVE_DIR" &>/dev/null &
 sleep 1
 
 # Open in browser
-URL="http://localhost:${PORT}/${FILE}"
+URL="http://localhost:${PORT}/${URL_PATH}"
 if [[ "${NO_BROWSER:-}" != "1" ]]; then
   if command -v open &>/dev/null; then
       open "$URL"

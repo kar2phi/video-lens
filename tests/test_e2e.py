@@ -7,9 +7,10 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT  = Path(__file__).resolve().parent.parent
-SCRIPT_DIR = REPO_ROOT / "skills" / "video-lens" / "scripts"
-TEMPLATE   = REPO_ROOT / "skills" / "video-lens" / "template.html"
+REPO_ROOT         = Path(__file__).resolve().parent.parent
+SCRIPT_DIR        = REPO_ROOT / "skills" / "video-lens" / "scripts"
+GALLERY_SCRIPT_DIR = REPO_ROOT / "skills" / "video-lens-gallery" / "scripts"
+TEMPLATE          = REPO_ROOT / "skills" / "video-lens" / "template.html"
 
 sys.path.insert(0, str(SCRIPT_DIR))
 from render_report import render
@@ -18,8 +19,22 @@ from render_report import render
 VIDEO_ID = "bjdBVZa66oU"
 
 
+SAMPLE_META = json.dumps({
+    "videoId": "TEST_VIDEO_ID",
+    "title": "Test Title",
+    "channel": "Test Channel",
+    "duration": "10 min",
+    "publishDate": "Jan 01 2025",
+    "generationDate": "2025-01-01",
+    "summary": "Test summary.",
+    "tags": ["test"],
+    "keywords": ["Point"],
+    "filename": "2025-01-01-000000-video-lens_test.html",
+})
+
+
 def test_template_placeholders(tmp_path):
-    """Fast, no-network check: all 9 keys replaced, no {{...}} remain."""
+    """Fast, no-network check: all 10 keys replaced, no {{...}} remain."""
     out = tmp_path / "report.html"
     render({
         "VIDEO_ID":            "TEST_VIDEO_ID",
@@ -31,9 +46,11 @@ def test_template_placeholders(tmp_path):
         "KEY_POINTS":          "TEST_KEY_POINTS",
         "OUTLINE":             "TEST_OUTLINE",
         "DESCRIPTION_SECTION": "TEST_DESCRIPTION_SECTION",
+        "VIDEO_LENS_META":     SAMPLE_META,
     }, str(out), template_path=TEMPLATE)
     html = out.read_text(encoding="utf-8")
     assert "{{" not in html, "Unreplaced placeholders found in rendered HTML"
+    assert 'id="video-lens-meta"' in html
 
 
 def test_render_and_serve(tmp_path):
@@ -49,11 +66,13 @@ def test_render_and_serve(tmp_path):
         "KEY_POINTS":          "<li><strong>Point</strong> — detail</li>",
         "OUTLINE":             f'<li><a class="ts" data-t="0" href="https://www.youtube.com/watch?v={VIDEO_ID}&t=0" target="_blank">▶ 0:00</a> — <span class="outline-title">Intro</span><span class="outline-detail"> Opening.</span></li>',
         "DESCRIPTION_SECTION": "",
+        "VIDEO_LENS_META":     SAMPLE_META,
     }, str(out), template_path=TEMPLATE)
     assert out.exists()
     html = out.read_text(encoding="utf-8")
     assert VIDEO_ID in html
     assert "{{" not in html
+    assert 'id="video-lens-meta"' in html
     assert 'id="summary"' in html
     assert 'id="takeaway"' in html
     assert 'id="key-points"' in html
@@ -77,6 +96,44 @@ def test_render_and_serve(tmp_path):
     finally:
         subprocess.run(["bash", "-c", "kill $(lsof -ti:8765 -sTCP:LISTEN) 2>/dev/null || true"],
                        capture_output=True)
+
+
+def test_build_index(tmp_path):
+    """Fast, no-network check: build_index.py scans reports and writes manifest.json."""
+    BUILD_INDEX = GALLERY_SCRIPT_DIR / "build_index.py"
+
+    # Create two sample reports with video-lens-meta blocks
+    vid, title, gen_date = "bjdBVZa66oU", "Test Video One", "2025-01-01"
+    meta = json.dumps({
+        "videoId": vid,
+        "title": title,
+        "channel": "Test Channel",
+        "duration": "5 min",
+        "publishDate": "Jan 01 2025",
+        "generationDate": gen_date,
+        "summary": f"Summary for {title}.",
+        "tags": ["test"],
+        "keywords": ["Point"],
+        "filename": f"{gen_date}-000000-video-lens_test_0.html",
+    })
+    report = tmp_path / f"{gen_date}-000000-video-lens_test_0.html"
+    report.write_text(
+        f'<html><body><script type="application/json" id="video-lens-meta">{meta}</script></body></html>',
+        encoding="utf-8",
+    )
+
+    r = subprocess.run(
+        [sys.executable, str(BUILD_INDEX), "--dir", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert r.returncode == 0, f"build_index failed:\n{r.stderr}"
+
+    manifest_path = tmp_path / "manifest.json"
+    assert manifest_path.exists(), "manifest.json not created"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["count"] == 1
+    assert len(manifest["reports"]) == 1
+    assert manifest["reports"][0]["title"] == "Test Video One"
 
 
 @pytest.mark.slow
@@ -137,13 +194,13 @@ def test_claude_session():
 
     # Locate the report via filesystem — bash tool output does not appear in
     # claude --print stdout (only the final assistant text response does).
-    downloads = Path.home() / "Downloads"
+    downloads = Path.home() / "Downloads" / "video-lens"
     matches = sorted(
         [p for p in downloads.glob("????-??-??-??????-video-lens_*.html")
          if p.stat().st_mtime >= before],
         key=lambda p: p.stat().st_mtime,
     )
-    assert matches, "No video-lens HTML report found in ~/Downloads/ after claude session"
+    assert matches, "No video-lens HTML report found in ~/Downloads/video-lens/ after claude session"
 
     report_path = None
     try:

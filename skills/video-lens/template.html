@@ -1049,11 +1049,15 @@
     // file:// fallback – YouTube embeds require HTTP; overlay instructions on the left panel
     (function () {
       if (window.location.protocol !== 'file:') return;
+      if (window.self !== window.top) return;  // suppress when loaded in iframe
 
       var rawPath = window.location.pathname;
       var dir = decodeURIComponent(rawPath.replace(/\/[^/]+$/, ''));
-      var file = rawPath.replace(/.*\//, '');
-      var localUrl = 'http://localhost:8765/' + file;
+      var parts = rawPath.split('/');
+      var file = parts[parts.length - 1];
+      var parent = parts[parts.length - 2];
+      var urlPath = (parent === 'reports') ? 'reports/' + file : file;
+      var localUrl = 'http://localhost:8765/' + urlPath;
       var cmd = 'python3 -m http.server 8765 --directory "' + dir.replace(/"/g, '\\"') + '"';
 
       function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -1752,6 +1756,7 @@
         setTimeout(function () { layout.classList.remove('snapping'); }, 250);
       }
     </script>
+<script type="application/json" id="video-lens-meta">{{VIDEO_LENS_META}}</script>
 </body>
 
 </html>

@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>video-lens — index</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --left-bg: #f0f0ee;
+      --left-text: #1a1a1a;
+      --left-heading: #999;
+      --left-meta: #555;
+      --left-link: #c0392b;
+      --left-border: #ddd;
+      --right-bg: #f9f9f7;
+      --right-text: #1a1a1a;
+      --right-border: #e0e0e0;
+      --toggle-bg: #ddd;
+      --toggle-text: #444;
+      --card-bg: #fff;
+      --card-border: #e0e0de;
+      --card-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      --chip-bg: #efefed;
+      --chip-active-bg: #ffeaea;
+      --chip-active-color: #c0392b;
+      --placeholder-bg: #e8e8e6;
+    }
+
+    [data-theme="dark"] {
+      --left-bg: #14110f;
+      --left-text: #f0ede8;
+      --left-heading: #6a6460;
+      --left-meta: #8a8480;
+      --left-link: #e05a4a;
+      --left-border: #2a2520;
+      --right-bg: #1c1916;
+      --right-text: #d0cdc8;
+      --right-border: #2c2925;
+      --toggle-bg: #2a2520;
+      --toggle-text: #c0bdb8;
+      --card-bg: #211e1b;
+      --card-border: #2e2b28;
+      --card-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      --chip-bg: #2a2520;
+      --chip-active-bg: #3a1a1a;
+      --chip-active-color: #e05a4a;
+      --placeholder-bg: #2a2520;
+    }
+
+    body {
+      background: var(--right-bg);
+      color: var(--right-text);
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--left-bg);
+      border-bottom: 1px solid var(--left-border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      transition: background-color 0.2s;
+    }
+
+    .logo {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: 20px;
+      color: var(--left-text);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+      flex-shrink: 0;
+    }
+
+    .search-wrap {
+      flex: 1;
+      max-width: 460px;
+    }
+
+    #search {
+      width: 100%;
+      padding: 7px 12px;
+      border: 1px solid var(--left-border);
+      border-radius: 6px;
+      background: var(--right-bg);
+      color: var(--right-text);
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s, background-color 0.2s;
+    }
+
+    #search:focus { border-color: var(--left-link); }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    #count {
+      font-size: 13px;
+      color: var(--left-heading);
+      margin-right: 4px;
+    }
+
+    /* ── View toggle ── */
+    .view-toggle {
+      display: flex;
+      border: 1px solid var(--right-border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .view-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      color: var(--left-meta);
+      cursor: pointer;
+      padding: 0;
+      transition: background-color 0.15s, color 0.15s;
+    }
+
+    .view-btn + .view-btn { border-left: 1px solid var(--right-border); }
+
+    .view-btn:hover { background: var(--toggle-bg); }
+
+    .view-btn.active {
+      background: var(--left-link);
+      color: #fff;
+    }
+
+    .view-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+    /* ── Theme toggle ── */
+    .theme-btn {
+      background: var(--toggle-bg);
+      color: var(--toggle-text);
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      transition: background-color 0.2s;
+    }
+
+    .theme-btn:hover { opacity: 0.8; }
+
+    /* ── Help / icon button ── */
+    .icon-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1.5px solid rgba(0, 0, 0, 0.13);
+      background: transparent; color: #666; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.88rem; font-weight: 500; flex-shrink: 0;
+      transition: opacity 0.15s, border-color 0.15s;
+    }
+    .icon-btn:hover { opacity: 0.65; }
+    [data-theme="dark"] .icon-btn { border-color: rgba(255,255,255,0.15); color: #c0bdb8; }
+
+    /* ── Help modal ── */
+    #help-overlay {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.38);
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
+    }
+    #help-overlay.open { display: flex; }
+    #help-modal {
+      background: var(--right-bg); color: var(--right-text);
+      border: 1px solid var(--right-border); border-radius: 12px;
+      padding: 1.75rem 2rem 1.5rem; max-width: 400px;
+      width: calc(100% - 3rem); box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+      position: relative;
+    }
+    #help-modal h3 {
+      font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--left-heading);
+      margin: 1.2rem 0 0.6rem;
+    }
+    #help-modal h3:first-child { margin-top: 0; }
+    #help-modal p { font-size: 0.88rem; line-height: 1.65; margin: 0; }
+    .help-shortcuts { display: grid; grid-template-columns: auto 1fr; gap: 0.45rem 1rem; }
+    .help-key {
+      font-family: 'DM Mono', 'SF Mono', 'Menlo', monospace;
+      background: var(--toggle-bg); color: var(--left-text);
+      border-radius: 4px; padding: 0.15rem 0.5rem;
+      font-size: 0.78rem; white-space: nowrap;
+      align-self: center; text-align: center;
+    }
+    .help-desc { color: var(--left-meta); align-self: center; font-size: 0.85rem; }
+    #help-close {
+      position: absolute; top: 0.75rem; right: 0.75rem;
+      width: 26px; height: 26px; border-radius: 50%; border: none;
+      background: transparent; color: var(--left-meta);
+      cursor: pointer; font-size: 1.1rem; opacity: 0.5;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.15s;
+    }
+    #help-close:hover { opacity: 1; }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      background: var(--left-bg);
+      border-bottom: 1px solid var(--left-border);
+      padding: 12px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      transition: background-color 0.2s;
+    }
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      background: var(--chip-bg);
+      color: var(--left-meta);
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background-color 0.15s, color 0.15s;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .chip:hover { opacity: 0.8; }
+
+    .chip.active {
+      background: var(--chip-active-bg);
+      color: var(--chip-active-color);
+      border-color: var(--chip-active-color);
+    }
+
+    .filter-pipe {
+      color: var(--left-border);
+      font-size: 13px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .channel-select {
+      padding: 4px 10px;
+      font-size: 12px;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--right-bg);
+      color: var(--right-text);
+      border: 1px solid var(--right-border);
+      border-radius: 6px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .reset-btn {
+      display: inline-flex;
+      margin-left: auto;
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--chip-active-color);
+      background: var(--chip-active-bg);
+      color: var(--chip-active-color);
+      cursor: pointer;
+      white-space: nowrap;
+      gap: 4px;
+      align-items: center;
+    }
+    .reset-btn:hover {
+      opacity: 0.8;
+    }
+    .filter-label {
+      font-size: 12px;
+      color: var(--left-meta);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ── Main content ── */
+    main {
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ── Card grid ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+      transition: background-color 0.2s, border-color 0.2s, transform 0.1s;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+
+    [data-theme="dark"] .card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    .card-thumb {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%; /* 16:9 */
+      background: var(--placeholder-bg);
+      overflow: hidden;
+    }
+
+    .card-thumb img {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .card-body {
+      padding: 12px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .card-title {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: 15px;
+      line-height: 1.35;
+      color: var(--left-text);
+      text-decoration: none;
+    }
+
+    .card-title:hover { color: var(--left-link); }
+
+    .card-meta {
+      font-size: 12px;
+      color: var(--left-meta);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+    }
+
+    .card-meta .dot::before {
+      content: '·';
+      margin-right: 4px;
+    }
+
+    .card-summary {
+      font-size: 13px;
+      color: var(--right-text);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .card-tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--chip-bg);
+      color: var(--left-meta);
+    }
+
+    .card-gen-date {
+      font-size: 11px;
+      color: var(--left-heading);
+      margin-top: 2px;
+    }
+
+    /* ── List table ── */
+    .list-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .list-table th {
+      text-align: left;
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--left-heading);
+      border-bottom: 2px solid var(--right-border);
+      white-space: nowrap;
+    }
+
+    .list-table th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .list-table th.sortable:hover { color: var(--right-text); }
+
+    .list-table th.sort-active { color: var(--left-link); font-weight: 700; }
+
+    .list-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--right-border);
+      vertical-align: middle;
+      color: var(--right-text);
+    }
+
+    .list-table tr { cursor: pointer; }
+
+    .list-table tr:hover td { background: var(--chip-bg); }
+
+    .list-table tr:last-child td { border-bottom: none; }
+
+    .list-thumb img {
+      width: 72px;
+      height: 40px;
+      object-fit: cover;
+      border-radius: 3px;
+      display: block;
+    }
+
+    .list-thumb-placeholder {
+      width: 72px;
+      height: 40px;
+      border-radius: 3px;
+      background: var(--placeholder-bg);
+      display: block;
+    }
+
+    .list-title {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: 14px;
+      color: var(--left-text);
+      text-decoration: none;
+    }
+
+    .list-title:hover { color: var(--left-link); }
+
+    .list-tags {
+      display: flex;
+      gap: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      max-width: 160px;
+      align-items: center;
+    }
+
+    .list-tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 500;
+      background: var(--chip-bg);
+      color: var(--left-meta);
+      white-space: nowrap;
+    }
+
+    .list-tag-overflow {
+      font-size: 10px;
+      color: var(--left-heading);
+      white-space: nowrap;
+    }
+
+    /* ── Empty state ── */
+    .empty {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--left-heading);
+    }
+
+    .empty h2 {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+
+    /* ── Loading state ── */
+    .loading {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--left-heading);
+      font-size: 14px;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      header { flex-wrap: wrap; gap: 10px; padding: 12px 16px; }
+      .search-wrap { order: 3; max-width: 100%; width: 100%; }
+      main { padding: 16px; }
+      .filter-bar { padding: 8px 16px; }
+    }
+
+  </style>
+</head>
+<body>
+
+<div id="help-overlay" role="dialog" aria-modal="true" aria-label="Help">
+  <div id="help-modal">
+    <button id="help-close" aria-label="Close">×</button>
+    <h3>About</h3>
+    <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player. <a href="https://github.com/kar2phi/video-lens" target="_blank">View source ↗</a></p>
+    <p>video-lens gallery — browse and search your saved reports. Click any card or row to open the full report.</p>
+    <h3>Shortcuts</h3>
+    <div class="help-shortcuts">
+      <span class="help-key">/</span><span class="help-desc">focus search</span>
+      <span class="help-key">1</span><span class="help-desc">cards view</span>
+      <span class="help-key">2</span><span class="help-desc">list view</span>
+    </div>
+  </div>
+</div>
+
+<header>
+  <span class="logo">video-lens</span>
+  <div class="search-wrap">
+    <input type="search" id="search" placeholder="Search titles, channels, summaries…" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="header-right">
+    <span id="count"></span>
+    <div class="view-toggle" id="viewToggle">
+      <button class="view-btn" data-view="cards" title="Cards view" aria-label="Cards view">
+        <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/>
+          <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>
+        </svg>
+      </button>
+      <button class="view-btn" data-view="list" title="List view" aria-label="List view">
+        <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/>
+          <rect x="1" y="12" width="14" height="2" rx="1"/>
+        </svg>
+      </button>
+    </div>
+    <button class="icon-btn" id="helpBtn" title="Help" aria-label="Help">?</button>
+    <button class="theme-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle dark/light mode">☀</button>
+  </div>
+</header>
+
+<div class="filter-bar" id="filterBar">
+  <div class="filter-row" id="tagRow">
+    <span class="filter-label">Tags</span>
+    <span class="filter-pipe">|</span>
+    <div id="tagChips" style="display:contents"></div>
+  </div>
+  <div class="filter-row" id="channelRow" style="display:none">
+    <span class="filter-label">Channel</span>
+    <span class="filter-pipe">|</span>
+    <select id="channelSelect" class="channel-select" title="Filter by channel">
+      <option value="">All channels</option>
+    </select>
+    <button id="resetBtn" class="reset-btn" style="display:none"
+            title="Clear all filters" aria-label="Clear all filters">× Clear filters</button>
+  </div>
+</div>
+
+<main id="main">
+  <div class="loading">Loading reports…</div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let allReports = [];
+  let activeTags = new Set();
+  let activeChannel = '';
+  let searchQuery = '';
+  let hasMultipleChannels = false;
+  let searchTimer = null;
+
+  const VIEW_KEY = 'viewMode';
+  let viewMode = localStorage.getItem(VIEW_KEY) || 'cards';
+  let sortCol = 'generationDate';
+  let sortDir = -1; // -1 = desc, 1 = asc
+
+  // ── Theme ──────────────────────────────────────────────────────────────────
+  const THEME_KEY = 'theme';
+  function applyTheme(t) {
+    document.documentElement.dataset.theme = t;
+    document.getElementById('themeBtn').textContent = t === 'dark' ? '☀' : '☾';
+  }
+  const savedTheme = localStorage.getItem(THEME_KEY) ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  applyTheme(savedTheme);
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem(THEME_KEY, next);
+    applyTheme(next);
+  });
+
+  // ── Load manifest ──────────────────────────────────────────────────────────
+  // build_index.py inlines the manifest as window.__MANIFEST__ so this works
+  // from file:// as well as http://localhost:8765/
+  if (window.__MANIFEST__) {
+    allReports = window.__MANIFEST__.reports || [];
+    init();
+  } else {
+    fetch('manifest.json?_=' + Date.now())
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (manifest) {
+        allReports = manifest.reports || [];
+        init();
+      })
+      .catch(function (err) {
+        document.getElementById('main').innerHTML =
+          '<div class="empty"><h2>No index found</h2>' +
+          '<p>Run <code>task build-index</code> to generate the index.</p></div>';
+      });
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  function init() {
+    // Default order: newest first
+    allReports.sort(function (a, b) {
+      const da = a.generationDate || '0000-00-00';
+      const db = b.generationDate || '0000-00-00';
+      return da < db ? 1 : da > db ? -1 : 0;
+    });
+    buildTagChips();
+    buildChannelSelect();
+    bindEvents();
+    render();
+  }
+
+  function buildTagChips() {
+    const tagCount = {};
+    allReports.forEach(function (r) {
+      (r.tags || []).forEach(function (t) {
+        tagCount[t] = (tagCount[t] || 0) + 1;
+      });
+    });
+    const sorted = Object.entries(tagCount)
+      .sort(function (a, b) { return b[1] - a[1]; })
+      .slice(0, 25);
+
+    const container = document.getElementById('tagChips');
+    if (sorted.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+    sorted.forEach(function (entry) {
+      const tag = entry[0], count = entry[1];
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      chip.textContent = tag + ' (' + count + ')';
+      chip.dataset.tag = tag;
+      chip.addEventListener('click', function () {
+        if (activeTags.has(tag)) {
+          activeTags.delete(tag);
+          chip.classList.remove('active');
+        } else {
+          activeTags.add(tag);
+          chip.classList.add('active');
+        }
+        render();
+      });
+      container.appendChild(chip);
+    });
+  }
+
+  function buildChannelSelect() {
+    const channels = [...new Set(allReports.map(function (r) { return r.channel || ''; }).filter(Boolean))].sort();
+    hasMultipleChannels = channels.length > 1;
+    const row = document.getElementById('channelRow');
+    if (channels.length <= 1) { row.style.display = 'none'; return; }
+    row.style.display = '';
+    const sel = document.getElementById('channelSelect');
+    channels.forEach(function (ch) {
+      const opt = document.createElement('option');
+      opt.value = ch;
+      opt.textContent = ch;
+      sel.appendChild(opt);
+    });
+  }
+
+  function bindEvents() {
+    document.getElementById('search').addEventListener('input', function (e) {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () {
+        searchQuery = e.target.value.trim().toLowerCase();
+        render();
+      }, 150);
+    });
+
+    document.getElementById('channelSelect').addEventListener('change', function (e) {
+      activeChannel = e.target.value;
+      render();
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', function () {
+      activeTags.clear();
+      activeChannel = '';
+      searchQuery = '';
+      document.getElementById('channelSelect').value = '';
+      document.getElementById('search').value = '';
+      document.querySelectorAll('#tagChips .chip').forEach(function (btn) {
+        btn.classList.remove('active');
+      });
+      render();
+    });
+
+    // View toggle
+    document.querySelectorAll('.view-btn').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.view === viewMode);
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.view-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        viewMode = btn.dataset.view;
+        localStorage.setItem(VIEW_KEY, viewMode);
+        render();
+      });
+    });
+  }
+
+  // ── Filtering ──────────────────────────────────────────────────────────────
+  function filterReports() {
+    return allReports.filter(function (r) {
+      if (activeChannel && r.channel !== activeChannel) return false;
+      if (activeTags.size > 0) {
+        const rTags = r.tags || [];
+        const match = [...activeTags].some(function (t) { return rTags.includes(t); });
+        if (!match) return false;
+      }
+      if (searchQuery) {
+        const hay = [r.title, r.channel, r.summary, (r.tags || []).join(' '), (r.keywords || []).join(' ')]
+          .join(' ').toLowerCase();
+        if (!hay.includes(searchQuery)) return false;
+      }
+      return true;
+    });
+  }
+
+  // ── Rendering ──────────────────────────────────────────────────────────────
+  function render() {
+    const filtered = filterReports();
+    document.getElementById('count').textContent = filtered.length + ' of ' + allReports.length;
+    const hasFilters = activeTags.size > 0 || activeChannel || searchQuery;
+    document.getElementById('channelRow').style.display =
+      (hasMultipleChannels || hasFilters) ? '' : 'none';
+    document.getElementById('resetBtn').style.display = hasFilters ? '' : 'none';
+
+    const main = document.getElementById('main');
+
+    if (filtered.length === 0) {
+      main.innerHTML = '<div class="empty"><h2>No reports match</h2><p>Try adjusting your search or filters.</p></div>';
+      return;
+    }
+
+    main.innerHTML = '';
+    if (viewMode === 'cards') renderCards(filtered, main);
+    else renderList(filtered, main);
+  }
+
+  function renderCards(reports, container) {
+    const grid = document.createElement('div');
+    grid.className = 'card-grid';
+    reports.forEach(function (r) { grid.appendChild(buildCard(r)); });
+    container.appendChild(grid);
+  }
+
+  function parseDuration(str) {
+    if (!str) return 0;
+    // "1h 16m", "2h 7m", "1h"
+    var hm = str.match(/(\d+)h(?:\s+(\d+)m)?/);
+    if (hm) return parseInt(hm[1], 10) * 3600 + (parseInt(hm[2] || '0', 10) * 60);
+    // "22 min", "37 min"
+    var m = str.match(/(\d+)\s*min/);
+    if (m) return parseInt(m[1], 10) * 60;
+    // legacy HH:MM:SS / MM:SS
+    var parts = str.split(':').map(Number);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return 0;
+  }
+
+  function renderList(reports, container) {
+    const cols = [
+      { key: null,             label: '',         sortable: false },
+      { key: 'title',          label: 'Title',    sortable: true  },
+      { key: 'channel',        label: 'Channel',  sortable: true  },
+      { key: 'duration',       label: 'Duration', sortable: true  },
+      { key: null,             label: 'Tags',     sortable: false },
+      { key: 'generationDate', label: 'Saved',    sortable: true  },
+    ];
+
+    const sorted = reports.slice().sort(function (a, b) {
+      var va, vb;
+      if (sortCol === 'duration') {
+        va = parseDuration(a.duration);
+        vb = parseDuration(b.duration);
+        if (va < vb) return -sortDir;
+        if (va > vb) return sortDir;
+        return 0;
+      }
+      va = (a[sortCol] || '').toLowerCase();
+      vb = (b[sortCol] || '').toLowerCase();
+      if (va < vb) return -sortDir;
+      if (va > vb) return sortDir;
+      return 0;
+    });
+
+    const table = document.createElement('table');
+    table.className = 'list-table';
+
+    // Header row
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    cols.forEach(function (col) {
+      const th = document.createElement('th');
+      if (col.sortable) {
+        th.className = 'sortable';
+        if (sortCol === col.key) {
+          th.classList.add('sort-active');
+          th.textContent = col.label + (sortDir === 1 ? ' ↑' : ' ↓');
+        } else {
+          th.textContent = col.label;
+        }
+        th.addEventListener('click', function () {
+          if (sortCol === col.key) {
+            sortDir *= -1;
+          } else {
+            sortCol = col.key;
+            sortDir = col.key === 'generationDate' ? -1 : 1;
+          }
+          renderList(reports, container);
+        });
+      } else {
+        th.textContent = col.label;
+      }
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    // Body rows
+    const tbody = document.createElement('tbody');
+    sorted.forEach(function (r) {
+      const tr = document.createElement('tr');
+      const href = r.filename ? reportUrl(r.filename) : '#';
+
+      tr.addEventListener('click', function (e) {
+        if (e.target.tagName === 'A') return;
+        if (href !== '#') window.location.href = href;
+      });
+
+      // Thumbnail
+      const tdThumb = document.createElement('td');
+      tdThumb.className = 'list-thumb';
+      if (r.videoId) {
+        const img = document.createElement('img');
+        img.src = 'https://i.ytimg.com/vi/' + r.videoId + '/mqdefault.jpg';
+        img.alt = '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        tdThumb.appendChild(img);
+      } else {
+        const ph = document.createElement('span');
+        ph.className = 'list-thumb-placeholder';
+        tdThumb.appendChild(ph);
+      }
+      tr.appendChild(tdThumb);
+
+      // Title
+      const tdTitle = document.createElement('td');
+      const titleLink = document.createElement('a');
+      titleLink.className = 'list-title';
+      titleLink.href = href;
+      titleLink.target = '_blank';
+      titleLink.rel = 'noopener';
+      titleLink.textContent = r.title || 'Untitled';
+      tdTitle.appendChild(titleLink);
+      tr.appendChild(tdTitle);
+
+      // Channel
+      const tdChannel = document.createElement('td');
+      tdChannel.textContent = r.channel || '';
+      tr.appendChild(tdChannel);
+
+      // Duration
+      const tdDuration = document.createElement('td');
+      tdDuration.textContent = r.duration || '';
+      tr.appendChild(tdDuration);
+
+      // Tags (max 3 + overflow)
+      const tdTags = document.createElement('td');
+      const tags = r.tags || [];
+      if (tags.length > 0) {
+        const wrap = document.createElement('div');
+        wrap.className = 'list-tags';
+        tags.slice(0, 3).forEach(function (t) {
+          const span = document.createElement('span');
+          span.className = 'list-tag';
+          span.textContent = t;
+          wrap.appendChild(span);
+        });
+        if (tags.length > 3) {
+          const overflow = document.createElement('span');
+          overflow.className = 'list-tag-overflow';
+          overflow.textContent = '+' + (tags.length - 3);
+          wrap.appendChild(overflow);
+        }
+        tdTags.appendChild(wrap);
+      }
+      tr.appendChild(tdTags);
+
+      // Saved date
+      const tdSaved = document.createElement('td');
+      tdSaved.textContent = r.generationDate || '';
+      tr.appendChild(tdSaved);
+
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+
+    container.innerHTML = '';
+    container.appendChild(table);
+  }
+
+  function reportUrl(href) {
+    if (!href || href === '#') return '#';
+    if (window.location.protocol === 'file:') return 'http://localhost:8765/' + href;
+    return window.location.origin + '/' + href;
+  }
+
+  function buildCard(r) {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const filename = r.filename || '';
+    const href = filename ? filename : '#';
+
+    card.addEventListener('click', function (e) {
+      if (e.target.tagName === 'A') return;
+      if (href !== '#') window.location.href = reportUrl(href);
+    });
+
+    // Thumbnail
+    const thumbWrap = document.createElement('div');
+    thumbWrap.className = 'card-thumb';
+    if (r.videoId) {
+      const img = document.createElement('img');
+      img.src = 'https://i.ytimg.com/vi/' + r.videoId + '/mqdefault.jpg';
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      thumbWrap.appendChild(img);
+    }
+    card.appendChild(thumbWrap);
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'card-body';
+
+    // Title
+    const titleLink = document.createElement('a');
+    titleLink.className = 'card-title';
+    titleLink.href = reportUrl(href);
+    titleLink.target = '_blank';
+    titleLink.rel = 'noopener';
+    titleLink.textContent = r.title || 'Untitled';
+    body.appendChild(titleLink);
+
+    // Meta line
+    const metaParts = [];
+    if (r.channel) metaParts.push({ text: r.channel });
+    if (r.duration) metaParts.push({ text: r.duration, dot: true });
+    if (r.publishDate) metaParts.push({ text: r.publishDate, dot: true });
+    if (metaParts.length > 0) {
+      const meta = document.createElement('div');
+      meta.className = 'card-meta';
+      metaParts.forEach(function (p) {
+        const span = document.createElement('span');
+        if (p.dot) span.className = 'dot';
+        span.textContent = p.text;
+        meta.appendChild(span);
+      });
+      body.appendChild(meta);
+    }
+
+    // Summary
+    if (r.summary) {
+      const summary = document.createElement('div');
+      summary.className = 'card-summary';
+      summary.textContent = r.summary;
+      body.appendChild(summary);
+    }
+
+    // Tags
+    if (r.tags && r.tags.length > 0) {
+      const tagsEl = document.createElement('div');
+      tagsEl.className = 'card-tags';
+      r.tags.forEach(function (t) {
+        const tag = document.createElement('span');
+        tag.className = 'card-tag';
+        tag.textContent = t;
+        tagsEl.appendChild(tag);
+      });
+      body.appendChild(tagsEl);
+    }
+
+    // Generation date
+    if (r.generationDate) {
+      const genDate = document.createElement('div');
+      genDate.className = 'card-gen-date';
+      genDate.textContent = 'Saved ' + r.generationDate;
+      body.appendChild(genDate);
+    }
+
+    card.appendChild(body);
+    return card;
+  }
+
+  // ── Help modal + keyboard shortcuts ────────────────────────────────────────
+  (function () {
+    var overlay  = document.getElementById('help-overlay');
+    var closeBtn = document.getElementById('help-close');
+    var helpBtn  = document.getElementById('helpBtn');
+    var searchEl = document.getElementById('search');
+
+    function openHelp()  { overlay.classList.add('open'); }
+    function closeHelp() { overlay.classList.remove('open'); }
+
+    helpBtn.addEventListener('click', openHelp);
+    closeBtn.addEventListener('click', closeHelp);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeHelp();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      var tag = document.activeElement ? document.activeElement.tagName : '';
+      var inInput = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+
+      if (inInput) return;
+
+      if (e.key === '/') {
+        e.preventDefault();
+        searchEl.focus(); searchEl.select();
+      } else if (e.key === '1') {
+        var btn = document.querySelector('.view-btn[data-view="cards"]');
+        if (btn) btn.click();
+      } else if (e.key === '2') {
+        var btn = document.querySelector('.view-btn[data-view="list"]');
+        if (btn) btn.click();
+      }
+    });
+  })();
+
+})();
+</script>
+</body>
+</html>

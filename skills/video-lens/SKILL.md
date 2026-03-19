@@ -118,6 +118,10 @@ Rules:
 
 **Otherwise:** create one outline entry for each major topic shift or distinct segment in the video. Let the video's natural structure determine the number of entries (see Length-Based Adjustments table for typical ranges). Do not pad with minor sub-topics to hit a target count, and do not merge distinct topics to stay under a cap.
 
+**Tags** — 3–5 short, lowercase topic category labels for the index (e.g. "ai", "hardware", "machine learning", "economics", "history"). Think of these as broad genre/domain tags a viewer would use to filter a list. Rules: (1) prefer broader terms over narrower sub-categories — use "hardware" not "memory hardware"; (2) avoid overlap — do not emit two tags that are sub-topics of the same concept, e.g. use "llm" instead of both "llm engineering" and "context engineering"; (3) each tag must be meaningfully distinct from every other tag in the set. Bad example: `["hardware", "memory hardware", "llm engineering", "context engineering"]` → Good: `["hardware", "llm"]`. Separate from key-point keywords.
+
+**Keywords** — extract the plain-text content of each `<strong>` headline from Key Points (the phrase before the " — " dash). These are used for index search.
+
 #### Quality Guidelines
 
 - **Accuracy** — Only include information present in the transcript. Do not infer, speculate, or add external knowledge.
@@ -144,7 +148,7 @@ Key Point count is governed by content density (3–8 typical), not video length
 - Today's date: read the `DATE:` line from the transcript output produced in Step 2.
 - Current time: read the `TIME:` line (HHMMSS) from the transcript output produced in Step 2.
 - Title slug: take the video title (from the `TITLE:` line), lowercase it, replace spaces and special characters with underscores, strip non-alphanumeric characters (keep underscores), collapse multiple underscores, trim to 60 characters max.
-- Output directory: `~/Downloads/` — save all reports here.
+- Output directory: `~/Downloads/video-lens/reports/` — save all reports here. Create with: `mkdir -p ~/Downloads/video-lens/reports/`
 - Filename: `YYYY-MM-DD-HHMMSS-video-lens_<slug>.html`
 - Example: `2026-03-06-210126-video-lens_speech_president_finland.html`
 
@@ -152,7 +156,7 @@ Key Point count is governed by content density (3–8 typical), not video length
 
 **CRITICAL: This is not a design task. Do not write your own HTML. Do not read the template file.**
 
-Pipe a JSON object with the 9 template keys to `render_report.py`. The script discovers `template.html`, performs `{{KEY}}` substitution, and writes the output file.
+Pipe a JSON object with the 10 template keys to `render_report.py`. The script discovers `template.html`, performs `{{KEY}}` substitution, and writes the output file.
 
 Values to fill:
 
@@ -167,12 +171,37 @@ Values to fill:
 | `TAKEAWAY` | 1–3 sentence "so what?" — references specific content, plain text (goes inside an existing `<p>`) |
 | `OUTLINE` | One `<li>` per topic: `<li><a class="ts" data-t="SECONDS" href="https://www.youtube.com/watch?v=VIDEOID&t=SECONDS" target="_blank">▶ M:SS</a> — <span class="outline-title">Short Title</span><span class="outline-detail">Detail sentence.</span></li>` (where `VIDEOID` = the actual video ID). Title: 3–8 words, scannable. Detail: one sentence of context. (Use the same timestamp format as the transcript lines — `M:SS` or `H:MM:SS`; `data-t` and `&t=` always use raw seconds.) |
 | `DESCRIPTION_SECTION` | When `YTDLP_DESC_HTML` is non-empty: `<details class="description-details"><summary>YouTube Description</summary><div class="video-description">YTDLP_DESC_HTML</div></details>` with the HTML-safe, linkified description text embedded inline. Otherwise: `""` (empty string — nothing rendered) |
+| `VIDEO_LENS_META` | JSON string (see below) — embedded in the report for the index page |
+
+**Building `VIDEO_LENS_META`:** Serialize this object with `json.dumps()` as the value for the `VIDEO_LENS_META` key. Fill it from the data already generated in Steps 2–4:
+- `videoId` — YouTube video ID
+- `title` — plain-text video title (no HTML entities)
+- `channel` — channel name (from META_LINE / YTDLP_CHANNEL)
+- `duration` — formatted duration string (e.g. `"1h 16m"`)
+- `publishDate` — video publish date (e.g. `"Dec 5 2025"`)
+- `generationDate` — report generation date (`DATE:` line from Step 2, format `YYYY-MM-DD`)
+- `summary` — first ~300 characters of SUMMARY as plain text (no HTML entities)
+- `tags` — array of 3–5 topic tags generated in Step 3
+- `keywords` — array of plain-text `<strong>` headlines from KEY_POINTS
+- `filename` — the output filename from Step 4 (basename only, e.g. `2026-03-06-210126-video-lens_slug.html`)
 
 Run this as a single Bash command. Build the JSON object inside a heredoc and pipe it to the render script. Replace `OUTPUT_PATH` with the absolute output path from Step 4.
 
 ```bash
 _sd=$(for d in ~/.agents ~/.claude ~/.copilot ~/.gemini ~/.cursor ~/.windsurf ~/.opencode ~/.codex; do [ -d "$d/skills/video-lens/scripts" ] && echo "$d/skills/video-lens/scripts" && break; done); [ -z "$_sd" ] && echo "Scripts not found — run: npx skills add kar2phi/video-lens" && exit 1; python3 << 'PYEOF' | python3 "$_sd/render_report.py" "OUTPUT_PATH"
 import json, sys
+meta_obj = {
+    "videoId":        "...",
+    "title":          "...",
+    "channel":        "...",
+    "duration":       "...",
+    "publishDate":    "...",
+    "generationDate": "...",
+    "summary":        "...",
+    "tags":           ["...", "..."],
+    "keywords":       ["...", "..."],
+    "filename":       "...",
+}
 json.dump({
     "VIDEO_ID":             "...",
     "VIDEO_TITLE":          "...",
@@ -183,6 +212,7 @@ json.dump({
     "KEY_POINTS":           """...""",
     "OUTLINE":              """...""",
     "DESCRIPTION_SECTION":  "",
+    "VIDEO_LENS_META":      json.dumps(meta_obj),
 }, sys.stdout)
 PYEOF
 ```
@@ -196,6 +226,16 @@ _sd=$(for d in ~/.agents ~/.claude ~/.copilot ~/.gemini ~/.cursor ~/.windsurf ~/
 ```
 
 Replace `OUTPUT_PATH` with the absolute path to the HTML file from Step 4. The script keeps a single server running on port 8765 across multiple reports — all files in the output directory remain accessible at `http://localhost:8765/`.
+
+### 7. Rebuild the index
+
+After serving the report, rebuild the index so the new report appears in the index page immediately.
+
+```bash
+_gd=$(for d in ~/.agents ~/.claude ~/.copilot ~/.gemini ~/.cursor ~/.windsurf ~/.opencode ~/.codex; do [ -d "$d/skills/video-lens-gallery/scripts" ] && echo "$d/skills/video-lens-gallery/scripts" && break; done); [ -z "$_gd" ] && echo "WARNING: build_index.py not found — index not rebuilt" && exit 0; python3 "$_gd/build_index.py" --dir ~/Downloads/video-lens
+```
+
+If `build_index.py` is unavailable or fails, print a warning and continue — do NOT stop the skill.
 
 ---
 

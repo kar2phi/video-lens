@@ -18,6 +18,7 @@ video-lens is a coding agent skill that fetches a YouTube transcript and generat
 - **Keyboard shortcuts** — playback speed, layout resize (S/M/L), navigation, and more (`?` for help)
 - **Markdown export** — copy the full report as Markdown in one click
 - **Dark mode** — auto-detects system preference; remembered across sessions
+- **Video gallery** — browse, search, and filter all your saved reports by title, channel, tag, or keyword
 
 ---
 
@@ -110,6 +111,22 @@ Requires Raycast. The script opens a new iTerm2 tab (or Terminal.app if iTerm2 i
 
 Claude fetches the transcript, generates the report, and opens it in your browser at `http://localhost:8765/`.
 
+### Gallery
+
+After generating reports, browse them in the gallery:
+
+```
+/video-lens-gallery
+```
+
+Or rebuild the index manually:
+
+```bash
+task build-index
+```
+
+The gallery opens at `~/Downloads/video-lens/index.html`.
+
 ### Via Raycast
 
 Invoke the **video-lens** command, paste a YouTube URL (or leave blank to use the clipboard), and choose a model (default: Sonnet). The report opens automatically in your browser.
@@ -138,6 +155,12 @@ video-lens/
     video-lens/
       SKILL.md          ← skill prompt (source of truth)
       template.html     ← HTML report template (source of truth)
+    video-lens-gallery/
+      SKILL.md          ← gallery skill prompt (source of truth)
+      index.html        ← gallery viewer (source of truth)
+      scripts/
+        backfill_meta.py  ← backfills meta blocks into old reports
+        build_index.py    ← builds manifest.json and copies index.html
   scripts/
     raycast-video-lens.sh ← Raycast script (source of truth)
     yt_template_dev.py← Dev server helper

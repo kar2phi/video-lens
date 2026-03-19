@@ -6,11 +6,12 @@ Edit template.html, run this script, and see the result instantly.
 Usage:
     python scripts/yt_template_dev.py
 """
+import json
 import os
 import re
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '..', 'skills', 'video-lens', 'template.html')
-OUTPUT_PATH = os.path.expanduser('~/Downloads/sample_output.html')
+OUTPUT_PATH = os.path.expanduser('~/Downloads/video-lens/sample_output.html')
 
 # ── Hardcoded content for https://www.youtube.com/watch?v=3Y1G9najGiI ──────
 # AWS re:Invent 2025 — Werner Vogels final keynote
@@ -87,6 +88,19 @@ CONTENT = {
         "abdicating ownership of code they do not understand."
     ),
 
+    "VIDEO_LENS_META": json.dumps({
+        "videoId": "3Y1G9najGiI",
+        "title": "AWS re:Invent 2025 - Keynote with Dr. Werner Vogels",
+        "channel": "AWS Events",
+        "duration": "1h 16m",
+        "publishDate": "Dec 5 2025",
+        "generationDate": "2026-03-06",
+        "summary": "Werner Vogels uses his final AWS re:Invent keynote — after 14 consecutive years — to argue that today's AI moment is not the end of developers but the start of a new Renaissance.",
+        "tags": ["ai", "cloud", "software architecture", "developer culture"],
+        "keywords": ["Renaissance Developer", "verification debt", "systems thinking", "spec-driven development", "polymath"],
+        "filename": "2026-03-06-210126-video-lens_aws_reinvent_2025_keynote_with_dr_werner_vogels.html",
+    }),
+
     "DESCRIPTION_SECTION": (
         '<details class="description-details">'
         "<summary>YouTube Description</summary>"
@@ -121,6 +135,7 @@ CONTENT = {
 
 
 def render():
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     with open(TEMPLATE_PATH, "r", encoding="utf-8") as f:
         html = f.read()
     for key, value in CONTENT.items():

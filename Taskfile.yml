@@ -1,6 +1,19 @@
 version: '3'
 
+vars:
+  REPORTS_DIR: '{{.REPORTS_DIR | default "~/Downloads/video-lens"}}'
+
 tasks:
+  build-index:
+    desc: "Build manifest.json and copy index.html into the reports directory"
+    cmds:
+      - python3 skills/video-lens-gallery/scripts/build_index.py --dir {{.REPORTS_DIR}}
+
+  backfill-meta:
+    desc: "Inject video-lens-meta blocks into existing reports that lack them"
+    cmds:
+      - python3 skills/video-lens-gallery/scripts/backfill_meta.py --dir {{.REPORTS_DIR}}
+
   install-libraries:
     desc: Install Python dependencies
     cmd: pip install -r requirements.txt
@@ -17,7 +30,7 @@ tasks:
     desc: Run template dev server with sample content
     cmds:
       - python3 scripts/yt_template_dev.py
-      - bash skills/video-lens/scripts/serve_report.sh ~/Downloads/sample_output.html
+      - bash skills/video-lens/scripts/serve_report.sh ~/Downloads/video-lens/sample_output.html
 
   install-raycast:
     desc: "Copy scripts/raycast-video-lens.sh to ~/.raycast/scripts/ (AGENT=claude|gemini|codex|cursor|opencode|copilot)"
@@ -116,3 +129,8 @@ tasks:
         cp skills/video-lens/template.html "$dir/video-lens/template.html"
         rsync -a --delete --exclude='__pycache__' skills/video-lens/scripts/ "$dir/video-lens/scripts/"
         echo "Synced skills/video-lens/ → $dir/video-lens/"
+        mkdir -p "$dir/video-lens-gallery"
+        cp skills/video-lens-gallery/SKILL.md "$dir/video-lens-gallery/SKILL.md"
+        cp skills/video-lens-gallery/index.html "$dir/video-lens-gallery/index.html"
+        rsync -a --delete --exclude='__pycache__' skills/video-lens-gallery/scripts/ "$dir/video-lens-gallery/scripts/"
+        echo "Synced skills/video-lens-gallery/ → $dir/video-lens-gallery/"
