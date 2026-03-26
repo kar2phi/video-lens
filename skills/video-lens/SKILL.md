@@ -222,10 +222,10 @@ PYEOF
 The embedded YouTube player requires HTTP — `file://` URLs are blocked (Error 153). After writing the file, run the serve script which kills any existing server on port 8765, starts a new one, opens the browser, and prints `HTML_REPORT: <path>`.
 
 ```bash
-_sd=$(for d in ~/.agents ~/.claude ~/.copilot ~/.gemini ~/.cursor ~/.windsurf ~/.opencode ~/.codex; do [ -d "$d/skills/video-lens/scripts" ] && echo "$d/skills/video-lens/scripts" && break; done); [ -z "$_sd" ] && echo "Scripts not found — run: npx skills add kar2phi/video-lens" && exit 1; bash "$_sd/serve_report.sh" "OUTPUT_PATH"
+_sd=$(for d in ~/.agents ~/.claude ~/.copilot ~/.gemini ~/.cursor ~/.windsurf ~/.opencode ~/.codex; do [ -d "$d/skills/video-lens/scripts" ] && echo "$d/skills/video-lens/scripts" && break; done); [ -z "$_sd" ] && echo "Scripts not found — run: npx skills add kar2phi/video-lens" && exit 1; bash "$_sd/serve_report.sh" "OUTPUT_PATH" ~/Downloads/video-lens
 ```
 
-Replace `OUTPUT_PATH` with the absolute path to the HTML file from Step 4. The script keeps a single server running on port 8765 across multiple reports — all files in the output directory remain accessible at `http://localhost:8765/`.
+Replace `OUTPUT_PATH` with the absolute path to the HTML file from Step 4. The second argument pins the server root to `~/Downloads/video-lens` so the URL is always `http://localhost:8765/reports/<filename>.html`, regardless of how the path was expanded. The script keeps a single server running on port 8765 — all files under `~/Downloads/video-lens` (reports, gallery index, manifest) remain accessible.
 
 ### 7. Rebuild the index
 

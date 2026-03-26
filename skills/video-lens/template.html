@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{VIDEO_TITLE}}</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23c0392b'/><text x='16' y='21' font-family='sans-serif' font-size='13' font-weight='700' fill='%23ffd700' text-anchor='middle' letter-spacing='-0.5'>VL</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap"
     rel="stylesheet">
@@ -113,7 +114,8 @@
 
     #resizer:hover::after,
     #resizer.dragging::after {
-      opacity: 0;
+      opacity: 1;
+      background: rgba(255, 255, 255, 0.7);
     }
 
     /* Left col: sticky video + outline */
@@ -261,6 +263,12 @@
       margin-bottom: 0;
     }
 
+    #key-points li,
+    #takeaway li {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      line-height: 1.65;
+    }
+
     #key-points li p {
       margin-top: 0.45rem;
       margin-bottom: 0;
@@ -294,9 +302,9 @@
       font-family: 'DM Sans', system-ui, sans-serif;
       color: var(--left-text);
       line-height: 1.5;
-      border-left: 2px solid transparent;
       padding-left: 1rem;
       padding-block: 0.3rem;
+      cursor: pointer;
       transition: background-color 0.15s;
     }
 
@@ -306,7 +314,12 @@
     }
 
     .outline-detail {
-      display: none;
+      display: block;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: max-height 0.18s ease, opacity 0.18s ease;
       grid-column: 3;
       font-size: 0.84rem;
       line-height: 1.45;
@@ -316,7 +329,9 @@
 
     ol.topics li.expanded .outline-detail,
     ol.topics li.active .outline-detail {
-      display: block;
+      max-height: 150px;
+      opacity: 1;
+      pointer-events: auto;
     }
 
     ol.topics li:hover {
@@ -415,6 +430,8 @@
       box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
       font-family: 'DM Sans', system-ui, sans-serif;
       position: relative;
+      max-height: calc(100vh - 4rem);
+      overflow-y: auto;
     }
 
     #help-modal h3 {
@@ -705,6 +722,11 @@
       background: var(--left-border);
       cursor: pointer;
       flex-shrink: 0;
+      transition: height 0.15s ease;
+    }
+
+    #progress-track:hover {
+      height: 5px;
     }
 
     #progress-fill {
@@ -756,8 +778,8 @@
     .section-nav a {
       color: var(--left-meta);
       text-decoration: none;
-      padding-bottom: 2px;
-      border-bottom: 2px solid transparent;
+      padding-bottom: 1px;
+      border-bottom: 3px solid transparent;
       transition: color 0.15s, border-color 0.15s;
     }
 
@@ -927,8 +949,13 @@
   <div id="help-overlay" role="dialog" aria-modal="true" aria-label="Help">
     <div id="help-modal">
       <button id="help-close" aria-label="Close">×</button>
+      <div style="text-align:center;margin-bottom:16px">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="40" height="40" style="border-radius:50%"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg>
+      </div>
       <h3>About</h3>
-      <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player. <a href="https://github.com/kar2phi/video-lens" target="_blank">View source ↗</a></p>
+      <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player.</p>
+      <p>video-lens gallery lets you browse and search your saved reports. Click any card or row to open the full report.</p>
+      <p><a href="https://github.com/kar2phi/video-lens" target="_blank">View on GitHub ↗</a></p>
       <h3>Shortcuts</h3>
       <div class="help-shortcuts">
         <span class="help-key">k / Space</span><span class="help-desc">play / pause</span>
@@ -951,7 +978,7 @@
     <!-- Left: sticky video + outline -->
     <div class="left">
       <div class="video-wrap">
-        <iframe id="yt-player" src="https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&rel=0&controls=0"
+        <iframe id="yt-player" src="https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&rel=0&controls=0&iv_load_policy=3"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen>
         </iframe>
@@ -1400,7 +1427,6 @@
       });
 
       topicItems.forEach(function (item) {
-        item.li.style.cursor = 'pointer';
         item.li.addEventListener('click', function (e) {
           if (e.target.closest('a.ts')) return; // timestamp click seeks via link handler
           if (item.li.querySelector('.outline-detail')) {
@@ -1486,12 +1512,40 @@
         if (el) el.textContent = formatTime(cur) + ' / ' + (dur > 0 ? formatTime(dur) : '–:––');
       }, 500);
 
-      document.getElementById('progress-track').addEventListener('click', function (e) {
-        if (!ytPlayer || !ytPlayer.getDuration) return;
-        var pct = e.offsetX / this.offsetWidth;
-        ytPlayer.seekTo(ytPlayer.getDuration() * pct, true);
-        ytPlayer.playVideo();
-      });
+      (function () {
+        var track = document.getElementById('progress-track');
+        var fill = document.getElementById('progress-fill');
+        var dragging = false;
+        var dragRect;
+
+        function seekByEvent(e) {
+          if (!ytPlayer || !ytPlayer.getDuration) return;
+          var pct = Math.min(1, Math.max(0, (e.clientX - dragRect.left) / dragRect.width));
+          ytPlayer.seekTo(ytPlayer.getDuration() * pct, true);
+          ytPlayer.playVideo();
+        }
+
+        track.addEventListener('mousedown', function (e) {
+          dragging = true;
+          dragRect = track.getBoundingClientRect();
+          fill.style.transition = 'none';
+          seekByEvent(e);
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+
+        function onMove(e) {
+          if (!dragging) return;
+          seekByEvent(e);
+        }
+
+        function onUp() {
+          dragging = false;
+          fill.style.transition = '';
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        }
+      })();
 
       (function () {
         var navLinks = document.querySelectorAll('.section-nav a');
