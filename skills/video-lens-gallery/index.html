@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>video-lens — index</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23c0392b'/><text x='16' y='21' font-family='sans-serif' font-size='13' font-weight='700' fill='%23ffffff' text-anchor='middle' letter-spacing='-0.5'>VL</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -116,6 +117,8 @@
       font-size: 13px;
       color: var(--left-heading);
       margin-right: 4px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
 
     /* ── View toggle ── */
@@ -151,21 +154,6 @@
 
     .view-btn svg { width: 14px; height: 14px; fill: currentColor; }
 
-    /* ── Theme toggle ── */
-    .theme-btn {
-      background: var(--toggle-bg);
-      color: var(--toggle-text);
-      border: none;
-      border-radius: 6px;
-      padding: 6px 10px;
-      cursor: pointer;
-      font-size: 15px;
-      line-height: 1;
-      transition: background-color 0.2s;
-    }
-
-    .theme-btn:hover { opacity: 0.8; }
-
     /* ── Help / icon button ── */
     .icon-btn {
       width: 30px; height: 30px; border-radius: 50%;
@@ -192,6 +180,8 @@
       padding: 1.75rem 2rem 1.5rem; max-width: 400px;
       width: calc(100% - 3rem); box-shadow: 0 8px 40px rgba(0,0,0,0.18);
       position: relative;
+      max-height: calc(100vh - 4rem);
+      overflow-y: auto;
     }
     #help-modal h3 {
       font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em;
@@ -199,7 +189,7 @@
       margin: 1.2rem 0 0.6rem;
     }
     #help-modal h3:first-child { margin-top: 0; }
-    #help-modal p { font-size: 0.88rem; line-height: 1.65; margin: 0; }
+    #help-modal p { font-size: 0.88rem; line-height: 1.65; margin: 0; color: var(--right-text); font-family: 'DM Sans', system-ui, sans-serif; }
     .help-shortcuts { display: grid; grid-template-columns: auto 1fr; gap: 0.45rem 1rem; }
     .help-key {
       font-family: 'DM Mono', 'SF Mono', 'Menlo', monospace;
@@ -327,19 +317,20 @@
       border-radius: 8px;
       overflow: hidden;
       box-shadow: var(--card-shadow);
-      transition: background-color 0.2s, border-color 0.2s, transform 0.1s;
+      transition: background-color 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.15s;
       cursor: pointer;
       display: flex;
       flex-direction: column;
     }
 
     .card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.13);
+      border-color: var(--left-border);
     }
 
     [data-theme="dark"] .card:hover {
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
     }
 
     .card-thumb {
@@ -528,6 +519,10 @@
       margin-bottom: 8px;
     }
 
+    .empty p {
+      color: var(--left-meta);
+    }
+
     /* ── Loading state ── */
     .loading {
       text-align: center;
@@ -551,20 +546,25 @@
 <div id="help-overlay" role="dialog" aria-modal="true" aria-label="Help">
   <div id="help-modal">
     <button id="help-close" aria-label="Close">×</button>
+    <div style="text-align:center;margin-bottom:16px">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="40" height="40" style="border-radius:50%"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg>
+    </div>
     <h3>About</h3>
-    <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player. <a href="https://github.com/kar2phi/video-lens" target="_blank">View source ↗</a></p>
-    <p>video-lens gallery — browse and search your saved reports. Click any card or row to open the full report.</p>
+    <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player.</p>
+    <p>video-lens gallery lets you browse and search your saved reports. Click any card or row to open the full report.</p>
+    <p><a href="https://github.com/kar2phi/video-lens" target="_blank">View on GitHub ↗</a></p>
     <h3>Shortcuts</h3>
     <div class="help-shortcuts">
       <span class="help-key">/</span><span class="help-desc">focus search</span>
       <span class="help-key">1</span><span class="help-desc">cards view</span>
       <span class="help-key">2</span><span class="help-desc">list view</span>
+      <span class="help-key">Esc</span><span class="help-desc">close help</span>
     </div>
   </div>
 </div>
 
 <header>
-  <span class="logo">video-lens</span>
+  <span class="logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="24" style="vertical-align:middle;margin-right:6px;border-radius:50%"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg>video-lens</span>
   <div class="search-wrap">
     <input type="search" id="search" placeholder="Search titles, channels, summaries…" autocomplete="off" spellcheck="false">
   </div>
@@ -585,7 +585,9 @@
       </button>
     </div>
     <button class="icon-btn" id="helpBtn" title="Help" aria-label="Help">?</button>
-    <button class="theme-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle dark/light mode">☀</button>
+    <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle dark/light mode">
+      <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+    </button>
   </div>
 </header>
 
@@ -621,6 +623,7 @@
   let searchQuery = '';
   let hasMultipleChannels = false;
   let searchTimer = null;
+  let showAllTags = false;
 
   const VIEW_KEY = 'viewMode';
   let viewMode = localStorage.getItem(VIEW_KEY) || 'cards';
@@ -629,9 +632,12 @@
 
   // ── Theme ──────────────────────────────────────────────────────────────────
   const THEME_KEY = 'theme';
+  var sunPath = '<circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.87" y2="5.87"/><line x1="18.13" y1="18.13" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.87" y2="18.13"/><line x1="18.13" y1="5.87" x2="19.78" y2="4.22"/>';
+  var moonPath = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
   function applyTheme(t) {
     document.documentElement.dataset.theme = t;
-    document.getElementById('themeBtn').textContent = t === 'dark' ? '☀' : '☾';
+    var icon = document.getElementById('theme-icon');
+    if (icon) icon.innerHTML = t === 'dark' ? sunPath : moonPath;
   }
   const savedTheme = localStorage.getItem(THEME_KEY) ||
     (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -686,21 +692,26 @@
         tagCount[t] = (tagCount[t] || 0) + 1;
       });
     });
-    const sorted = Object.entries(tagCount)
-      .sort(function (a, b) { return b[1] - a[1]; })
-      .slice(0, 25);
+    const allSorted = Object.entries(tagCount)
+      .sort(function (a, b) { return b[1] - a[1]; });
+    const totalTags = allSorted.length;
+    const cap = 50;
+    const sorted = showAllTags ? allSorted : allSorted.slice(0, cap);
 
     const container = document.getElementById('tagChips');
+    container.innerHTML = '';
     if (sorted.length === 0) {
       container.style.display = 'none';
       return;
     }
+    container.style.display = 'contents';
     sorted.forEach(function (entry) {
       const tag = entry[0], count = entry[1];
       const chip = document.createElement('button');
       chip.className = 'chip';
       chip.textContent = tag + ' (' + count + ')';
       chip.dataset.tag = tag;
+      if (activeTags.has(tag)) chip.classList.add('active');
       chip.addEventListener('click', function () {
         if (activeTags.has(tag)) {
           activeTags.delete(tag);
@@ -713,6 +724,17 @@
       });
       container.appendChild(chip);
     });
+    if (!showAllTags && totalTags > cap) {
+      const more = document.createElement('button');
+      more.className = 'chip';
+      more.textContent = '+' + (totalTags - cap) + ' more';
+      more.style.borderStyle = 'dashed';
+      more.addEventListener('click', function () {
+        showAllTags = true;
+        buildTagChips();
+      });
+      container.appendChild(more);
+    }
   }
 
   function buildChannelSelect() {
@@ -799,7 +821,11 @@
     const main = document.getElementById('main');
 
     if (filtered.length === 0) {
-      main.innerHTML = '<div class="empty"><h2>No reports match</h2><p>Try adjusting your search or filters.</p></div>';
+      main.innerHTML = '<div class="empty">' +
+        '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.35;margin-bottom:16px">' +
+        '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>' +
+        '</svg>' +
+        '<h2>No reports match</h2><p>Try adjusting your search or filters.</p></div>';
       return;
     }
 
@@ -1087,6 +1113,8 @@
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       var tag = document.activeElement ? document.activeElement.tagName : '';
       var inInput = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
+
+      if (e.key === 'Escape') { closeHelp(); return; }
 
       if (inInput) return;
 

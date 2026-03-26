@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Serve an HTML report via a local HTTP server and open it in the browser.
 #
-# Usage: serve_report.sh /absolute/path/to/report.html
+# Usage: serve_report.sh /absolute/path/to/report.html [/serve/root/dir]
 #
 # - Kills any existing server on port 8765
-# - Starts python3 http.server in the file's directory
+# - Starts python3 http.server in the file's directory (or explicit root)
 # - Opens the report in the default browser
 
 set -euo pipefail
@@ -25,7 +25,11 @@ DIR="$(cd "$(dirname "$HTML_PATH")" && pwd)"
 FILE="$(basename "$HTML_PATH")"
 PORT=8765
 
-if [[ "$(basename "$DIR")" == "reports" ]]; then
+# Use explicit root if provided (tilde-expanded by caller), else fall back to heuristic
+if [ $# -ge 2 ]; then
+  SERVE_DIR="$(cd "$2" && pwd)"
+  URL_PATH="${HTML_PATH#${SERVE_DIR}/}"
+elif [[ "$(basename "$DIR")" == "reports" ]]; then
   SERVE_DIR="$(dirname "$DIR")"
   URL_PATH="reports/$FILE"
 else
