@@ -552,7 +552,7 @@
     <h3>About</h3>
     <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player.</p>
     <p>video-lens gallery lets you browse and search your saved reports. Click any card or row to open the full report.</p>
-    <p><a href="https://github.com/kar2phi/video-lens" target="_blank">View on GitHub ↗</a></p>
+    <p><a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a></p>
     <h3>Shortcuts</h3>
     <div class="help-shortcuts">
       <span class="help-key">/</span><span class="help-desc">focus search</span>
@@ -923,7 +923,7 @@
 
       tr.addEventListener('click', function (e) {
         if (e.target.tagName === 'A') return;
-        if (href !== '#') window.location.href = href;
+        if (href !== '#') window.open(href, '_blank', 'noopener,noreferrer');
       });
 
       // Thumbnail
@@ -949,7 +949,7 @@
       titleLink.className = 'list-title';
       titleLink.href = href;
       titleLink.target = '_blank';
-      titleLink.rel = 'noopener';
+      titleLink.rel = 'noopener noreferrer';
       titleLink.textContent = r.title || 'Untitled';
       tdTitle.appendChild(titleLink);
       tr.appendChild(tdTitle);
@@ -1001,7 +1001,9 @@
 
   function reportUrl(href) {
     if (!href || href === '#') return '#';
-    if (window.location.protocol === 'file:') return 'http://localhost:8765/' + href;
+    if (window.location.protocol === 'file:') {
+      return window.__vlServerUp ? 'http://localhost:8765/' + href : href;
+    }
     return window.location.origin + '/' + href;
   }
 
@@ -1014,7 +1016,7 @@
 
     card.addEventListener('click', function (e) {
       if (e.target.tagName === 'A') return;
-      if (href !== '#') window.location.href = reportUrl(href);
+      if (href !== '#') window.open(reportUrl(href), '_blank', 'noopener,noreferrer');
     });
 
     // Thumbnail
@@ -1039,7 +1041,7 @@
     titleLink.className = 'card-title';
     titleLink.href = reportUrl(href);
     titleLink.target = '_blank';
-    titleLink.rel = 'noopener';
+    titleLink.rel = 'noopener noreferrer';
     titleLink.textContent = r.title || 'Untitled';
     body.appendChild(titleLink);
 
@@ -1131,6 +1133,159 @@
     });
   })();
 
+})();
+
+// file:// banner – show server instructions when gallery is opened directly (no HTTP server)
+(function () {
+  if (window.location.protocol !== 'file:') return;
+
+  var rawPath = window.location.pathname;
+  var dir = decodeURIComponent(rawPath.replace(/\/[^/]+$/, ''));
+  var localUrl = 'http://localhost:8765/index.html';
+  var cmd = 'python3 -m http.server 8765 --directory "' + dir.replace(/"/g, '\\"') + '"';
+
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  var banner = document.createElement('div');
+  banner.id = 'fl-banner';
+  banner.setAttribute('style',
+    'background:var(--left-bg);color:var(--left-text);' +
+    'border-bottom:1px solid var(--left-border);' +
+    'padding:2rem 1.5rem;' +
+    'font-family:"DM Sans",system-ui,sans-serif;'
+  );
+
+  banner.innerHTML =
+    '<div style="width:100%;max-width:360px;margin:0 auto;display:flex;flex-direction:column;gap:22px;">' +
+
+    '<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;">' +
+    '<div style="width:46px;height:46px;background:var(--chip-bg);border:1px solid var(--left-border);border-radius:10px;display:flex;align-items:center;justify-content:center;">' +
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55">' +
+    '<rect x="2" y="2" width="20" height="20" rx="5"/>' +
+    '<polygon points="10,7.5 17,12 10,16.5" fill="currentColor" stroke="none"/>' +
+    '</svg>' +
+    '</div>' +
+    '<div>' +
+    '<p style="font-size:15px;font-weight:600;color:var(--left-text);margin:0 0 6px;line-height:1.3;">Serve to enable video playback</p>' +
+    '<p style="font-size:12px;color:var(--left-meta);line-height:1.65;max-width:290px;margin:0 auto;">' +
+    'YouTube blocks embeds opened via\u00a0' +
+    '<code style="font-size:10.5px;background:var(--left-border);padding:1px 5px;border-radius:3px;font-family:monospace">file://</code>' +
+    '.\u00a0Start a local HTTP server to enable playback.' +
+    '</p>' +
+    '</div>' +
+    '</div>' +
+
+    '<div style="display:flex;flex-direction:column;gap:8px;">' +
+    '<p style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--left-heading);margin:0;">' +
+    '\u2460\u00a0Start server' +
+    '</p>' +
+    '<div style="background:var(--chip-bg);border:1px solid var(--left-border);border-radius:8px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;">' +
+    '<code id="fl-cmd" style="flex:1;font-size:11px;font-family:\'SF Mono\',\'Fira Code\',\'Menlo\',monospace;line-height:1.65;word-break:break-all;user-select:all;color:var(--left-text);">' + esc(cmd) + '</code>' +
+    '<button id="fl-copy" style="flex-shrink:0;margin-top:2px;padding:5px 11px;font-size:11px;font-family:inherit;font-weight:500;background:var(--toggle-bg);color:var(--toggle-text);border:none;border-radius:5px;cursor:pointer;white-space:nowrap;">Copy</button>' +
+    '</div>' +
+    '</div>' +
+
+    '<div style="display:flex;flex-direction:column;gap:8px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+    '<p style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--left-heading);margin:0;">' +
+    '\u2461\u00a0Open gallery' +
+    '</p>' +
+    '<div style="font-size:10.5px;color:var(--left-meta);display:flex;align-items:center;gap:4px;">' +
+    '<span id="fl-dot" style="font-size:8px;line-height:1">\u25cf</span>' +
+    '<span id="fl-stxt">Checking\u2026</span>' +
+    '</div>' +
+    '</div>' +
+    '<a id="fl-open" href="' + esc(localUrl) + '" style="display:flex;align-items:center;justify-content:center;padding:11px 16px;background:var(--left-link);color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:500;opacity:0.3;pointer-events:none;transition:opacity 0.25s ease;">' +
+    'Open gallery \u2197' +
+    '</a>' +
+    '<div id="fl-cd" style="text-align:center;font-size:11px;color:var(--left-meta);min-height:18px;display:flex;align-items:center;justify-content:center;gap:8px;"></div>' +
+    '</div>' +
+
+    '</div>';
+
+  document.body.insertBefore(banner, document.body.firstChild);
+
+  var copyBtn = document.getElementById('fl-copy');
+  copyBtn.addEventListener('click', function () {
+    function onCopied() {
+      copyBtn.textContent = 'Copied \u2713';
+      copyBtn.style.background = 'rgba(39,174,96,0.15)';
+      copyBtn.style.color = '#27ae60';
+      setTimeout(function () {
+        copyBtn.textContent = 'Copy';
+        copyBtn.style.background = 'var(--toggle-bg)';
+        copyBtn.style.color = 'var(--toggle-text)';
+      }, 2000);
+    }
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(cmd).then(onCopied);
+    } else {
+      var r = document.createRange();
+      r.selectNode(document.getElementById('fl-cmd'));
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(r);
+      try { document.execCommand('copy'); } catch (e) { }
+      onCopied();
+    }
+  });
+
+  var dotEl = document.getElementById('fl-dot');
+  var stxtEl = document.getElementById('fl-stxt');
+  var openBtn = document.getElementById('fl-open');
+  var cdEl = document.getElementById('fl-cd');
+  var serverUp = false, cdTimer = null, pollTimer = null;
+
+  function enableOpen() {
+    openBtn.style.opacity = '1';
+    openBtn.style.pointerEvents = 'auto';
+  }
+
+  function setStatus(up) {
+    dotEl.style.color = up ? '#27ae60' : 'var(--left-meta)';
+    stxtEl.textContent = up ? 'Running \u2713' : 'Not running';
+  }
+
+  function startCountdown() {
+    if (cdTimer) return;
+    cdEl.addEventListener('click', function onStay(e) {
+      if (e.target.id === 'fl-stay') { cancelCd(); cdEl.removeEventListener('click', onStay); }
+    });
+    var s = 5;
+    function tick() {
+      if (s <= 0) { clearInterval(cdTimer); window.location.href = localUrl; return; }
+      cdEl.innerHTML =
+        'Opening in ' + s + 's\u2026\u00a0' +
+        '<button id="fl-stay" style="background:none;border:none;font:inherit;font-size:11px;color:var(--left-link);cursor:pointer;padding:0;text-decoration:underline;">Stay</button>';
+      s--;
+    }
+    tick();
+    cdTimer = setInterval(tick, 1000);
+  }
+
+  function cancelCd() {
+    if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
+    cdEl.innerHTML = '';
+  }
+
+  function checkServer() {
+    fetch('http://localhost:8765/', { mode: 'no-cors', cache: 'no-store' })
+      .then(function () {
+        if (serverUp) return;
+        serverUp = true;
+        window.__vlServerUp = true;
+        clearInterval(pollTimer);
+        setStatus(true);
+        enableOpen();
+        startCountdown();
+      })
+      .catch(function () {
+        if (!serverUp) setStatus(false);
+      });
+  }
+
+  checkServer();
+  pollTimer = setInterval(checkServer, 2000);
+  window.addEventListener('pagehide', function () { clearInterval(pollTimer); });
 })();
 </script>
 </body>

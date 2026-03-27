@@ -196,37 +196,32 @@ def test_claude_session():
     # claude --print stdout (only the final assistant text response does).
     downloads = Path.home() / "Downloads" / "video-lens"
     matches = sorted(
-        [p for p in downloads.glob("????-??-??-??????-video-lens_*.html")
+        [p for p in downloads.glob("reports/????-??-??-??????-video-lens_*.html")
          if p.stat().st_mtime >= before],
         key=lambda p: p.stat().st_mtime,
     )
-    assert matches, "No video-lens HTML report found in ~/Downloads/video-lens/ after claude session"
+    assert matches, "No video-lens HTML report found in ~/Downloads/video-lens/reports/ after claude session"
 
-    report_path = None
-    try:
-        report_path = matches[-1]
-        # Filename: YYYY-MM-DD-HHMMSS-video-lens_<slug>.html
-        assert re.match(r"\d{4}-\d{2}-\d{2}-\d{6}-video-lens_[a-z0-9_]+\.html$", report_path.name)
-        html = report_path.read_text(encoding="utf-8")
-        assert "{{" not in html                        # no unreplaced placeholders
-        assert VIDEO_ID in html                        # iframe + JS embed
-        assert 'id="summary"' in html
-        assert 'id="takeaway"' in html
-        assert 'id="key-points"' in html
-        assert 'class="ts"' in html                   # outline timestamp links
-        assert len(re.findall(r'data-t="\d+"', html)) >= 3  # at least 3 outline entries
-        # Non-trivial content
-        summary_m = re.search(r'id="summary".*?<p>(.*?)</p>', html, re.DOTALL)
-        assert summary_m, "Could not find summary <p> in rendered HTML"
-        assert len(re.sub(r"<[^>]+>", "", summary_m.group(1)).strip()) >= 50
-        takeaway_m = re.search(r'id="takeaway".*?<p>(.*?)</p>', html, re.DOTALL)
-        assert takeaway_m, "Could not find takeaway <p> in rendered HTML"
-        assert len(re.sub(r"<[^>]+>", "", takeaway_m.group(1)).strip()) >= 30
-        # Key points: count <li> only within the key-points section
-        kp_match = re.search(r'id="key-points".*?</section>', html, re.DOTALL)
-        assert kp_match and kp_match.group().count("<li>") >= 3
-    finally:
-        if report_path and report_path.exists():
-            report_path.unlink()
-        subprocess.run(["bash", "-c", "kill $(lsof -ti:8765 -sTCP:LISTEN) 2>/dev/null || true"],
-                       capture_output=True)
+    report_path = matches[-1]
+    # Filename: YYYY-MM-DD-HHMMSS-video-lens_<VIDEO_ID>_<slug>.html
+    assert re.match(r"\d{4}-\d{2}-\d{2}-\d{6}-video-lens_[A-Za-z0-9_-]+_[a-z0-9_]+\.html$", report_path.name)
+    html = report_path.read_text(encoding="utf-8")
+    assert "{{" not in html                        # no unreplaced placeholders
+    assert VIDEO_ID in html                        # iframe + JS embed
+    assert 'id="summary"' in html
+    assert 'id="takeaway"' in html
+    assert 'id="key-points"' in html
+    assert 'class="ts"' in html                   # outline timestamp links
+    assert len(re.findall(r'data-t="\d+"', html)) >= 3  # at least 3 outline entries
+    # Non-trivial content
+    summary_m = re.search(r'id="summary".*?<p>(.*?)</p>', html, re.DOTALL)
+    assert summary_m, "Could not find summary <p> in rendered HTML"
+    assert len(re.sub(r"<[^>]+>", "", summary_m.group(1)).strip()) >= 50
+    takeaway_m = re.search(r'id="takeaway".*?<p>(.*?)</p>', html, re.DOTALL)
+    assert takeaway_m, "Could not find takeaway <p> in rendered HTML"
+    assert len(re.sub(r"<[^>]+>", "", takeaway_m.group(1)).strip()) >= 30
+    # Key points: count <li> only within the key-points section
+    kp_match = re.search(r'id="key-points".*?</section>', html, re.DOTALL)
+    assert kp_match and kp_match.group().count("<li>") >= 3
+    subprocess.run(["bash", "-c", "kill $(lsof -ti:8765 -sTCP:LISTEN) 2>/dev/null || true"],
+                   capture_output=True)

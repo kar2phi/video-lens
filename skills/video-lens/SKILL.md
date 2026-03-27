@@ -37,6 +37,20 @@ Parse the video ID using these rules (apply in order):
 
 YouTube Shorts URLs (`youtube.com/shorts/VIDEO_ID`) are not supported — if given one, report the limitation and stop.
 
+#### Duplicate check
+
+After extracting the video ID (before any network calls), check for an existing report:
+
+```bash
+ls ~/Downloads/video-lens/reports/*video-lens*VIDEO_ID*.html 2>/dev/null
+```
+
+Replace `VIDEO_ID` with the actual video ID. If the command returns one or more filenames, print an informational note to the user:
+
+> Note: an existing report for this video was found — `{filename}`. Proceeding with a fresh summary.
+
+Then continue with Step 2 as normal. This is a non-blocking notification — do not ask the user to choose and do not stop. If the user responds by asking to open the existing report instead, run `serve_report.sh` with the existing file path and stop.
+
 ### 2. Fetch the video title and transcript
 
 **Before running this step:** identify the language preference (`LANG_PREF`) from the user's message:
@@ -56,7 +70,7 @@ _sd=$(for d in ~/.agents ~/.claude ~/.copilot ~/.gemini ~/.cursor ~/.windsurf ~/
 
 When the Bash output is truncated and saved to a temp file, read the **entire file** in 500-line batches using the `Read` tool with `offset` and `limit`, starting at line 1 and advancing until all lines are consumed. Every part of the transcript matters — do not sample or stop early.
 
-If the transcript fetch fails (e.g. disabled captions, age-restricted, private, or region-blocked video), report the error clearly and stop. See **Error Handling** below.
+If the output contains an `ERROR:` line (e.g. `ERROR:CAPTIONS_DISABLED`, `ERROR:AGE_RESTRICTED`, `ERROR:VIDEO_UNAVAILABLE`), handle it per the **Error Handling** table below.
 
 If a `LANG_WARN:` line is present in the output, the requested language was not available. Append ` · ⚠ Requested language not available` to `META_LINE`.
 
@@ -72,7 +86,7 @@ Parse the prefixed output lines:
 - **Metadata:** use `YTDLP_CHANNEL`, `YTDLP_PUBLISHED`, `YTDLP_VIEWS`, `YTDLP_DURATION` to override the HTML-scraped values when building `META_LINE` (they are more reliable)
 - **Description:** `YTDLP_DESC_HTML` is the HTML-safe, linkified description text; save for use in Steps 3 and 5. Detailed guidance on how to use it is in Step 3.
 - **Chapters:** `YTDLP_CHAPTERS` is a JSON array of `{"start_time": N, "title": "..."}` objects; when non-empty, use them to anchor the Outline (see Step 3)
-- **Error:** if a `YTDLP_ERROR:` line is present, report it to the user and proceed with Step 2 metadata only and no description context — do NOT stop. See **Error Handling** below.
+- **Error:** if an `ERROR:YTDLP_*` line is present, handle it per the **Error Handling** table below (most yt-dlp errors are non-fatal — fall back to Step 2 metadata).
 
 ### 3. Generate the summary content
 
@@ -149,8 +163,8 @@ Key Point count is governed by content density (3–8 typical), not video length
 - Current time: read the `TIME:` line (HHMMSS) from the transcript output produced in Step 2.
 - Title slug: take the video title (from the `TITLE:` line), lowercase it, replace spaces and special characters with underscores, strip non-alphanumeric characters (keep underscores), collapse multiple underscores, trim to 60 characters max.
 - Output directory: `~/Downloads/video-lens/reports/` — save all reports here. Create with: `mkdir -p ~/Downloads/video-lens/reports/`
-- Filename: `YYYY-MM-DD-HHMMSS-video-lens_<slug>.html`
-- Example: `2026-03-06-210126-video-lens_speech_president_finland.html`
+- Filename: `YYYY-MM-DD-HHMMSS-video-lens_<VIDEO_ID>_<slug>.html`
+- Example: `2026-03-06-210126-video-lens_dQw4w9WgXcQ_speech_president_finland.html`
 
 ### 5. Fill the HTML template
 
@@ -169,7 +183,7 @@ Values to fill:
 | `SUMMARY` | 2–4 sentence TL;DR — for opinion/analysis: thesis + conclusion + stance; for tutorials/how-to: goal + outcome. Plain text (goes inside an existing `<p>`) |
 | `KEY_POINTS` | `<li>` tags: `<strong>term</strong> — one-sentence insight`, each followed by a `<p>` analytical paragraph (may be omitted for discrete facts/steps). Optionally with `<em>` |
 | `TAKEAWAY` | 1–3 sentence "so what?" — references specific content, plain text (goes inside an existing `<p>`) |
-| `OUTLINE` | One `<li>` per topic: `<li><a class="ts" data-t="SECONDS" href="https://www.youtube.com/watch?v=VIDEOID&t=SECONDS" target="_blank">▶ M:SS</a> — <span class="outline-title">Short Title</span><span class="outline-detail">Detail sentence.</span></li>` (where `VIDEOID` = the actual video ID). Title: 3–8 words, scannable. Detail: one sentence of context. (Use the same timestamp format as the transcript lines — `M:SS` or `H:MM:SS`; `data-t` and `&t=` always use raw seconds.) |
+| `OUTLINE` | One `<li>` per topic: `<li><a class="ts" data-t="SECONDS" href="https://www.youtube.com/watch?v=VIDEOID&t=SECONDS" target="_blank" rel="noopener noreferrer">▶ M:SS</a> — <span class="outline-title">Short Title</span><span class="outline-detail">Detail sentence.</span></li>` (where `VIDEOID` = the actual video ID). Title: 3–8 words, scannable. Detail: one sentence of context. (Use the same timestamp format as the transcript lines — `M:SS` or `H:MM:SS`; `data-t` and `&t=` always use raw seconds.) |
 | `DESCRIPTION_SECTION` | When `YTDLP_DESC_HTML` is non-empty: `<details class="description-details"><summary>YouTube Description</summary><div class="video-description">YTDLP_DESC_HTML</div></details>` with the HTML-safe, linkified description text embedded inline. Otherwise: `""` (empty string — nothing rendered) |
 | `VIDEO_LENS_META` | JSON string (see below) — embedded in the report for the index page |
 
@@ -183,7 +197,7 @@ Values to fill:
 - `summary` — first ~300 characters of SUMMARY as plain text (no HTML entities)
 - `tags` — array of 3–5 topic tags generated in Step 3
 - `keywords` — array of plain-text `<strong>` headlines from KEY_POINTS
-- `filename` — the output filename from Step 4 (basename only, e.g. `2026-03-06-210126-video-lens_slug.html`)
+- `filename` — the output filename from Step 4 (basename only, e.g. `2026-03-06-210126-video-lens_dQw4w9WgXcQ_slug.html`)
 
 Run this as a single Bash command. Build the JSON object inside a heredoc and pipe it to the render script. Replace `OUTPUT_PATH` with the absolute output path from Step 4.
 
@@ -241,18 +255,27 @@ If `build_index.py` is unavailable or fails, print a warning and continue — do
 
 ## Error Handling
 
-Handle these failure modes gracefully:
+Scripts emit structured error codes with the prefix `ERROR:` followed by a typed code and a human-readable message. Use the code to determine the action; include the message when reporting to the user.
 
-| Condition | Action |
+| Error code | Action |
 |---|---|
-| **Captions disabled / no transcript** | Report that the video has no available captions. Suggest the user try a different video or check if captions exist. Stop. |
-| **Age-restricted or private video** | Report the restriction. Stop. |
+| `ERROR:CAPTIONS_DISABLED` | Report that the video has no available captions. Suggest the user try a different video or check if captions exist. Stop. |
+| `ERROR:VIDEO_UNAVAILABLE` | Report that the video is private, deleted, or does not exist. Stop. |
+| `ERROR:AGE_RESTRICTED` | Report the age restriction. Stop. |
+| `ERROR:INVALID_VIDEO_ID` | Report the invalid ID. Stop. |
+| `ERROR:IP_BLOCKED` | Report: "YouTube blocked this request — try from a different network." Stop. |
+| `ERROR:REQUEST_BLOCKED` | Report the block. Retry once; if it fails again, stop. |
+| `ERROR:PO_TOKEN_REQUIRED` | Report: "YouTube's bot protection triggered — try again later." Stop. |
+| `ERROR:NO_TRANSCRIPT` | Report that no transcript tracks were found. Stop. |
+| `ERROR:NETWORK_ERROR` | Retry once. If it fails again, report the error and stop. |
+| `ERROR:LIBRARY_MISSING` | Print the install command from the error message and stop. |
+| `ERROR:TRANSCRIPT_FETCH_FAILED` | Report the error message to the user. Stop. |
+| `ERROR:YTDLP_MISSING` | Suggest installing yt-dlp (`brew install yt-dlp` or `pip install yt-dlp`); fall back to Step 2 metadata and no description context — do NOT stop. |
+| `ERROR:YTDLP_TIMEOUT` | Report; fall back to Step 2 metadata and no description context — do NOT stop. |
+| `ERROR:YTDLP_NO_OUTPUT` | Report; fall back to Step 2 metadata and no description context — do NOT stop. |
+| `ERROR:YTDLP_JSON_ERROR` | Report; fall back to Step 2 metadata and no description context — do NOT stop. |
 | **YouTube Shorts URL** | Report that Shorts are not supported. Stop. |
 | **Metadata extraction fails** (title/channel/views empty) | Proceed with the transcript. Use whatever metadata is available; leave missing fields out of `META_LINE`. |
-| **`youtube_transcript_api` not installed** | Print: `pip install 'youtube-transcript-api>=0.6.3'` and stop. |
-| **Requested language not available** | Fall back to auto-selected transcript; print `LANG_WARN:` line; append `⚠ Requested language not available` to `META_LINE`. |
-| **`yt-dlp` not installed** (Step 2b) | Suggest `brew install yt-dlp` or `pip install yt-dlp`; continue without enriched metadata or description context — do NOT stop. |
-| **yt-dlp command fails or returns invalid JSON** (Step 2b) | The Python wrapper emits `YTDLP_ERROR: <msg>` — report it to the user; fall back to Step 2 metadata and no description context — do NOT stop. |
-| **Network / transient error** | Retry once. If it fails again, report the error and stop. |
+| **Requested language not available** (`LANG_WARN:` line) | Fall back to auto-selected transcript; append `⚠ Requested language not available` to `META_LINE`. |
 
 YouTube URL to summarise:

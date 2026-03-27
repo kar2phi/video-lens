@@ -955,7 +955,7 @@
       <h3>About</h3>
       <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player.</p>
       <p>video-lens gallery lets you browse and search your saved reports. Click any card or row to open the full report.</p>
-      <p><a href="https://github.com/kar2phi/video-lens" target="_blank">View on GitHub ↗</a></p>
+      <p><a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a></p>
       <h3>Shortcuts</h3>
       <div class="help-shortcuts">
         <span class="help-key">k / Space</span><span class="help-desc">play / pause</span>
@@ -1010,7 +1010,7 @@
       </div>
       <div class="video-meta">
         <h1>{{VIDEO_TITLE}}</h1>
-        <p class="meta-line">{{META_LINE}} · <a href="{{VIDEO_URL}}" target="_blank">Open on YouTube ↗</a></p>
+        <p class="meta-line">{{META_LINE}} · <a href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a></p>
       </div>
       <div class="left-scroll">
         <div class="outline-section">
@@ -1085,7 +1085,8 @@
       var parent = parts[parts.length - 2];
       var urlPath = (parent === 'reports') ? 'reports/' + file : file;
       var localUrl = 'http://localhost:8765/' + urlPath;
-      var cmd = 'python3 -m http.server 8765 --directory "' + dir.replace(/"/g, '\\"') + '"';
+      var serveDir = (parent === 'reports') ? dir.replace(/\/reports$/, '') : dir;
+      var cmd = 'python3 -m http.server 8765 --directory "' + serveDir.replace(/"/g, '\\"') + '"';
 
       function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
@@ -1366,7 +1367,7 @@
           '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
           '<strong style="font-size:15px;opacity:0.8">Embedding disabled by video owner</strong>' +
           '<span style="font-size:12px;opacity:0.55;max-width:280px">This video cannot be played here. Watch it directly on YouTube.</span>' +
-          '<a href="{{VIDEO_URL}}" target="_blank" style="display:inline-block;padding:10px 20px;border-radius:6px;' +
+          '<a href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:10px 20px;border-radius:6px;' +
           'background:var(--left-link);color:#fff;font-size:13px;font-weight:600;text-decoration:none;">Watch on YouTube</a>' +
           '</div>';
         // Hide controls since they're useless without a player

@@ -30,7 +30,7 @@ tasks:
     desc: Run template dev server with sample content
     cmds:
       - python3 scripts/yt_template_dev.py
-      - bash skills/video-lens/scripts/serve_report.sh ~/Downloads/video-lens/sample_output.html
+      - bash skills/video-lens/scripts/serve_report.sh ~/Downloads/video-lens/reports/video-lens_sample_output.html
 
   install-raycast:
     desc: "Copy scripts/raycast-video-lens.sh to ~/.raycast/scripts/ (AGENT=claude|gemini|codex|cursor|opencode|copilot)"
@@ -110,19 +110,20 @@ tasks:
     cmd: npx skills add kar2phi/video-lens
 
   install-skill-local:
-    desc: "Sync skill files from repo to a local agent skill dir (AGENT=claude|gemini|opencode|cursor)"
+    desc: "Sync skill files from repo to a local agent skill dir (AGENT=claude|agents|gemini|opencode|cursor)"
     vars:
       AGENT: '{{.AGENT}}'
     cmds:
       - |
         agent="{{.AGENT}}"
         case "$agent" in
+          agents)   dir="$HOME/.agents/skills" ;;  # generic ~/.agents layout used by some AI IDEs
           claude)   dir="$HOME/.claude/skills" ;;
           gemini)   dir="$HOME/.gemini/skills" ;;
           opencode) dir="$HOME/.opencode/skills" ;;
           cursor)   dir="$HOME/.cursor/skills" ;;
           "") echo "Error: AGENT is required. Usage: task install-skill-local AGENT=claude" && exit 1 ;;
-          *) echo "Error: Unknown agent '$agent'. Valid: claude, gemini, opencode, cursor" && exit 1 ;;
+          *) echo "Error: Unknown agent '$agent'. Valid: claude, agents, gemini, opencode, cursor" && exit 1 ;;
         esac
         mkdir -p "$dir/video-lens"
         cp skills/video-lens/SKILL.md "$dir/video-lens/SKILL.md"

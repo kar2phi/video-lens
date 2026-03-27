@@ -18,7 +18,7 @@ def _linkify(line):
         parts.append(html.escape(line[last:m.start()]))
         url = m.group()
         parts.append(
-            f'<a href="{html.escape(url, quote=True)}" target="_blank" rel="noopener">'
+            f'<a href="{html.escape(url, quote=True)}" target="_blank" rel="noopener noreferrer">'
             f"{html.escape(url)}</a>"
         )
         last = m.end()
@@ -63,22 +63,22 @@ def main():
             capture_output=True, text=True, timeout=60,
         )
     except FileNotFoundError:
-        print("YTDLP_ERROR: yt-dlp not installed — run: brew install yt-dlp or pip install yt-dlp")
+        print("ERROR:YTDLP_MISSING: yt-dlp not installed — run: brew install yt-dlp or pip install yt-dlp")
         sys.exit(0)
     except subprocess.TimeoutExpired:
-        print("YTDLP_ERROR: yt-dlp timed out after 60s")
+        print("ERROR:YTDLP_TIMEOUT: yt-dlp timed out after 60s")
         sys.exit(0)
 
     raw = result.stdout
     if not raw.strip():
         stderr_hint = result.stderr.strip()[:200]
-        print(f"YTDLP_ERROR: yt-dlp produced no output — {stderr_hint}")
+        print(f"ERROR:YTDLP_NO_OUTPUT: yt-dlp produced no output — {stderr_hint}")
         sys.exit(0)
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        print(f"YTDLP_ERROR: {e} — raw output: {raw[:200]}")
+        print(f"ERROR:YTDLP_JSON_ERROR: {e} — raw output: {raw[:200]}")
         sys.exit(0)
 
     desc_raw = (data.get("description") or "")[:3000]

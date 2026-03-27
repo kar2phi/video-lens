@@ -67,8 +67,30 @@ def main():
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
     except ImportError:
-        print("pip install 'youtube-transcript-api>=0.6.3'")
+        print("ERROR:LIBRARY_MISSING: pip install 'youtube-transcript-api>=0.6.3'")
         sys.exit(1)
+
+    # Defensive imports — fall back to generic handling if classes are renamed/removed
+    try:
+        from youtube_transcript_api import (
+            TranscriptsDisabled,
+            VideoUnavailable,
+            NoTranscriptFound,
+            InvalidVideoId,
+        )
+    except ImportError:
+        TranscriptsDisabled = VideoUnavailable = NoTranscriptFound = InvalidVideoId = None
+
+    try:
+        from youtube_transcript_api import (
+            AgeRestricted,
+            IpBlocked,
+            RequestBlocked,
+            PoTokenRequired,
+            YouTubeRequestFailed,
+        )
+    except ImportError:
+        AgeRestricted = IpBlocked = RequestBlocked = PoTokenRequired = YouTubeRequestFailed = None
 
     title, channel, published, views, duration = _fetch_html_metadata(video_id)
 
@@ -78,7 +100,23 @@ def main():
         except (AttributeError, TypeError):
             tlist = YouTubeTranscriptApi.list_transcripts(video_id)
     except Exception as e:
-        print(f"TRANSCRIPT_ERROR: {e}")
+        _error_map = [
+            (TranscriptsDisabled,  "ERROR:CAPTIONS_DISABLED"),
+            (AgeRestricted,        "ERROR:AGE_RESTRICTED"),
+            (VideoUnavailable,     "ERROR:VIDEO_UNAVAILABLE"),
+            (InvalidVideoId,       "ERROR:INVALID_VIDEO_ID"),
+            (IpBlocked,            "ERROR:IP_BLOCKED"),
+            (RequestBlocked,       "ERROR:REQUEST_BLOCKED"),
+            (PoTokenRequired,      "ERROR:PO_TOKEN_REQUIRED"),
+            (NoTranscriptFound,    "ERROR:NO_TRANSCRIPT"),
+            (YouTubeRequestFailed, "ERROR:NETWORK_ERROR"),
+        ]
+        code = "ERROR:TRANSCRIPT_FETCH_FAILED"
+        for cls, mapped_code in _error_map:
+            if cls is not None and isinstance(e, cls):
+                code = mapped_code
+                break
+        print(f"{code}: {e}")
         sys.exit(1)
 
     transcript_obj = None
