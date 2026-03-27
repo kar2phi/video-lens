@@ -11,7 +11,7 @@ import os
 import re
 
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), '..', 'skills', 'video-lens', 'template.html')
-OUTPUT_PATH = os.path.expanduser('~/Downloads/video-lens/sample_output.html')
+OUTPUT_PATH = os.path.expanduser('~/Downloads/video-lens/reports/video-lens_sample_output.html')
 
 # ── Hardcoded content for https://www.youtube.com/watch?v=3Y1G9najGiI ──────
 # AWS re:Invent 2025 — Werner Vogels final keynote
@@ -98,7 +98,7 @@ CONTENT = {
         "summary": "Werner Vogels uses his final AWS re:Invent keynote — after 14 consecutive years — to argue that today's AI moment is not the end of developers but the start of a new Renaissance.",
         "tags": ["ai", "cloud", "software architecture", "developer culture"],
         "keywords": ["Renaissance Developer", "verification debt", "systems thinking", "spec-driven development", "polymath"],
-        "filename": "2026-03-06-210126-video-lens_aws_reinvent_2025_keynote_with_dr_werner_vogels.html",
+        "filename": "reports/video-lens_sample_output.html",
     }),
 
     "DESCRIPTION_SECTION": (

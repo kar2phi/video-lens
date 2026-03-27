@@ -32,7 +32,7 @@ video-lens is a coding agent skill that fetches a YouTube transcript and generat
 | **Optional:** [Task](https://taskfile.dev)       | Install/dev commands alias (`brew install go-task`)        |
 | **Optional:** [Deno](https://deno.com)           | Required by yt-dlp (`brew install deno`)                   |
 
-> **Note:** video-lens only works for videos that have captions/subtitles available. Videos with captions disabled will produce an error.
+> **Note:** video-lens only works for videos that have captions/subtitles available. Videos with captions disabled will produce an error. YouTube Shorts are not supported.
 
 ---
 
