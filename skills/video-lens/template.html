@@ -472,6 +472,90 @@
       font-size: 0.85rem;
     }
 
+    /* Info modal — reuses help-modal visual language */
+    #info-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.38);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+    }
+
+    #info-overlay.open {
+      display: flex;
+    }
+
+    #info-modal {
+      background: var(--right-bg);
+      color: var(--right-text);
+      border: 1px solid var(--right-border);
+      border-radius: 12px;
+      padding: 1.75rem 2rem 1.5rem;
+      max-width: 380px;
+      width: calc(100% - 3rem);
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+      font-family: 'DM Sans', system-ui, sans-serif;
+      position: relative;
+      max-height: calc(100vh - 4rem);
+      overflow-y: auto;
+    }
+
+    #info-modal h3 {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--left-heading);
+      margin: 0 0 0.75rem;
+    }
+
+    #info-modal dl {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.5rem 1rem;
+      margin: 0;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    #info-modal dt {
+      color: var(--left-heading);
+      font-weight: 500;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding-top: 0.1rem;
+    }
+
+    #info-modal dd {
+      margin: 0;
+      color: var(--right-text);
+      font-variant-numeric: tabular-nums;
+      word-break: break-word;
+    }
+
+    #info-close {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.75rem;
+      background: transparent;
+      border: 0;
+      font-size: 1.4rem;
+      line-height: 1;
+      color: var(--right-text);
+      cursor: pointer;
+      padding: 0.25rem 0.5rem;
+      opacity: 0.6;
+    }
+
+    #info-close:hover {
+      opacity: 1;
+    }
+
     .help-key {
       font-family: 'DM Mono', 'SF Mono', 'Menlo', monospace;
       background: var(--toggle-bg);
@@ -973,6 +1057,19 @@
     </div>
   </div>
 
+  <!-- Generation info modal -->
+  <div id="info-overlay" role="dialog" aria-modal="true" aria-label="Generation info">
+    <div id="info-modal">
+      <button id="info-close" aria-label="Close">×</button>
+      <h3>Generation info</h3>
+      <dl>
+        <dt>Model</dt><dd id="info-model">—</dd>
+        <dt>Generated</dt><dd id="info-generated">—</dd>
+        <dt>Duration</dt><dd id="info-duration">—</dd>
+      </dl>
+    </div>
+  </div>
+
   <div class="layout">
 
     <!-- Left: sticky video + outline -->
@@ -1040,6 +1137,14 @@
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
           </button>
+          <button id="info-btn" class="icon-btn" aria-label="Generation info" title="Generation info">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+          </button>
           <button id="help-btn" class="icon-btn" aria-label="Help" title="Help">?</button>
           <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme" title="Toggle theme">
             <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1068,6 +1173,8 @@
 
     </div>
   </div>
+
+  <script type="application/json" id="video-lens-meta">{{VIDEO_LENS_META}}</script>
 
   <script src="https://www.youtube.com/iframe_api"></script>
   <script>
@@ -1280,6 +1387,64 @@
       });
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') closeHelp();
+      });
+    })();
+
+    // Shared meta (parsed once; reused by info modal and markdown export)
+    var VL_META = (function () {
+      try {
+        var raw = document.getElementById('video-lens-meta').textContent;
+        return JSON.parse(raw) || {};
+      } catch (e) { return {}; }
+    })();
+
+    function formatDurationSeconds(s) {
+      if (typeof s !== 'number' || !isFinite(s) || s < 0) return null;
+      s = Math.round(s);
+      var h = Math.floor(s / 3600);
+      var m = Math.floor((s % 3600) / 60);
+      var sec = s % 60;
+      if (h > 0) return h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(sec).padStart(2, '0') + 's';
+      if (m > 0) return m + 'm ' + String(sec).padStart(2, '0') + 's';
+      return sec + 's';
+    }
+
+    function formatGeneratedAtLocal(iso) {
+      if (!iso) return null;
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return null;
+      try {
+        return d.toLocaleString(undefined, {
+          year: 'numeric', month: 'short', day: '2-digit',
+          hour: '2-digit', minute: '2-digit'
+        });
+      } catch (e) { return iso; }
+    }
+
+    // Info modal
+    (function () {
+      var overlay = document.getElementById('info-overlay');
+      var infoBtn = document.getElementById('info-btn');
+      var closeBtn = document.getElementById('info-close');
+
+      var model = VL_META.agentModel || VL_META.modelName || null;
+      var generated = formatGeneratedAtLocal(VL_META.generatedAt);
+      var duration = formatDurationSeconds(VL_META.durationSeconds);
+
+      if (model) document.getElementById('info-model').textContent = model;
+      if (generated) document.getElementById('info-generated').textContent = generated;
+      if (duration) document.getElementById('info-duration').textContent = duration;
+
+      function openInfo() { overlay.classList.add('open'); }
+      function closeInfo() { overlay.classList.remove('open'); }
+
+      infoBtn.addEventListener('click', openInfo);
+      closeBtn.addEventListener('click', closeInfo);
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeInfo();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeInfo();
       });
     })();
 
@@ -1585,30 +1750,6 @@
         'key-points': 'Key concepts and insights — each with analytical depth added.'
       };
 
-      // Normalize YouTube Description <details> blocks — handles LLM output that deviates
-      // from the expected format (e.g. <pre> instead of <div class="video-description">)
-      (function () {
-        document.querySelectorAll('details').forEach(function (details) {
-          var sum = details.querySelector(':scope > summary');
-          if (!sum || sum.textContent.trim() !== 'YouTube Description') return;
-          if (!details.classList.contains('description-details')) {
-            details.classList.add('description-details');
-          }
-          var pre = details.querySelector(':scope > pre');
-          if (pre) {
-            var rawText = pre.textContent;
-            var div = document.createElement('div');
-            div.className = 'video-description';
-            div.innerHTML = rawText
-              .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-              .replace(/(https?:\/\/[^\s<>"'\)\]]+)/g, function (url) {
-                return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + url + '</a>';
-              });
-            pre.parentNode.replaceChild(div, pre);
-          }
-        });
-      })();
-
       // Open all links in the YouTube description in a new tab
       document.querySelectorAll('.video-description a').forEach(function (a) {
         a.setAttribute('target', '_blank');
@@ -1680,6 +1821,20 @@
           return line;
         }).join('\n');
 
+        // Generation footer — model, timestamp, duration (any/all may be missing)
+        var genParts = [];
+        if (VL_META.generatedAt) {
+          var genStr = formatGeneratedAtLocal(VL_META.generatedAt);
+          if (genStr) genParts.push('Generated ' + genStr);
+        }
+        var modelStr = VL_META.agentModel || VL_META.modelName;
+        if (modelStr) genParts.push('with ' + modelStr);
+        var durStr = formatDurationSeconds(VL_META.durationSeconds);
+        if (durStr) genParts.push('in ' + durStr);
+        var genFooter = genParts.length
+          ? ['', '---', '', '*' + genParts.join(' · ') + ' · [video-lens](https://github.com/kar2phi/video-lens)*']
+          : [];
+
         var md = [
           '# ' + title,
           '',
@@ -1705,7 +1860,9 @@
           '## Key Points',
           '',
           keyPoints,
-        ].concat(description ? ['', '## YouTube Description', '', description] : []).join('\n');
+        ].concat(description ? ['', '## YouTube Description', '', description] : [])
+         .concat(genFooter)
+         .join('\n');
 
         // Trigger download
         var blob = new Blob([md], { type: 'text/markdown' });
@@ -1811,7 +1968,6 @@
         setTimeout(function () { layout.classList.remove('snapping'); }, 250);
       }
     </script>
-<script type="application/json" id="video-lens-meta">{{VIDEO_LENS_META}}</script>
 </body>
 
 </html>

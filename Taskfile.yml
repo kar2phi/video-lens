@@ -1,9 +1,17 @@
 version: '3'
 
 vars:
-  REPORTS_DIR: '{{.REPORTS_DIR | default "~/Downloads/video-lens"}}'
+  REPORTS_DIR: '{{.REPORTS_DIR | default (printf "%s/Downloads/video-lens" (env "HOME"))}}'
+  PORT: '{{.PORT | default "8765"}}'
 
 tasks:
+  serve:
+    desc: "Serve REPORTS_DIR via serve_report.sh (FILE=path/to/report.html optional)"
+    vars:
+      FILE: '{{.FILE | default (printf "%s/index.html" .REPORTS_DIR)}}'
+    cmds:
+      - bash skills/video-lens/scripts/serve_report.sh "{{.FILE}}" "{{.REPORTS_DIR}}"
+
   build-index:
     desc: "Build manifest.json and copy index.html into the reports directory"
     cmds:
