@@ -30,7 +30,7 @@ video-lens is a coding agent skill that fetches a YouTube transcript and generat
 | Python 3                                         | Fetches the transcript                                     |
 | **Optional:** [Raycast](https://www.raycast.com) | Trigger from anywhere via hotkey (macOS)                   |
 | **Optional:** [Task](https://taskfile.dev)       | Install/dev commands alias (`brew install go-task`)        |
-| **Optional:** [Deno](https://deno.com)           | Required by yt-dlp (`brew install deno`)                   |
+| **Optional:** [Deno](https://deno.com)           | Used by yt-dlp only for edge-case extractors (`brew install deno`) |
 
 > **Note:** video-lens only works for videos that have captions/subtitles available. Videos with captions disabled will produce an error. YouTube Shorts are not supported.
 
@@ -51,26 +51,23 @@ video-lens uses the universal [SKILL.md](https://agents.md/) format — any agen
 ```bash
 npx skills add kar2phi/video-lens
 pip install youtube-transcript-api yt-dlp
-brew install deno  # optional, needed by yt-dlp
+brew install deno  # optional; only needed if yt-dlp fails on certain videos
 ```
 
 Then use `/video-lens <url>` in any supported agent.
 
-### Option B — Manual install (Claude Code, no clone needed)
+### Option B — Manual install (clone + Task)
 
-No repo clone or Task required — just run:
+Clone the repo and use `task install-skill-local` to copy the skill (prompt, template, and scripts) to a specific agent dir:
 
 ```bash
-mkdir -p ~/.claude/skills/video-lens && \
-curl -Lo ~/.claude/skills/video-lens/SKILL.md https://raw.githubusercontent.com/kar2phi/video-lens/main/skills/video-lens/SKILL.md && \
-curl -Lo ~/.claude/skills/video-lens/template.html https://raw.githubusercontent.com/kar2phi/video-lens/main/skills/video-lens/template.html && \
-pip install youtube-transcript-api yt-dlp
-
-# Optional: deno is required by yt-dlp as a JavaScript runtime
-brew install deno
+git clone https://github.com/kar2phi/video-lens.git
+cd video-lens
+task install-skill-local AGENT=claude   # or copilot, gemini, cursor, …
+pip install -r requirements.txt
 ```
 
-> **Other agents:** Replace `~/.claude/` with `~/.copilot/`, `~/.gemini/`, `~/.cursor/`, etc. in the commands above. Or use `npx skills add kar2phi/video-lens` to install for all detected agents at once.
+`task install-skill-local` deploys all files in `skills/video-lens/` (including `scripts/`) — a plain curl of individual files won't pull the script set and the skill will fail at runtime.
 
 ### Option C — Full install (with Raycast + dev tools)
 
@@ -81,7 +78,7 @@ git clone https://github.com/kar2phi/video-lens.git
 cd video-lens
 task install-libraries
 
-# Optional: deno is required by yt-dlp as a JavaScript runtime
+# Optional: only needed if yt-dlp fails on certain videos
 brew install deno
 ```
 
@@ -135,7 +132,7 @@ The gallery opens at `~/Downloads/video-lens/index.html`.
 
 Invoke the **video-lens** command, paste a YouTube URL (or leave blank to use the clipboard), and choose a model (default: Sonnet). The report opens automatically in your browser.
 
-Reports are saved to `~/Downloads/`.
+Reports are saved to `~/Downloads/video-lens/reports/`.
 
 ---
 
@@ -159,6 +156,11 @@ video-lens/
     video-lens/
       SKILL.md          ← skill prompt (source of truth)
       template.html     ← HTML report template (source of truth)
+      scripts/
+        fetch_transcript.py
+        fetch_metadata.py
+        render_report.py
+        serve_report.sh
     video-lens-gallery/
       SKILL.md          ← gallery skill prompt (source of truth)
       index.html        ← gallery viewer (source of truth)

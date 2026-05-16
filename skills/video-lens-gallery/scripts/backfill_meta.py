@@ -176,7 +176,18 @@ def main():
         print(f"ERROR: directory not found: {scan_dir}", file=sys.stderr)
         sys.exit(1)
 
-    report_files = sorted(scan_dir.glob("*video-lens*.html"))
+    # Reports live in scan_dir/reports/ since the directory reorganisation, but
+    # older reports may still sit at the legacy flat location. Scan both.
+    candidates = list(scan_dir.glob("*video-lens*.html"))
+    candidates.extend((scan_dir / "reports").glob("*video-lens*.html"))
+    seen: set[str] = set()
+    report_files: list[pathlib.Path] = []
+    for p in sorted(candidates):
+        if p.name in seen:
+            continue
+        seen.add(p.name)
+        report_files.append(p)
+
     modified = 0
     skipped = 0
 
