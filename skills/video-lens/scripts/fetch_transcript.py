@@ -168,7 +168,6 @@ def main():
         f"VIEWS: {views}",
         f"DURATION: {duration}",
         f"DATE: {datetime.date.today().isoformat()}",
-        f"TIME: {datetime.datetime.now().strftime('%H%M%S')}",
         f"LANG: {lang}",
     ]
 

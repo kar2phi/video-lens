@@ -142,7 +142,7 @@ def main():
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     template_path = pathlib.Path(TEMPLATE_PATH)
     result = render_from_payload(CONTENT, OUTPUT_PATH, template_path=template_path)
-    print(f"Rendered → {result}")
+    print(f"OUTPUT_PATH: {result}")
 
 
 if __name__ == "__main__":
