@@ -2,7 +2,8 @@
 Runs the full pipeline: transcript → metadata → render → serve.
 Run with: pytest tests/test_e2e.py -v
 """
-import json, os, re, shutil, subprocess, sys, time, urllib.request
+import html as html_lib
+import json, os, pathlib, re, shutil, subprocess, sys, time, urllib.request
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,7 @@ from render_report import (
     render_from_payload,
     sanitise_payload,
 )
+import render_report  # for monkeypatching time.time
 
 # "What are skills?" (2 min, 496K views) — short, stable, good for quick pipeline validation
 VIDEO_ID = "bjdBVZa66oU"
@@ -86,6 +88,7 @@ def new_shape_payload(**overrides):
         "CHANNEL": "Test Channel",
         "DURATION": "10 min",
         "PUBLISH_DATE": "Jan 01 2025",
+        "VIEWS": "1.0M views",
         "GENERATION_DATE": "2025-01-01",
         "GENERATION_DURATION_SECONDS": 42,
         "AGENT_MODEL": "claude-opus-4-7",
@@ -136,7 +139,8 @@ def test_render_empty_content_fails(tmp_path):
         input=payload, capture_output=True, text=True, timeout=10,
     )
     assert r.returncode == 1
-    assert "ERROR:RENDER_EMPTY_CONTENT" in r.stderr
+    assert "ERROR:RENDER_PAYLOAD_INVALID" in r.stderr
+    assert "empty_keys=" in r.stderr
     assert not out.exists(), "Report file must NOT be written when content is empty"
 
 
@@ -165,6 +169,15 @@ def test_sanitise_payload_rejects_disallowed_tag_in_key_points():
     assert "key=KEY_POINTS" in detail
 
 
+def test_sanitise_payload_rejects_list_valued_key_points():
+    detail = assert_render_validation(
+        "RENDER_INVALID_TYPE",
+        sample_render_payload(KEY_POINTS=["<li>a</li>", "<li>b</li>"]),
+    )
+    assert "key=KEY_POINTS" in detail
+    assert "got list" in detail
+
+
 def test_sanitise_payload_rejects_event_handler():
     detail = assert_render_validation(
         "RENDER_DISALLOWED_HTML",
@@ -185,6 +198,53 @@ def test_sanitise_payload_rejects_invalid_video_url():
         "RENDER_INVALID_VIDEO_URL",
         sample_render_payload(VIDEO_URL="https://evil.example/"),
     )
+
+
+def test_render_accepts_payload_without_meta_line(tmp_path):
+    """META_LINE is optional — renderer composes it from CHANNEL/DURATION/PUBLISH_DATE/VIEWS."""
+    out = tmp_path / "report.html"
+    payload = new_shape_payload()
+    del payload["META_LINE"]
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"), str(out)],
+        input=json.dumps(payload), capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+    assert r.returncode == 0, f"render failed: {r.stderr}"
+    html = out.read_text(encoding="utf-8")
+    assert "Test Channel · 10 min · Jan 01 2025 · 1.0M views" in html
+
+
+def test_render_payload_file_argument(tmp_path):
+    """--payload-file reads JSON from a file (used when quotes would mangle a heredoc)."""
+    out = tmp_path / "report.html"
+    payload_file = tmp_path / "payload.json"
+    payload = sample_render_payload(
+        KEY_POINTS='<li><strong>Quote</strong> — said <em>"failures are rare"</em></li>'
+    )
+    payload_file.write_text(json.dumps(payload), encoding="utf-8")
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"),
+         str(out), "--payload-file", str(payload_file)],
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+    assert r.returncode == 0, f"render failed: {r.stderr}"
+    html = out.read_text(encoding="utf-8")
+    assert "&#x27;failures are rare&#x27;" in html or "failures are rare" in html
+
+
+def test_render_payload_file_missing(tmp_path):
+    """Missing --payload-file path emits a typed ERROR."""
+    out = tmp_path / "report.html"
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"),
+         str(out), "--payload-file", str(tmp_path / "does-not-exist.json")],
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+    assert r.returncode == 1
+    assert "ERROR:RENDER_PAYLOAD_FILE_UNREADABLE" in r.stderr
 
 
 def test_render_rejects_path_traversal_without_test_bypass():
@@ -438,6 +498,350 @@ def test_build_index(tmp_path):
     assert manifest["count"] == 1
     assert len(manifest["reports"]) == 1
     assert manifest["reports"][0]["title"] == "Test Video One"
+
+
+# --- preflight ---
+
+from preflight import (  # noqa: E402
+    extract_video_id,
+    find_duplicate,
+    map_language,
+)
+
+
+@pytest.mark.parametrize("inp,expected", [
+    ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+    ("https://youtu.be/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+    ("https://youtu.be/dQw4w9WgXcQ?t=30", "dQw4w9WgXcQ"),
+    ("https://www.youtube.com/embed/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+    ("https://www.youtube.com/live/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+    ("dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+    ("youtube.com/watch?v=dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+    ("www.youtube.com/watch?v=dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+    ("youtu.be/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+])
+def test_preflight_extracts_id_from_each_url_form(inp, expected):
+    vid, err = extract_video_id(inp)
+    assert err is None
+    assert vid == expected
+
+
+def test_preflight_rejects_shorts():
+    _, err = extract_video_id("https://www.youtube.com/shorts/dQw4w9WgXcQ")
+    assert err == "SHORTS_NOT_SUPPORTED"
+
+
+def test_preflight_invalid_input():
+    _, err = extract_video_id("https://example.com/x")
+    assert err == "INVALID_INPUT"
+
+
+@pytest.mark.parametrize("inp,expected", [
+    ("Spanish", "es"),
+    ("english", "en"),
+    ("fr", "fr"),
+    ("", ""),
+    ("klingon", "klingon"),
+])
+def test_preflight_maps_language_names(inp, expected):
+    assert map_language(inp) == expected
+
+
+def test_preflight_main_splits_argv_on_space(monkeypatch, capsys, tmp_path):
+    """When LANG_REQUEST is folded into url_or_id as 'id es', preflight must split."""
+    import preflight  # type: ignore
+    monkeypatch.setattr(preflight, "REPORTS_DIR", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["preflight.py", "dQw4w9WgXcQ es"])
+    rc = preflight.main()
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "VIDEO_ID: dQw4w9WgXcQ" in out
+    assert "LANG_CODE: es" in out
+
+
+def test_preflight_emits_newest_duplicate_only(tmp_path, monkeypatch):
+    import preflight  # type: ignore
+    fake_reports = tmp_path / "Downloads" / "video-lens" / "reports"
+    fake_reports.mkdir(parents=True)
+    older = fake_reports / "2025-01-01-000000-video-lens_dQw4w9WgXcQ_old.html"
+    newer = fake_reports / "2025-06-01-000000-video-lens_dQw4w9WgXcQ_new.html"
+    older.write_text("x")
+    newer.write_text("x")
+    os.utime(older, (1_700_000_000, 1_700_000_000))
+    os.utime(newer, (1_750_000_000, 1_750_000_000))
+    monkeypatch.setattr(preflight, "REPORTS_DIR", fake_reports)
+    assert preflight.find_duplicate("dQw4w9WgXcQ") == newer
+
+
+def _run_preflight_main(monkeypatch, capsys, tmp_path, argv):
+    """Helper: run preflight.main() with REPORTS_DIR and PAYLOAD_BASE_DIR pinned to tmp_path."""
+    import preflight  # type: ignore
+    monkeypatch.setattr(preflight, "REPORTS_DIR", tmp_path)
+    monkeypatch.setattr(preflight, "PAYLOAD_BASE_DIR", tmp_path / "payload-base")
+    monkeypatch.setattr(sys, "argv", argv)
+    rc = preflight.main()
+    out = capsys.readouterr().out
+    return rc, out
+
+
+def test_preflight_payload_path_is_unique_and_unpredictable(monkeypatch, capsys, tmp_path):
+    """PAYLOAD_PATH lives inside a fresh 0700 tempdir; the file itself does NOT exist
+    so the agent's Write tool can create it without a prior Read. Guards against the
+    previous f-string `/tmp/video-lens-payload-{id}-{epoch}.json` shape (symlink-attackable)
+    and against the mkstemp regression that pre-created the file."""
+    import re as _re
+
+    paths = []
+    for _ in range(2):
+        rc, out = _run_preflight_main(
+            monkeypatch, capsys, tmp_path,
+            ["preflight.py", "dQw4w9WgXcQ"],
+        )
+        assert rc == 0
+        m = _re.search(r"^PAYLOAD_PATH: (.+)$", out, _re.M)
+        assert m, f"No PAYLOAD_PATH line in: {out}"
+        paths.append(m.group(1))
+
+    assert paths[0] != paths[1], "Two runs produced identical PAYLOAD_PATHs"
+    for p in paths:
+        # Old predictable shape: `…video-lens-payload-{11chars}-{digits}.json`
+        assert not _re.search(
+            r"video-lens-payload-dQw4w9WgXcQ-\d+\.json$", p
+        ), f"PAYLOAD_PATH matches the old predictable shape: {p}"
+        path = pathlib.Path(p)
+        assert not path.exists(), f"Payload file pre-created — Write tool would refuse: {p}"
+        parent = path.parent
+        assert parent.is_dir(), f"Payload parent dir missing: {parent}"
+        assert parent.stat().st_mode & 0o777 == 0o700, (
+            f"Parent dir mode not 0700: {oct(parent.stat().st_mode)}"
+        )
+
+
+def test_preflight_emits_scripts_dir(monkeypatch, capsys, tmp_path):
+    """SCRIPTS_DIR: line must point to the directory containing preflight.py."""
+    rc, out = _run_preflight_main(
+        monkeypatch, capsys, tmp_path,
+        ["preflight.py", "dQw4w9WgXcQ"],
+    )
+    assert rc == 0
+    m = re.search(r"^SCRIPTS_DIR: (.+)$", out, re.M)
+    assert m, f"No SCRIPTS_DIR line in: {out}"
+    scripts_dir = pathlib.Path(m.group(1))
+    assert (scripts_dir / "preflight.py").exists()
+    assert scripts_dir.resolve() == SCRIPT_DIR.resolve()
+
+    # Also clean up the payload file mkstemp created
+    payload_m = re.search(r"^PAYLOAD_PATH: (.+)$", out, re.M)
+    if payload_m:
+        pathlib.Path(payload_m.group(1)).unlink(missing_ok=True)
+
+
+# --- renderer extensions ---
+
+
+def test_renderer_composes_meta_line_from_parts():
+    payload = new_shape_payload(META_LINE="")
+    clean = sanitise_payload(payload, "/tmp/x.html")
+    assert clean["META_LINE"] == html_lib.escape(
+        "Test Channel · 10 min · Jan 01 2025 · 1.0M views"
+    )
+
+
+def test_renderer_meta_line_omits_empty_parts():
+    payload = new_shape_payload(META_LINE="", VIEWS="")
+    clean = sanitise_payload(payload, "/tmp/x.html")
+    assert clean["META_LINE"].count("·") == 2
+
+
+def test_renderer_keeps_meta_line_when_supplied():
+    payload = new_shape_payload(META_LINE="Custom Line", VIEWS="ignored")
+    clean = sanitise_payload(payload, "/tmp/x.html")
+    assert clean["META_LINE"] == "Custom Line"
+
+
+def test_renderer_computes_duration_from_start_epoch(monkeypatch):
+    """Pin time.time() so the assertion is exact, not '>= 7'."""
+    fixed_now = 1_750_000_007
+    monkeypatch.setattr(render_report.time, "time", lambda: fixed_now)
+    payload = new_shape_payload(
+        GENERATION_DURATION_SECONDS="",
+        GENERATION_START_EPOCH=fixed_now - 7,
+    )
+    clean = sanitise_payload(payload, "/tmp/x.html")
+    meta = json.loads(clean["VIDEO_LENS_META"].replace("<\\/", "</"))
+    assert meta["durationSeconds"] == 7
+
+
+def test_renderer_rejects_negative_start_epoch():
+    payload = new_shape_payload(
+        GENERATION_DURATION_SECONDS="",
+        GENERATION_START_EPOCH=-1,
+    )
+    with pytest.raises(RenderValidationError) as exc:
+        sanitise_payload(payload, "/tmp/x.html")
+    assert exc.value.code == "RENDER_INVALID_META_JSON"
+
+
+def test_renderer_derives_filename_with_output_dir(tmp_path):
+    out_dir = tmp_path / "reports"
+    out_dir.mkdir()
+    payload = new_shape_payload(GENERATION_DATE="2026-05-17")
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"),
+         "--output-dir", str(out_dir)],
+        input=json.dumps(payload),
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.startswith("OUTPUT_PATH: ")
+    written = pathlib.Path(r.stdout.split(": ", 1)[1].strip())
+    assert written.exists()
+    assert re.match(
+        r"2026-05-17-\d{6}-video-lens_" + VIDEO_ID + r"_test_video_title\.html",
+        written.name,
+    )
+
+
+def test_renderer_output_dir_requires_generation_date(tmp_path):
+    """With --output-dir, an empty GENERATION_DATE must fail fast — otherwise
+    _derived_filename produces a malformed `-HHMMSS-…` name."""
+    out_dir = tmp_path / "reports"
+    out_dir.mkdir()
+    payload = new_shape_payload(GENERATION_DATE="")
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"),
+         "--output-dir", str(out_dir)],
+        input=json.dumps(payload),
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+    assert r.returncode != 0
+    assert "RENDER_PAYLOAD_INVALID" in r.stderr
+    assert "GENERATION_DATE" in r.stderr
+
+
+def test_renderer_slug_falls_back_for_non_ascii_title(tmp_path):
+    out_dir = tmp_path / "reports"
+    out_dir.mkdir()
+    payload = new_shape_payload(VIDEO_TITLE="日本語タイトル", GENERATION_DATE="2026-05-17")
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"),
+         "--output-dir", str(out_dir)],
+        input=json.dumps(payload),
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+    assert r.returncode == 0, r.stderr
+    written = pathlib.Path(r.stdout.split(": ", 1)[1].strip())
+    assert written.name.endswith("_video.html")
+
+
+def test_renderer_rejects_malformed_generation_date_with_output_dir(tmp_path):
+    """With --output-dir, GENERATION_DATE must match YYYY-MM-DD; otherwise the
+    derived filename would embed garbage like 'December 5, 2025-HHMMSS-…'."""
+    out_dir = tmp_path / "reports"
+    out_dir.mkdir()
+    payload = new_shape_payload(GENERATION_DATE="December 5, 2025")
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"),
+         "--output-dir", str(out_dir)],
+        input=json.dumps(payload),
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+    assert r.returncode != 0
+    assert "RENDER_PAYLOAD_INVALID" in r.stderr
+    assert "bad_format_keys" in r.stderr
+    assert "GENERATION_DATE" in r.stderr
+
+
+def test_renderer_accepts_http_video_url(tmp_path):
+    """VIDEO_URL with http:// must be accepted; renderer canonicalises to https.
+    Preflight already accepts http URLs; the renderer must agree."""
+    out = tmp_path / "report.html"
+    payload = new_shape_payload(
+        VIDEO_URL=f"http://www.youtube.com/watch?v={VIDEO_ID}",
+    )
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"), str(out)],
+        input=json.dumps(payload), capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+    assert r.returncode == 0, f"render failed: {r.stderr}"
+    html = out.read_text(encoding="utf-8")
+    assert f"https://www.youtube.com/watch?v={VIDEO_ID}" in html
+
+
+def test_renderer_keeps_payload_file_on_success(tmp_path):
+    """Renderer must NOT delete the payload file — debugging the LLM's output
+    requires retaining the input."""
+    out = tmp_path / "report.html"
+    payload_file = tmp_path / "payload.json"
+    payload_file.write_text(json.dumps(sample_render_payload()), encoding="utf-8")
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"),
+         str(out), "--payload-file", str(payload_file)],
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+    assert r.returncode == 0, r.stderr
+    assert payload_file.exists(), "Renderer deleted the payload file"
+
+
+def test_renderer_uses_slug_hint_when_provided(tmp_path):
+    """SLUG_HINT overrides the title-derived slug. The renderer normalizes
+    `my-talk-name` → `my_talk_name`."""
+    out_dir = tmp_path / "reports"
+    out_dir.mkdir()
+    payload = new_shape_payload(
+        VIDEO_TITLE="日本語タイトル",
+        GENERATION_DATE="2026-05-17",
+        SLUG_HINT="my-talk-name",
+    )
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"),
+         "--output-dir", str(out_dir)],
+        input=json.dumps(payload),
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+    assert r.returncode == 0, r.stderr
+    written = pathlib.Path(r.stdout.split(": ", 1)[1].strip())
+    assert written.name.endswith("_my_talk_name.html"), f"Got {written.name!r}"
+
+
+def test_renderer_output_dir_outside_clamp_rejected(tmp_path):
+    """--output-dir outside ALLOWED_OUTPUT_ROOT must reject (bypass NOT set)."""
+    out_dir = tmp_path / "elsewhere"
+    out_dir.mkdir()
+    payload = new_shape_payload(GENERATION_DATE="2026-05-17")
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("PYTEST_CURRENT_TEST", "VIDEO_LENS_ALLOW_ANY_PATH")}
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"),
+         "--output-dir", str(out_dir)],
+        input=json.dumps(payload),
+        capture_output=True, text=True, timeout=10,
+        env=env,
+    )
+    assert r.returncode != 0
+    assert "RENDER_INVALID_OUTPUT_PATH" in r.stderr
+
+
+def test_renderer_positional_path_still_works(tmp_path):
+    """Legacy file-path arg keeps working (the test bypass governs it)."""
+    target = tmp_path / "out.html"
+    payload = new_shape_payload()
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"), str(target)],
+        input=json.dumps(payload),
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+    assert r.returncode == 0, r.stderr
+    assert target.exists()
+    assert r.stdout.startswith("OUTPUT_PATH: ")
 
 
 @pytest.mark.slow
