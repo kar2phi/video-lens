@@ -27,12 +27,12 @@ tasks:
     cmd: pip install -r requirements.txt
 
   test:
-    desc: Run fast integration tests (no LLM invocation)
-    cmd: pytest tests/test_e2e.py -v -m "not slow"
+    desc: Run fast tests (no LLM invocation) — whole tests/ dir
+    cmd: pytest tests/ -v -m "not slow"
 
   test-full:
     desc: Run all tests including real Claude session (slow, requires API key)
-    cmd: pytest tests/test_e2e.py -v
+    cmd: pytest tests/ -v
 
   dev:
     desc: Run template dev server with sample content

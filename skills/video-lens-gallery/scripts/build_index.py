@@ -46,6 +46,26 @@ def _sanitize_channel(value: str) -> str:
     return value
 
 
+def _normalize_tags(tags: list) -> list:
+    """Fold trivial tag variants in the manifest: lowercase, hyphen→space,
+    collapse whitespace, dedupe within a report (first-seen order preserved).
+
+    This folds variants like `ai-coding`/`ai coding` so the gallery's filter
+    vocabulary converges. Only the derived manifest is touched — the report HTML
+    files keep their original tags, so this is not a bulk rewrite of history.
+    """
+    seen = set()
+    out = []
+    for tag in tags:
+        if not isinstance(tag, str):
+            continue
+        norm = " ".join(tag.replace("-", " ").lower().split())
+        if norm and norm not in seen:
+            seen.add(norm)
+            out.append(norm)
+    return out
+
+
 def extract_meta(path: pathlib.Path) -> dict | None:
     """Extract the video-lens-meta JSON block from an HTML report file."""
     content = path.read_text(encoding="utf-8", errors="replace")
@@ -109,6 +129,8 @@ def main():
             meta["filename"] = "reports/" + path.name
             seen.add(path.name)
             meta["channel"] = _sanitize_channel(meta.get("channel", ""))
+            if isinstance(meta.get("tags"), list):
+                meta["tags"] = _normalize_tags(meta["tags"])
             reports.append(meta)
 
     # Phase 2: root (backward compat — old flat layout)
@@ -124,6 +146,8 @@ def main():
         if not meta.get("filename"):
             meta["filename"] = path.name
         meta["channel"] = _sanitize_channel(meta.get("channel", ""))
+        if isinstance(meta.get("tags"), list):
+            meta["tags"] = _normalize_tags(meta["tags"])
         reports.append(meta)
 
     # Re-sort combined list newest-first

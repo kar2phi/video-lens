@@ -4,6 +4,7 @@ Run with: pytest tests/test_e2e.py -v
 """
 import html as html_lib
 import json, os, pathlib, re, shutil, subprocess, sys, time, urllib.request
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -381,6 +382,15 @@ def test_renderer_rejects_non_list_tags():
     assert exc.value.code == "RENDER_INVALID_META_JSON"
 
 
+def test_renderer_normalizes_and_dedupes_tags():
+    """New reports embed normalized tags (lowercase, hyphen→space, deduped) so the
+    feedback loop and gallery see a consistent vocabulary at the write point (F4)."""
+    payload = new_shape_payload(TAGS=["AI-Coding", "ai coding", "  LLM  ", "llm", 5])
+    clean = sanitise_payload(payload, "/tmp/x.html")
+    meta = json.loads(clean["VIDEO_LENS_META"].replace("<\\/", "</"))
+    assert meta["tags"] == ["ai coding", "llm"]  # folded, deduped, non-str dropped
+
+
 def test_sanitiser_passes_bare_br_in_description():
     """N4: bare <br> in DESCRIPTION_SECTION sanitises through (allowlisted)."""
     payload = sample_render_payload(DESCRIPTION_SECTION=(
@@ -458,7 +468,55 @@ def test_render_and_serve(tmp_path):
         resp = urllib.request.urlopen(f"http://127.0.0.1:8765/{out.name}", timeout=5)
         assert resp.status == 200
     finally:
-        subprocess.run(["bash", "-c", "kill $(lsof -ti:8765 -sTCP:LISTEN) 2>/dev/null || true"],
+        subprocess.run(["bash", "-c", "for p in $(lsof -ti:8765 -sTCP:LISTEN 2>/dev/null); do ps -p \"$p\" -o args= 2>/dev/null | grep -q http.server && kill \"$p\"; done 2>/dev/null || true"],
+                       capture_output=True)
+
+
+def test_serve_takes_over_untracked_server(tmp_path):
+    """A stale http.server on 8765 with no PID file must be killed, not bind-failed."""
+    out = tmp_path / "report.html"
+    _render_clean({
+        "VIDEO_ID":            VIDEO_ID,
+        "VIDEO_TITLE":         "Test Video Title",
+        "VIDEO_URL":           f"https://www.youtube.com/watch?v={VIDEO_ID}",
+        "META_LINE":           "Test Channel",
+        "SUMMARY":             "E2E test summary.",
+        "TAKEAWAY":            "E2E test takeaway.",
+        "KEY_POINTS":          "<li><strong>Point</strong> — detail</li>",
+        "OUTLINE":             f'<li><a class="ts" data-t="0" href="https://www.youtube.com/watch?v={VIDEO_ID}&t=0" target="_blank">▶ 0:00</a> — <span class="outline-title">Intro</span><span class="outline-detail"> Opening.</span></li>',
+        "DESCRIPTION_SECTION": "",
+        "VIDEO_LENS_META":     SAMPLE_META,
+    }, str(out), template_path=TEMPLATE)
+
+    def _wait_for_server(deadline=5.0):
+        end = time.monotonic() + deadline
+        while time.monotonic() < end:
+            try:
+                return urllib.request.urlopen(
+                    f"http://127.0.0.1:8765/{out.name}", timeout=1)
+            except Exception:
+                time.sleep(0.1)
+        raise AssertionError("server on 8765 never became reachable")
+
+    stray = subprocess.Popen(
+        [sys.executable, "-m", "http.server", "8765", "--bind", "127.0.0.1",
+         "--directory", str(tmp_path)],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    try:
+        _wait_for_server()
+        r = subprocess.run(
+            ["bash", str(SCRIPT_DIR / "serve_report.sh"), str(out)],
+            capture_output=True, text=True, timeout=10,
+            env={**os.environ, "NO_BROWSER": "1", "XDG_CACHE_HOME": str(tmp_path / "cache")},
+        )
+        assert r.returncode == 0, f"serve_report failed:\n{r.stderr}"
+        assert f"HTML_REPORT: {out}" in r.stdout
+        resp = _wait_for_server()
+        assert resp.status == 200
+    finally:
+        stray.kill()
+        subprocess.run(["bash", "-c", "for p in $(lsof -ti:8765 -sTCP:LISTEN 2>/dev/null); do ps -p \"$p\" -o args= 2>/dev/null | grep -q http.server && kill \"$p\"; done 2>/dev/null || true"],
                        capture_output=True)
 
 
@@ -500,12 +558,46 @@ def test_build_index(tmp_path):
     assert manifest["reports"][0]["title"] == "Test Video One"
 
 
+def test_build_index_normalize_tags_folds_variants():
+    """_normalize_tags: lowercase, hyphen→space, dedupe in first-seen order (F4)."""
+    sys.path.insert(0, str(GALLERY_SCRIPT_DIR))
+    from build_index import _normalize_tags  # type: ignore
+    assert _normalize_tags(["AI-Coding", "ai coding", "LLM", "llm"]) == ["ai coding", "llm"]
+    assert _normalize_tags(["  Developer   Tools  "]) == ["developer tools"]
+    assert _normalize_tags(["ok", 123, None, ""]) == ["ok"]
+
+
+def test_build_index_folds_tags_in_manifest(tmp_path):
+    """End-to-end: build_index writes a manifest with tags folded to normalized form."""
+    BUILD_INDEX = GALLERY_SCRIPT_DIR / "build_index.py"
+    meta = json.dumps({
+        "videoId": "bjdBVZa66oU",
+        "title": "T",
+        "tags": ["AI-Coding", "ai coding", "Productivity"],
+        "keywords": ["P"],
+    })
+    report = tmp_path / "2025-01-01-000000-video-lens_test_0.html"
+    report.write_text(
+        f'<html><body><script type="application/json" id="video-lens-meta">{meta}</script></body></html>',
+        encoding="utf-8",
+    )
+    r = subprocess.run(
+        [sys.executable, str(BUILD_INDEX), "--dir", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert r.returncode == 0, f"build_index failed:\n{r.stderr}"
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["reports"][0]["tags"] == ["ai coding", "productivity"]
+
+
 # --- preflight ---
 
 from preflight import (  # noqa: E402
     extract_video_id,
     find_duplicate,
     map_language,
+    read_existing_tags,
+    sweep_stale_payloads,
 )
 
 
@@ -548,13 +640,15 @@ def test_preflight_maps_language_names(inp, expected):
 
 
 def test_preflight_main_splits_argv_on_space(monkeypatch, capsys, tmp_path):
-    """When LANG_REQUEST is folded into url_or_id as 'id es', preflight must split."""
-    import preflight  # type: ignore
-    monkeypatch.setattr(preflight, "REPORTS_DIR", tmp_path)
-    monkeypatch.setattr(sys, "argv", ["preflight.py", "dQw4w9WgXcQ es"])
-    rc = preflight.main()
+    """When LANG_REQUEST is folded into url_or_id as 'id es', preflight must split.
+
+    Routed through the helper so REPORTS_DIR, PAYLOAD_BASE_DIR, and MANIFEST_PATH
+    are all pinned to tmp_path — the run must not touch the live ~/Downloads.
+    """
+    rc, out = _run_preflight_main(
+        monkeypatch, capsys, tmp_path, ["preflight.py", "dQw4w9WgXcQ es"],
+    )
     assert rc == 0
-    out = capsys.readouterr().out
     assert "VIDEO_ID: dQw4w9WgXcQ" in out
     assert "LANG_CODE: es" in out
 
@@ -573,11 +667,119 @@ def test_preflight_emits_newest_duplicate_only(tmp_path, monkeypatch):
     assert preflight.find_duplicate("dQw4w9WgXcQ") == newer
 
 
+def test_preflight_sweeps_stale_payload_dirs(tmp_path):
+    """Payload dirs older than the TTL are removed; fresh ones survive (F1)."""
+    import preflight  # type: ignore
+    base = tmp_path / ".tmp"
+    base.mkdir()
+    stale = base / "payload-old"
+    fresh = base / "payload-new"
+    keep = base / "not-a-payload"
+    for d in (stale, fresh, keep):
+        d.mkdir()
+        (d / "payload.json").write_text("{}")
+    now = 2_000_000_000
+    os.utime(stale, (now - preflight.PAYLOAD_TTL_SECONDS - 60,) * 2)
+    os.utime(fresh, (now - 60,) * 2)
+    os.utime(keep, (now - preflight.PAYLOAD_TTL_SECONDS - 60,) * 2)
+
+    sweep_stale_payloads(base, now=now)
+
+    assert not stale.exists()
+    assert fresh.exists()
+    assert keep.exists()  # only payload-* dirs are swept
+
+
+def test_read_existing_tags_ranks_and_folds_variants(tmp_path):
+    """Tags are counted most-frequent-first, with trivial variants folded (F4)."""
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"reports": [
+        {"tags": ["ai", "AI-Coding"]},
+        {"tags": ["ai coding", "ai"]},
+        {"tags": ["ai", "productivity"]},
+    ]}), encoding="utf-8")
+    tags = read_existing_tags(manifest, limit=40)
+    # "ai" (3) > "ai coding"/"AI-Coding" folded (2) > "productivity" (1)
+    assert tags == ["ai", "ai coding", "productivity"]
+
+
+def test_read_existing_tags_ignores_string_tags(tmp_path):
+    """A report whose `tags` is a string (malformed) must not be char-split into
+    single-letter tags — it is skipped entirely (F4 hardening)."""
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"reports": [
+        {"tags": "ai"},               # malformed: string, not a list
+        {"tags": ["ai", "llm"]},      # valid
+    ]}), encoding="utf-8")
+    tags = read_existing_tags(manifest)
+    assert tags == ["ai", "llm"]      # no 'a', 'i' character tags
+
+
+def test_read_existing_tags_dedupes_variants_within_a_report(tmp_path):
+    """Two normalized-equal tags in one report count once, matching build_index."""
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"reports": [
+        {"tags": ["ai", "AI", "A-I"]},   # all fold to "ai" → one count for this report
+        {"tags": ["ai"]},                # second report → second count
+    ]}), encoding="utf-8")
+    # If per-report dedup were missing, "ai" would count 4×, not 2×; ranking is the
+    # same here, so assert the count via a second tag that must rank below it.
+    manifest.write_text(json.dumps({"reports": [
+        {"tags": ["ai", "AI", "A-I", "llm"]},
+        {"tags": ["llm"]},
+    ]}), encoding="utf-8")
+    # Without dedup: ai=3, llm=2 → ai first. With dedup: ai=1, llm=2 → llm first.
+    assert read_existing_tags(manifest)[0] == "llm"
+
+
+def test_read_existing_tags_respects_limit(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"reports": [
+        {"tags": [f"tag{i}" for i in range(10)]},
+    ]}), encoding="utf-8")
+    assert len(read_existing_tags(manifest, limit=3)) == 3
+
+
+def test_read_existing_tags_missing_manifest_returns_empty(tmp_path):
+    """Fresh install has no manifest — must degrade gracefully, never raise (F4 caveat)."""
+    assert read_existing_tags(tmp_path / "does-not-exist.json") == []
+
+
+def test_read_existing_tags_malformed_manifest_returns_empty(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("{not json", encoding="utf-8")
+    assert read_existing_tags(manifest) == []
+
+
+def test_preflight_main_emits_existing_tags(monkeypatch, capsys, tmp_path):
+    """When a manifest exists, main() emits an EXISTING_TAGS line."""
+    import preflight  # type: ignore
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"reports": [{"tags": ["ai", "llm"]}]}), encoding="utf-8")
+    monkeypatch.setattr(preflight, "REPORTS_DIR", tmp_path)
+    monkeypatch.setattr(preflight, "PAYLOAD_BASE_DIR", tmp_path / "payload-base")
+    monkeypatch.setattr(preflight, "MANIFEST_PATH", manifest)
+    monkeypatch.setattr(sys, "argv", ["preflight.py", "dQw4w9WgXcQ"])
+    assert preflight.main() == 0
+    out = capsys.readouterr().out
+    assert re.search(r"^EXISTING_TAGS: .*\bai\b.*\bllm\b", out, re.M)
+
+
+def test_preflight_main_omits_existing_tags_without_manifest(monkeypatch, capsys, tmp_path):
+    """No manifest → no EXISTING_TAGS line (the line is optional)."""
+    rc, out = _run_preflight_main(
+        monkeypatch, capsys, tmp_path, ["preflight.py", "dQw4w9WgXcQ"],
+    )
+    assert rc == 0
+    assert "EXISTING_TAGS:" not in out
+
+
 def _run_preflight_main(monkeypatch, capsys, tmp_path, argv):
     """Helper: run preflight.main() with REPORTS_DIR and PAYLOAD_BASE_DIR pinned to tmp_path."""
     import preflight  # type: ignore
     monkeypatch.setattr(preflight, "REPORTS_DIR", tmp_path)
     monkeypatch.setattr(preflight, "PAYLOAD_BASE_DIR", tmp_path / "payload-base")
+    monkeypatch.setattr(preflight, "MANIFEST_PATH", tmp_path / "manifest.json")
     monkeypatch.setattr(sys, "argv", argv)
     rc = preflight.main()
     out = capsys.readouterr().out
@@ -703,9 +905,9 @@ def test_renderer_derives_filename_with_output_dir(tmp_path):
     )
 
 
-def test_renderer_output_dir_requires_generation_date(tmp_path):
-    """With --output-dir, an empty GENERATION_DATE must fail fast — otherwise
-    _derived_filename produces a malformed `-HHMMSS-…` name."""
+def test_renderer_output_dir_defaults_empty_generation_date_to_today(tmp_path):
+    """With --output-dir, an empty GENERATION_DATE defaults to today rather than
+    rejecting — the filename's HHMMSS already comes from the same clock (F5)."""
     out_dir = tmp_path / "reports"
     out_dir.mkdir()
     payload = new_shape_payload(GENERATION_DATE="")
@@ -716,9 +918,11 @@ def test_renderer_output_dir_requires_generation_date(tmp_path):
         capture_output=True, text=True, timeout=10,
         env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
     )
-    assert r.returncode != 0
-    assert "RENDER_PAYLOAD_INVALID" in r.stderr
-    assert "GENERATION_DATE" in r.stderr
+    assert r.returncode == 0, r.stderr
+    written = pathlib.Path(r.stdout.split(": ", 1)[1].strip())
+    assert written.exists()
+    today = date.today().isoformat()
+    assert written.name.startswith(today + "-"), written.name
 
 
 def test_renderer_slug_falls_back_for_non_ascii_title(tmp_path):
@@ -931,5 +1135,30 @@ def test_claude_session():
     # Key points: count <li> only within the key-points section
     kp_match = re.search(r'id="key-points".*?</section>', html, re.DOTALL)
     assert kp_match and kp_match.group().count("<li>") >= 3
-    subprocess.run(["bash", "-c", "kill $(lsof -ti:8765 -sTCP:LISTEN) 2>/dev/null || true"],
+    subprocess.run(["bash", "-c", "for p in $(lsof -ti:8765 -sTCP:LISTEN 2>/dev/null); do ps -p \"$p\" -o args= 2>/dev/null | grep -q http.server && kill \"$p\"; done 2>/dev/null || true"],
                    capture_output=True)
+
+
+# ---------- tag-normalization drift guard ----------
+
+def test_normalize_tags_identical_across_call_sites():
+    """`_normalize_tags` is copy-pasted into preflight.py, render_report.py, and
+    build_index.py (they live in different skill dirs and can't share a module).
+    The EXISTING_TAGS feedback loop's correctness depends on all three folding
+    tags identically — this asserts they have not drifted."""
+    sys.path.insert(0, str(GALLERY_SCRIPT_DIR))
+    import preflight
+    import build_index
+    import render_report as rr
+
+    vectors = [
+        ["AI", "ai", "AI-Coding", "ai coding", "  Developer   Tools  "],
+        ["Agents", "agentic", "AI Agents"],
+        ["", "  ", 123, None, "valid-tag"],     # non-str + empty entries dropped
+        [],
+        ["LLM", "llm", "L L M"],
+    ]
+    for tags in vectors:
+        base = preflight._normalize_tags(tags)
+        assert build_index._normalize_tags(tags) == base, tags
+        assert rr._normalize_tags(tags) == base, tags

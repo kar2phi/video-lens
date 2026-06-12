@@ -8,7 +8,10 @@ description: >
   "find my saved summary for [topic]", "rebuild the index", "show video-lens index",
   "backfill metadata", "update index".
 license: MIT
-allowed-tools: Bash
+allowed-tools: Bash Read
+metadata:
+  author: kar2phi
+  version: "2.0"
 ---
 
 # video-lens-gallery
@@ -55,4 +58,4 @@ Tell the user the number of reports indexed, from the script's output.
 bash "$_sd/serve_report.sh" ~/Downloads/video-lens/index.html ~/Downloads/video-lens
 ```
 
-Tell the user the gallery is now available at `http://localhost:8765/index.html`.
+If `serve_report.sh` prints an `ERROR:` line (e.g. `ERROR:SERVE_PORT_BUSY` when port 8765 is held by another program), report the message and stop. Otherwise — confirmed by its `HTML_REPORT:` line — tell the user the gallery is now available at `http://localhost:8765/index.html`.

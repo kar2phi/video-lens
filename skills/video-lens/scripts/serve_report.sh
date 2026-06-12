@@ -60,6 +60,30 @@ if [ -f "$PID_FILE" ]; then
   rm -f "$PID_FILE"
 fi
 
+# The PID file only tracks servers started with the same cache dir. If the port
+# is still occupied (stale server from another session or cache root), take it
+# over only when it is a python http.server serving OUR directory; otherwise
+# refuse loudly instead of letting the bind fail with an opaque
+# SERVE_PORT_FAILED. Matching $SERVE_DIR keeps the "reclaim a stale video-lens
+# session" intent while never killing an unrelated http.server the user is
+# running for another project on this port.
+LISTEN_PID="$(lsof -ti tcp:$PORT -sTCP:LISTEN 2>/dev/null | head -1 || true)"
+if [ -n "$LISTEN_PID" ]; then
+  LISTEN_ARGS="$(ps -p "$LISTEN_PID" -o args= 2>/dev/null || true)"
+  if printf '%s' "$LISTEN_ARGS" | grep -q "http.server" \
+     && printf '%s' "$LISTEN_ARGS" | grep -qF "$SERVE_DIR"; then
+    kill "$LISTEN_PID" 2>/dev/null || true
+    # Wait (up to ~2s) for the port to actually be released before binding.
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      lsof -ti tcp:$PORT -sTCP:LISTEN >/dev/null 2>&1 || break
+      sleep 0.2
+    done
+  else
+    echo "ERROR:SERVE_PORT_BUSY port $PORT is in use by: $(ps -p "$LISTEN_PID" -o args= 2>/dev/null || echo "pid $LISTEN_PID")" >&2
+    exit 1
+  fi
+fi
+
 # Start HTTP server in background and detach it from this shell so it survives
 # after the skill command exits. Log stderr/stdout so failures can be diagnosed.
 nohup python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$SERVE_DIR" \

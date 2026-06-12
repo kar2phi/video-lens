@@ -40,6 +40,31 @@ def _format_duration(dur_s):
     return f"{h}h {m2}m" if h > 0 else f"{m2} min"
 
 
+def _primary_lang(code):
+    return (code or "").split("-")[0].split("_")[0].lower()
+
+
+def _detect_language(data):
+    """Primary ISO-639-1 language subtag from a yt-dlp info dict, or ''."""
+    lang = _primary_lang(data.get("language"))
+    if lang:
+        return lang
+    # Multi-audio videos list every dubbed track as its own format;
+    # language_preference marks the original audio (10) above dubs, so take
+    # the highest-preference language rather than the first in format order.
+    best_pref = None
+    for fmt in (data.get("formats") or []):
+        fl = _primary_lang(fmt.get("language"))
+        if not fl or fl == "und":
+            continue
+        pref = fmt.get("language_preference")
+        pref = -1000 if pref is None else pref
+        if best_pref is None or pref > best_pref:
+            best_pref = pref
+            lang = fl
+    return lang
+
+
 def _format_published(upload_date):
     if len(upload_date) != 8:
         return ""
@@ -97,6 +122,7 @@ def main():
     print(f"YTDLP_DURATION: {duration}")
     print(f"YTDLP_DESC_HTML: {desc_html}")
     print(f"YTDLP_CHAPTERS: {json.dumps(chapters)}")
+    print(f"YTDLP_LANGUAGE: {_detect_language(data)}")
 
 
 if __name__ == "__main__":

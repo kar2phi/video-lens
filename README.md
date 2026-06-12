@@ -15,6 +15,7 @@ video-lens is a coding agent skill that fetches a YouTube transcript and generat
 - **Key points** — bulleted, scannable insights with supporting detail
 - **Timestamped outline** — click topics to expand summaries; click timestamps to jump the player
 - **In-page YouTube player** — watch while reading; auto-highlights the current section
+- **Local transcription fallback** — when captions are unavailable, transcribe audio locally with Whisper
 - **Keyboard shortcuts** — playback speed, layout resize (S/M/L), navigation, and more (`?` for help)
 - **Markdown export** — copy the full report as Markdown in one click
 - **Dark mode** — auto-detects system preference; remembered across sessions
@@ -27,12 +28,15 @@ video-lens is a coding agent skill that fetches a YouTube transcript and generat
 | Tool                                             | Purpose                                                    |
 | ------------------------------------------------ | ---------------------------------------------------------- |
 | A supported coding agent                         | Runs the skill (see [Supported Agents](#supported-agents)) |
-| Python 3                                         | Fetches the transcript                                     |
+| Python 3                                         | Runs the helper scripts                                    |
+| `youtube-transcript-api`                         | Fetches YouTube captions/subtitles                         |
+| `yt-dlp`                                         | Fetches metadata and downloads audio for local transcription |
 | **Optional:** [Raycast](https://www.raycast.com) | Trigger from anywhere via hotkey (macOS)                   |
 | **Optional:** [Task](https://taskfile.dev)       | Install/dev commands alias (`brew install go-task`)        |
 | **Optional:** [Deno](https://deno.com)           | Used by yt-dlp only for edge-case extractors (`brew install deno`) |
+| **Optional:** `mlx-whisper` + `ffmpeg`           | Local Whisper fallback for videos without captions (Apple Silicon) |
 
-> **Note:** video-lens only works for videos that have captions/subtitles available. Videos with captions disabled will produce an error. YouTube Shorts are not supported.
+> **Note:** video-lens first tries YouTube captions/subtitles. If captions are missing or blocked, it can fall back to local Whisper transcription when the optional local dependencies are installed. YouTube Shorts are not supported.
 
 ---
 
@@ -51,6 +55,11 @@ video-lens uses the universal [SKILL.md](https://agents.md/) format — any agen
 ```bash
 npx skills add kar2phi/video-lens
 pip install youtube-transcript-api yt-dlp
+
+# Optional: local transcription fallback on Apple Silicon
+pip install mlx-whisper
+brew install ffmpeg
+
 brew install deno  # optional; only needed if yt-dlp fails on certain videos
 ```
 
@@ -65,6 +74,10 @@ git clone https://github.com/kar2phi/video-lens.git
 cd video-lens
 task install-skill-local AGENT=claude   # or copilot, gemini, cursor, …
 pip install -r requirements.txt
+
+# Optional: local transcription fallback on Apple Silicon
+pip install mlx-whisper
+brew install ffmpeg
 ```
 
 `task install-skill-local` deploys all files in `skills/video-lens/` (including `scripts/`) — a plain curl of individual files won't pull the script set and the skill will fail at runtime.
@@ -77,6 +90,10 @@ pip install -r requirements.txt
 git clone https://github.com/kar2phi/video-lens.git
 cd video-lens
 task install-libraries
+
+# Optional: local transcription fallback on Apple Silicon
+pip install mlx-whisper
+brew install ffmpeg
 
 # Optional: only needed if yt-dlp fails on certain videos
 brew install deno
@@ -107,6 +124,8 @@ Requires Raycast. The script opens a new iTerm2 tab (or Terminal.app if iTerm2 i
 ```
 
 Claude fetches the transcript, generates the report, and opens it in your browser at `http://localhost:8765/`.
+
+If captions are unavailable, video-lens can ask to run local transcription instead. The fallback downloads the video's audio with `yt-dlp`, transcribes it with `mlx-whisper`, and then generates the same report format. It is slower than captions and may download a Whisper model the first time it runs.
 
 ### Gallery
 
@@ -159,8 +178,10 @@ video-lens/
       scripts/
         fetch_transcript.py
         fetch_metadata.py
+        preflight.py
         render_report.py
         serve_report.sh
+        transcribe_local.py ← local Whisper fallback (optional deps: mlx-whisper + ffmpeg)
     video-lens-gallery/
       SKILL.md          ← gallery skill prompt (source of truth)
       index.html        ← gallery viewer (source of truth)

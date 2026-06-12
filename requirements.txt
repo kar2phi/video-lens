@@ -1,3 +1,7 @@
 youtube-transcript-api>=0.6.3
 yt-dlp>=2026.3.17
 pytest>=8.0
+
+# Optional — local transcription fallback (Apple Silicon):
+# mlx-whisper>=0.4
+# (also requires the ffmpeg CLI: brew install ffmpeg)
