@@ -15,14 +15,17 @@ Stdout on success (lines that apply only):
     SCRIPTS_DIR: <absolute>      # directory holding the video-lens scripts
     PAYLOAD_PATH: <absolute>     # ~/Downloads/video-lens/.tmp/payload-XXXX/payload.json (0700 parent, file not pre-created)
     DUPLICATE_PATH: <absolute>   # newest match by mtime, if any
+    EXISTING_TAGS: a, b, c, …    # top tags across saved reports (omitted when no manifest yet)
 
 Stderr + non-zero exit on:
     ERROR:SHORTS_NOT_SUPPORTED <url>
     ERROR:INVALID_INPUT <reason>
 """
 import argparse
+import json
 import pathlib
 import re
+import shutil
 import sys
 import tempfile
 import time
@@ -30,7 +33,10 @@ from urllib.parse import parse_qs, urlparse
 
 VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 REPORTS_DIR = pathlib.Path.home() / "Downloads" / "video-lens" / "reports"
+MANIFEST_PATH = pathlib.Path.home() / "Downloads" / "video-lens" / "manifest.json"
 PAYLOAD_BASE_DIR = pathlib.Path.home() / "Downloads" / "video-lens" / ".tmp"
+PAYLOAD_TTL_SECONDS = 7 * 24 * 60 * 60  # sweep payload-* dirs older than ~7 days
+EXISTING_TAGS_LIMIT = 40  # how many of the most-common tags to feed back to Step 3
 
 LANGUAGE_MAP = {
     "english": "en", "spanish": "es", "french": "fr", "german": "de",
@@ -85,6 +91,73 @@ def map_language(raw: str) -> str:
     return LANGUAGE_MAP.get(raw, raw)
 
 
+def sweep_stale_payloads(base_dir: pathlib.Path, now: float | None = None) -> None:
+    """Delete `payload-*` dirs older than PAYLOAD_TTL_SECONDS.
+
+    Each run leaves a payload-XXXX/ dir holding the full report content; nothing
+    else cleans them, so they accumulate (disk clutter + summaries persisting
+    outside the reports dir). Best-effort: any error per-dir is ignored.
+    """
+    if not base_dir.is_dir():
+        return
+    cutoff = (time.time() if now is None else now) - PAYLOAD_TTL_SECONDS
+    for entry in base_dir.glob("payload-*"):
+        try:
+            if entry.is_dir() and entry.stat().st_mtime < cutoff:
+                shutil.rmtree(entry, ignore_errors=True)
+        except OSError:
+            continue
+
+
+def _normalize_tags(tags: list) -> list[str]:
+    """Fold trivial tag variants: lowercase, hyphen→space, collapse whitespace,
+    dedupe (first-seen order). Non-str entries are dropped. Kept byte-identical to
+    `build_index._normalize_tags` and `render_report._normalize_tags` so the
+    feedback loop counts the same shape the gallery and new reports store.
+    """
+    seen = set()
+    out = []
+    for tag in tags:
+        if not isinstance(tag, str):
+            continue
+        norm = " ".join(tag.replace("-", " ").lower().split())
+        if norm and norm not in seen:
+            seen.add(norm)
+            out.append(norm)
+    return out
+
+
+def read_existing_tags(
+    manifest_path: pathlib.Path = MANIFEST_PATH, limit: int = EXISTING_TAGS_LIMIT
+) -> list[str]:
+    """Return the most-common tags across saved reports, most-frequent first.
+
+    Feeds Step 3's tag rule so new reports prefer the established vocabulary
+    instead of inventing near-duplicates (the gallery's filter chips fragment
+    otherwise). Best-effort: a missing or unreadable manifest yields an empty
+    list — fresh installs have no manifest.json yet, and that must never fail the
+    run. Per report, tags are normalized and deduped before counting, so a single
+    report using both `ai` and `AI-Coding`/`ai coding` contributes one count each.
+    """
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    counts: dict[str, int] = {}
+    for report in data.get("reports", []):
+        if not isinstance(report, dict):
+            continue
+        tags = report.get("tags")
+        if not isinstance(tags, list):
+            continue
+        for norm in _normalize_tags(tags):
+            counts[norm] = counts.get(norm, 0) + 1
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    return [tag for tag, _ in ranked[:limit]]
+
+
 def find_duplicate(video_id: str) -> pathlib.Path | None:
     if not REPORTS_DIR.is_dir():
         return None
@@ -121,6 +194,7 @@ def main() -> int:
     dup = find_duplicate(video_id)
 
     PAYLOAD_BASE_DIR.mkdir(parents=True, exist_ok=True)
+    sweep_stale_payloads(PAYLOAD_BASE_DIR)
     payload_dir = tempfile.mkdtemp(prefix="payload-", dir=str(PAYLOAD_BASE_DIR))
     payload_path = pathlib.Path(payload_dir) / "payload.json"
 
@@ -133,6 +207,9 @@ def main() -> int:
     print(f"PAYLOAD_PATH: {payload_path}")
     if dup is not None:
         print(f"DUPLICATE_PATH: {dup}")
+    existing_tags = read_existing_tags(MANIFEST_PATH)
+    if existing_tags:
+        print(f"EXISTING_TAGS: {', '.join(existing_tags)}")
     return 0
 
 

@@ -803,7 +803,10 @@
       if (searchQuery) {
         const hay = [r.title, r.channel, r.summary, (r.tags || []).join(' '), (r.keywords || []).join(' ')]
           .join(' ').toLowerCase();
-        if (!hay.includes(searchQuery)) return false;
+        // AND every whitespace-separated token so "agent hardware" matches a report
+        // mentioning both words in any field/order, not just the literal phrase.
+        const tokens = searchQuery.split(/\s+/).filter(Boolean);
+        if (!tokens.every(function (t) { return hay.includes(t); })) return false;
       }
       return true;
     });

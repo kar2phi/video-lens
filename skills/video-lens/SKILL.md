@@ -1,32 +1,33 @@
 ---
 name: video-lens
-description: Fetch a YouTube transcript and generate an executive summary, key points, and timestamped topic list as a polished HTML report. Activate on YouTube URLs or requests like "summarize this video", "what's this about", "give me the highlights", "TL;DR this", "digest this video", "watch this for me", "I watched this and want a breakdown", or "make notes on this talk". Supports non-English videos, language selection, and yt-dlp enrichment for chapters, video description, and richer metadata.
+description: Fetch a YouTube transcript and generate an executive summary, key points, and timestamped topic list as a polished HTML report. Activate on YouTube URLs or requests like "summarize this video", "what's this about", "give me the highlights", "TL;DR this", "digest this video", "watch this for me", "I watched this and want a breakdown", or "make notes on this talk". Supports non-English videos, language selection, and yt-dlp enrichment for chapters, video description, and richer metadata. Falls back to local Whisper transcription when a video has no captions.
 license: MIT
-compatibility: "Requires Python 3 and youtube-transcript-api >=0.6.3. Optional but recommended: yt-dlp and deno for enriched metadata and chapters."
+compatibility: "Requires Python 3 and youtube-transcript-api >=0.6.3. Optional but recommended: yt-dlp and deno for enriched metadata and chapters. Local transcription fallback (videos without captions) additionally requires mlx-whisper, ffmpeg, and yt-dlp (Apple Silicon only)."
 allowed-tools: Bash Read
 metadata:
   author: kar2phi
-  version: "4.0"
+  version: "5.0"
 ---
 
 ## Quick reference
 
 > **Step 4 is the authoritative spec.** This block is a compaction-safety net — if it diverges from Step 4, trust Step 4.
 
-Render payload must include all of: `VIDEO_ID, VIDEO_TITLE, VIDEO_URL, SUMMARY, KEY_POINTS, TAKEAWAY, OUTLINE, DESCRIPTION_SECTION` — plus `GENERATION_DATE` (`YYYY-MM-DD`) when using `--output-dir` (always, in normal runs). `META_LINE` is optional. Build via `Write` to the `PAYLOAD_PATH` from Step 1, then `render_report.py --payload-file <path> --output-dir <dir>` — never heredoc.
+Render payload must include all of: `VIDEO_ID, VIDEO_TITLE, VIDEO_URL, SUMMARY, KEY_POINTS, TAKEAWAY, OUTLINE, DESCRIPTION_SECTION`. `GENERATION_DATE` (`YYYY-MM-DD`) and `META_LINE` are optional — omit `GENERATION_DATE` and the renderer defaults to today. Build via `Write` to the `PAYLOAD_PATH` from Step 1, then `render_report.py --payload-file <path> --output-dir <dir>` — never heredoc.
 
 Run `python3 .../render_report.py --schema` to print the live schema.
 
-Script invocations:
-- `python3 .../preflight.py "<url-or-id> [lang]"`
-- `python3 .../fetch_transcript.py <VIDEO_ID> [LANG_CODE]`
-- `python3 .../fetch_metadata.py <VIDEO_ID>`
+Script invocations (the `--` guards video IDs that start with `-` — keep it):
+- `python3 .../preflight.py -- "<url-or-id> [lang]"`
+- `python3 .../fetch_transcript.py -- <VIDEO_ID> [LANG_CODE]`
+- `python3 .../fetch_metadata.py -- <VIDEO_ID>`
+- `python3 .../transcribe_local.py [--language L] [--model M] -- <VIDEO_ID>` *(fallback only — see Step 2a fallback)*
 - `python3 .../render_report.py --payload-file <path> --output-dir <dir>`
 - `bash .../serve_report.sh <html-path>` *(bash script — never invoke with `python3`)*
 
 ## Bundled scripts
 
-Five local scripts ship in `./scripts/`: `preflight.py`, `fetch_transcript.py`, `fetch_metadata.py`, `render_report.py`, `serve_report.sh`. No remote code is fetched at runtime. Network calls during a run: YouTube transcript and metadata fetches. Network calls when the user views the report in their browser: the YouTube iframe API and Google Fonts CSS.
+Six local scripts ship in `./scripts/`: `preflight.py`, `fetch_transcript.py`, `fetch_metadata.py`, `transcribe_local.py`, `render_report.py`, `serve_report.sh`. No remote code is fetched at runtime. Network calls during a run: YouTube transcript and metadata fetches. When the local-transcription fallback runs: audio download from YouTube via yt-dlp, and a one-time Whisper model download (~1.5 GB for medium) from Hugging Face. Network calls when the user views the report in their browser: the YouTube iframe API and Google Fonts CSS.
 
 ## When to Activate
 
@@ -47,10 +48,10 @@ Step 2 has two parts (2a transcript, 2b yt-dlp metadata) that depend only on `VI
 
 ### 1. Preflight — extract video ID, language, and check for duplicates
 
-Run preflight, then read the prefixed lines from its stdout. Save `VIDEO_ID`, `LANG_CODE`, `START_EPOCH`, `SCRIPTS_DIR`, and `PAYLOAD_PATH` for later steps. The `SCRIPTS_DIR` value replaces the discovery boilerplate from Step 1 in subsequent steps — substitute it as a literal path.
+Run preflight, then read the prefixed lines from its stdout. Save `VIDEO_ID`, `LANG_CODE`, `START_EPOCH`, `SCRIPTS_DIR`, `PAYLOAD_PATH`, and the `EXISTING_TAGS` list (if present) for later steps. The `SCRIPTS_DIR` value replaces the discovery boilerplate from Step 1 in subsequent steps — substitute it as a literal path.
 
 ```bash
-_sd=$(for d in ~/.agents ~/.claude ~/.copilot ~/.gemini ~/.cursor ~/.windsurf ~/.opencode ~/.codex; do [ -d "$d/skills/video-lens/scripts" ] && echo "$d/skills/video-lens/scripts" && break; done); [ -z "$_sd" ] && echo "Scripts not found — install from github.com/kar2phi/video-lens (see Bundled scripts above)" && exit 1; python3 "$_sd/preflight.py" "$USER_INPUT"
+_sd=$(for d in ~/.agents ~/.claude ~/.copilot ~/.gemini ~/.cursor ~/.windsurf ~/.opencode ~/.codex; do [ -d "$d/skills/video-lens/scripts" ] && echo "$d/skills/video-lens/scripts" && break; done); [ -z "$_sd" ] && echo "Scripts not found — install from github.com/kar2phi/video-lens (see Bundled scripts above)" && exit 1; python3 "$_sd/preflight.py" -- "$USER_INPUT"
 ```
 
 Substitute `$USER_INPUT` with the user's URL/ID and any language hint as a single argument (preflight splits internally on the space).
@@ -58,6 +59,7 @@ Substitute `$USER_INPUT` with the user's URL/ID and any language hint as a singl
 - On `ERROR:SHORTS_NOT_SUPPORTED`: report the limitation and stop.
 - On `ERROR:INVALID_INPUT`: report the message and stop.
 - If a `DUPLICATE_PATH:` line is present, tell the user: "Note: an existing report for this video was found — `{filename}`. Proceeding with a fresh summary." This is a non-blocking notification — do not ask the user to choose and do not stop. If the user responds by asking to open the existing report instead, run `serve_report.sh` with the existing file path and stop.
+- If an `EXISTING_TAGS:` line is present, it lists the most common tags already used across saved reports. Carry it to Step 3 to keep the gallery's tag vocabulary consistent. The line is absent on a fresh install (no manifest yet) — that is fine; just invent tags normally.
 
 ### 2. Fetch the transcript and metadata (in parallel)
 
@@ -66,7 +68,7 @@ Run **both** Bash calls in the **same assistant message** so the harness runs th
 **2a. Fetch the transcript:**
 
 ```bash
-python3 "SCRIPTS_DIR/fetch_transcript.py" "VIDEO_ID" "LANG_CODE"
+python3 "SCRIPTS_DIR/fetch_transcript.py" -- "VIDEO_ID" "LANG_CODE"
 ```
 
 (Reads `VIDEO_ID` and `LANG_CODE` from Step 1's output. `LANG_CODE` is empty when the user did not request a specific language — the fetcher then auto-selects. This is a *transcript selection* preference, not a translation feature; the summary is always written in the language of the fetched transcript.)
@@ -80,14 +82,34 @@ If a `LANG_WARN:` line is present, the requested language was unavailable and th
 **2b. Fetch enriched metadata with yt-dlp:**
 
 ```bash
-python3 "SCRIPTS_DIR/fetch_metadata.py" "VIDEO_ID"
+python3 "SCRIPTS_DIR/fetch_metadata.py" -- "VIDEO_ID"
 ```
 
 Parse the prefixed output lines:
 - **Metadata:** prefer `YTDLP_CHANNEL`, `YTDLP_PUBLISHED`, `YTDLP_VIEWS`, `YTDLP_DURATION` over 2a's HTML-scraped values (they are more reliable). Pass them into Step 4 as `CHANNEL`, `PUBLISH_DATE`, `VIEWS`, `DURATION`.
 - **Description:** `YTDLP_DESC_HTML` is the HTML-safe, linkified description text; save for use in Steps 3 and 4.
 - **Chapters:** `YTDLP_CHAPTERS` is a JSON array of `{"start_time": N, "title": "..."}` objects; when non-empty, use them to anchor the Outline (see Step 3).
+- **Language:** `YTDLP_LANGUAGE` is the video's primary language subtag, already normalized (e.g. `en`, not `en-US`); may be empty. Only needed if the local-transcription fallback runs (Step 2a fallback).
 - **Error:** if an `ERROR:YTDLP_*` line is present, handle it per the **Error Handling** table below (most yt-dlp errors are non-fatal — fall back to 2a metadata).
+
+### Step 2a fallback — local Whisper transcription
+
+When 2a fails with a fallback-eligible error (see the **Error Handling** table: `CAPTIONS_DISABLED`, `NO_TRANSCRIPT`, `IP_BLOCKED`, `PO_TOKEN_REQUIRED`, or `REQUEST_BLOCKED` after its retry also failed), the transcript can usually still be produced locally: yt-dlp downloads the audio and mlx-whisper transcribes it on the Apple Silicon GPU.
+
+**Ask first.** Before running, report the original error and tell the user transcription will run locally on their machine. Estimate the time from `YTDLP_DURATION` (a 1 h video takes roughly 4–8 min on this machine) and, if mlx-whisper has not been used before, warn about the one-time model download (~1.5 GB for medium). Proceed only on consent. Skip the question entirely if the user already asked for local transcription in their prompt.
+
+Wait for 2b's output before invoking (it supplies `YTDLP_DURATION` and `YTDLP_LANGUAGE`), then run:
+
+```bash
+python3 "SCRIPTS_DIR/transcribe_local.py" --model medium -- "VIDEO_ID"
+```
+
+- **Language:** `--language` declares what language the **audio is** — it is not a transcript-language choice. Pass `--language YTDLP_LANGUAGE` when 2b returned a non-empty value; otherwise omit the flag and Whisper auto-detects. Never pass Step 1's `LANG_CODE` here: that is the language the user *requested*, and forcing Whisper to a language the audio is not in produces garbage. The fallback cannot honor a transcript-language request — if Step 1 had a language hint and the output's `LANG:` differs from it, also append ` · ⚠ Requested language not available` to `META_LINE` (alongside the provenance suffix below).
+- **Model sizes:** default `medium`; `small` is faster but less accurate; `large-v3` gives the best non-English accuracy. Use a non-default size only when the user asks for it.
+- **Timeouts:** invoke with an explicit 600000 ms timeout. Transcription runs at roughly 4–8 min per hour of video and a first run adds the model download — both count against the 10-minute Bash cap. For videos longer than ~60 min, or any first run where the model must still download, run the command in the background and poll until it finishes.
+- **Output** is `fetch_transcript.py`-compatible (same header block and `[M:SS] text` lines) — use it as the transcript for Steps 3–6 without modification. The extra `SOURCE:` line is informational.
+- **Provenance:** when the fallback produced the transcript, append ` · 🎙 transcribed locally` to `META_LINE` — compose `META_LINE` explicitly in the Step 4 payload (like the existing `LANG_WARN` case): `<channel> · <duration> · <published> · <views> · 🎙 transcribed locally`.
+- Any `ERROR:` line from the script follows the **Error Handling** table below.
 
 ### 3. Generate the summary content
 
@@ -137,7 +159,7 @@ Rules:
 
 **Otherwise:** create one outline entry for each major topic shift or distinct segment in the video. Let the video's natural structure determine the number of entries (see Length adjustments below for typical ranges). Do not pad with minor sub-topics to hit a target count, and do not merge distinct topics to stay under a cap.
 
-**Tags** — 3–5 short, lowercase topic category labels for the index (e.g. "ai", "hardware", "machine learning", "economics", "history"). Think of these as broad genre/domain tags a viewer would use to filter a list. Rules: (1) prefer broader terms over narrower sub-categories — use "hardware" not "memory hardware"; (2) avoid overlap — do not emit two tags that are sub-topics of the same concept, e.g. use "llm" instead of both "llm engineering" and "context engineering"; (3) each tag must be meaningfully distinct from every other tag in the set. Bad example: `["hardware", "memory hardware", "llm engineering", "context engineering"]` → Good: `["hardware", "llm"]`. Separate from key-point keywords.
+**Tags** — 3–5 short, lowercase topic category labels for the index (e.g. "ai", "hardware", "machine learning", "economics", "history"). Think of these as broad genre/domain tags a viewer would use to filter a list. Rules: (1) prefer broader terms over narrower sub-categories — use "hardware" not "memory hardware"; (2) avoid overlap — do not emit two tags that are sub-topics of the same concept, e.g. use "llm" instead of both "llm engineering" and "context engineering"; (3) each tag must be meaningfully distinct from every other tag in the set; (4) prefer a tag from the `EXISTING_TAGS` list (from Step 1's preflight output) when one fits the video — invent a new tag only when nothing in that list matches, so the gallery's filter vocabulary stays consistent instead of fragmenting into near-duplicates. Bad example: `["hardware", "memory hardware", "llm engineering", "context engineering"]` → Good: `["hardware", "llm"]`. Separate from key-point keywords.
 
 #### Quality Guidelines
 
@@ -177,7 +199,7 @@ Fields to provide:
 | `DURATION` | Formatted duration (e.g. `"1h 16m"`); plain text |
 | `PUBLISH_DATE` | Video publish date (e.g. `"Dec 5 2025"`); plain text |
 | `VIEWS` | View count (e.g. `"1.2M views"`); plain text |
-| `GENERATION_DATE` | `DATE:` line from 2a, format `YYYY-MM-DD` |
+| `GENERATION_DATE` *(optional)* | `DATE:` line from 2a, format `YYYY-MM-DD`. Omit and the renderer defaults to today (same clock as the filename's time part). |
 | `GENERATION_START_EPOCH` | `START_EPOCH` from Step 1's preflight output |
 | `AGENT_MODEL` | Runtime model identity for the info modal. Look at the top of your system prompt / session context for a model name or ID (e.g. `"gpt-5"`, `"claude-opus-4-7"`, `"qwen3.6"`). Use that exact value. Do not invent a version if only a family name is given. Leave empty only when no model identity is visible. |
 
@@ -189,13 +211,11 @@ The renderer:
 
 **Tag allowlist.** Values for `SUMMARY`, `TAKEAWAY`, `META_LINE`, and `VIDEO_TITLE` are plain text — no HTML. Values for `KEY_POINTS`, `OUTLINE`, and `DESCRIPTION_SECTION` are allowlist-sanitised by `render_report.py`; emit only the structures shown in the value descriptions above. No `<script>`, `<style>`, `<iframe>`, comments, inline event handlers, non-HTTP URLs, or outline links to a different video.
 
-**Common rejection causes** (renderer returns `ERROR:RENDER_DISALLOWED_HTML`):
-- Angle-bracket patterns like `<branch-name>` or `<var>` — the sanitiser treats any `<word>` as an HTML tag even if you meant it as a placeholder. Rewrite to avoid angle brackets (e.g. "git push origin followed by the branch name").
-- Missing `TAKEAWAY` key — include it in every JSON payload; its absence causes `ERROR:RENDER_PAYLOAD_INVALID` (which lists every missing/empty/required-when-output-dir field plus the live `EXPECTED_KEYS` / `REQUIRED_NONEMPTY` schema, so one error tells you everything to fix). If you are ever unsure of the schema, run `python3 .../render_report.py --schema` to print it.
+**Common rejection causes:**
 
-`ERROR:RENDER_INVALID_TYPE key=<KEY> expected string, got list` — you wrote `KEY_POINTS`, `OUTLINE`, or `DESCRIPTION_SECTION` as a JSON array. Concatenate the `<li>` (or `<details>`) blocks into a single string. Example: `"KEY_POINTS": "<li>…</li><li>…</li>"`, **not** `"KEY_POINTS": ["<li>…</li>", "<li>…</li>"]`.
-
-If the renderer returns `ERROR:RENDER_DISALLOWED_HTML`, simplify the field to match the example and retry once.
+- **`ERROR:RENDER_DISALLOWED_HTML`** — usually angle-bracket patterns like `<branch-name>` or `<var>`; the sanitiser treats any `<word>` as an HTML tag even if you meant it as a placeholder. Rewrite to avoid angle brackets (e.g. "git push origin followed by the branch name"), then retry once. If a different tag triggered it (`<script>`, `<iframe>`, …), simplify the field to match the allowlist and retry once.
+- **`ERROR:RENDER_PAYLOAD_INVALID`** — most often a missing `TAKEAWAY` key. The error message lists every missing/empty/required-when-output-dir field plus the live `EXPECTED_KEYS` / `REQUIRED_NONEMPTY` schema, so one error tells you everything to fix. If you are ever unsure of the schema, run `python3 .../render_report.py --schema`.
+- **`ERROR:RENDER_INVALID_TYPE key=<KEY> expected string, got list`** — you wrote `KEY_POINTS`, `OUTLINE`, or `DESCRIPTION_SECTION` as a JSON array. Concatenate the `<li>` (or `<details>`) blocks into a single string. Example: `"KEY_POINTS": "<li>…</li><li>…</li>"`, **not** `"KEY_POINTS": ["<li>…</li>", "<li>…</li>"]`.
 
 **Pass the payload via a file, not a heredoc.** Use the `Write` tool to write the JSON to the `PAYLOAD_PATH` from Step 1, then invoke the renderer with `--payload-file`. Bash heredocs mangle embedded double quotes — which are common when KEY_POINTS or OUTLINE quote the speaker via `<em>"…"</em>` — and a single unescaped `"` produces `ERROR:RENDER_INVALID_JSON`. The `Write` tool handles JSON escaping natively.
 
@@ -215,6 +235,8 @@ The renderer prints `OUTPUT_PATH: /absolute/path.html` on stdout — read that l
 ### 5. Serve and open
 
 The embedded YouTube player requires HTTP — `file://` URLs are blocked (Error 153). After writing the file, run the serve script which kills any existing server on port 8765, starts a new one, opens the browser, and prints `HTML_REPORT: <path>`.
+
+`serve_report.sh` is a bash script — invoke with `bash`, not `python3`.
 
 ```bash
 bash "SCRIPTS_DIR/serve_report.sh" "OUTPUT_PATH" "$HOME/Downloads/video-lens"
@@ -252,9 +274,11 @@ Scripts emit structured error codes with the prefix `ERROR:` followed by a typed
 
 | Error group | Action |
 |---|---|
-| `ERROR:SHORTS_NOT_SUPPORTED`, `ERROR:INVALID_INPUT` | Report the message and stop. (Emitted by preflight.) |
-| `ERROR:CAPTIONS_DISABLED`, `ERROR:VIDEO_UNAVAILABLE`, `ERROR:AGE_RESTRICTED`, `ERROR:INVALID_VIDEO_ID`, `ERROR:NO_TRANSCRIPT`, `ERROR:LIBRARY_MISSING`, `ERROR:PO_TOKEN_REQUIRED`, `ERROR:TRANSCRIPT_FETCH_FAILED`, `ERROR:IP_BLOCKED` | Report the message and stop. For `LIBRARY_MISSING`, print the install command from the message. |
-| `ERROR:REQUEST_BLOCKED`, `ERROR:NETWORK_ERROR` | Retry once; if still failing, report and stop. |
+| `ERROR:SHORTS_NOT_SUPPORTED`, `ERROR:INVALID_INPUT` | Report the message and stop. (Emitted by preflight, and `INVALID_INPUT` also by `transcribe_local.py` for an unknown model size.) |
+| `ERROR:CAPTIONS_DISABLED`, `ERROR:NO_TRANSCRIPT`, `ERROR:IP_BLOCKED`, `ERROR:PO_TOKEN_REQUIRED` | Report the message, then offer the local Whisper fallback (see **Step 2a fallback**). Proceed only if the user agrees or already asked for local transcription; otherwise stop. |
+| `ERROR:VIDEO_UNAVAILABLE`, `ERROR:AGE_RESTRICTED`, `ERROR:INVALID_VIDEO_ID`, `ERROR:LIBRARY_MISSING`, `ERROR:TRANSCRIPT_FETCH_FAILED` | Report the message and stop. For `LIBRARY_MISSING`, print the install command from the message. |
+| `ERROR:REQUEST_BLOCKED`, `ERROR:NETWORK_ERROR` | Retry once. If `REQUEST_BLOCKED` persists, offer the local Whisper fallback (see **Step 2a fallback**) instead of stopping; if `NETWORK_ERROR` persists, report and stop. |
+| `ERROR:WHISPER_MISSING`, `ERROR:FFMPEG_MISSING`, `ERROR:AUDIO_DOWNLOAD_FAILED`, `ERROR:TRANSCRIBE_FAILED` | Report the code and message (include the install hint when present). Stop. |
 | `ERROR:YTDLP_*` | Non-fatal — print a one-line note and proceed with 2a metadata and no description context. For `YTDLP_MISSING`, suggest `brew install yt-dlp` or `pip install yt-dlp`. |
 | `ERROR:RENDER_*`, `ERROR:SERVE_*` | Report the code and message. Stop. Do NOT emit the success line. |
 | `LANG_WARN:` line (not an `ERROR:`) | Fall back to the auto-selected transcript; append `⚠ Requested language not available` to `META_LINE`. |

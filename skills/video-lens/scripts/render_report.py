@@ -31,7 +31,7 @@ import pathlib
 import re
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, urlparse
 
@@ -50,7 +50,7 @@ def _schema_help() -> str:
     return (
         "EXPECTED_KEYS=" + ",".join(sorted(EXPECTED_KEYS))
         + " REQUIRED_NONEMPTY=" + ",".join(REQUIRED_NONEMPTY)
-        + " GENERATION_DATE required when --output-dir is used (YYYY-MM-DD)"
+        + " GENERATION_DATE optional (YYYY-MM-DD; defaults to today with --output-dir)"
     )
 
 PLAINTEXT_KEYS = ("VIDEO_TITLE", "META_LINE", "SUMMARY", "TAKEAWAY")
@@ -355,13 +355,31 @@ def _coerce_duration_seconds(value) -> int | None:
     return value
 
 
+def _normalize_tags(tags: list) -> list:
+    """Fold trivial tag variants: lowercase, hyphen→space, collapse whitespace,
+    dedupe (first-seen order). Non-str entries are dropped. Kept byte-identical to
+    `preflight._normalize_tags` and `build_index._normalize_tags` so a new report
+    embeds the same tag shape the feedback loop counts and the gallery folds.
+    """
+    seen = set()
+    out = []
+    for tag in tags:
+        if not isinstance(tag, str):
+            continue
+        norm = " ".join(tag.replace("-", " ").lower().split())
+        if norm and norm not in seen:
+            seen.add(norm)
+            out.append(norm)
+    return out
+
+
 def _build_meta_dict(raw_payload: dict, clean_key_points: str, output_path: str) -> dict:
     """Build the VIDEO_LENS_META dict from agent-authored payload + clean KEY_POINTS."""
     tags_raw = raw_payload.get("TAGS")
     if tags_raw is None:
         tags: list = []
     elif isinstance(tags_raw, list):
-        tags = [str(t) for t in tags_raw if str(t).strip()]
+        tags = _normalize_tags(tags_raw)
     else:
         raise RenderValidationError("RENDER_INVALID_META_JSON", "TAGS must be a JSON array")
 
@@ -583,7 +601,10 @@ def main():
     if args.output_dir is not None:
         gen_date = str(data.get("GENERATION_DATE", "")).strip()
         if not gen_date:
-            problems.append("missing_keys=['GENERATION_DATE'] (required with --output-dir)")
+            # Default to today rather than rejecting: the filename's HHMMSS already
+            # comes from datetime.now(), so deriving the date from the same clock is
+            # both simpler and more correct when a run crosses midnight.
+            data["GENERATION_DATE"] = date.today().isoformat()
         elif not re.fullmatch(r"\d{4}-\d{2}-\d{2}", gen_date):
             problems.append(f"bad_format_keys=['GENERATION_DATE'] (got {gen_date!r}, expected YYYY-MM-DD)")
 
