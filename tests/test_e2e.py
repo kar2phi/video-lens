@@ -1129,7 +1129,7 @@ def test_full_pipeline(tmp_path):
 
 
 @pytest.mark.slow
-def test_claude_session():
+def test_claude_session(tmp_path):
     if not shutil.which("claude"):
         pytest.skip("claude CLI not available")
 
@@ -1137,49 +1137,51 @@ def test_claude_session():
         pytest.skip("video-lens skill not installed — run: task install-skill-local AGENT=claude")
 
     before = time.time()
-    result = subprocess.run(
-        ["claude", "--print", "--dangerously-skip-permissions",
-         "--allowedTools", "Bash,Read",
-         "--",
-         f"Summarize this video: https://www.youtube.com/watch?v={VIDEO_ID}"],
-        capture_output=True, text=True, timeout=300,
-        env={**__import__("os").environ, "NO_BROWSER": "1"},
-    )
-    assert result.returncode == 0, f"claude exited {result.returncode}:\n{result.stderr[:500]}"
+    try:
+        result = subprocess.run(
+            ["claude", "--print", "--dangerously-skip-permissions",
+             "--allowedTools", "Bash,Read",
+             "--",
+             f"Summarize this video: https://www.youtube.com/watch?v={VIDEO_ID}"],
+            capture_output=True, text=True, timeout=300,
+            env={**os.environ, "NO_BROWSER": "1", "XDG_CACHE_HOME": str(tmp_path / "cache")},
+        )
+        assert result.returncode == 0, f"claude exited {result.returncode}:\n{result.stderr[:500]}"
 
-    # Locate the report via filesystem — bash tool output does not appear in
-    # claude --print stdout (only the final assistant text response does).
-    downloads = Path.home() / "Downloads" / "video-lens"
-    matches = sorted(
-        [p for p in downloads.glob("reports/????-??-??-??????-video-lens_*.html")
-         if p.stat().st_mtime >= before],
-        key=lambda p: p.stat().st_mtime,
-    )
-    assert matches, "No video-lens HTML report found in ~/Downloads/video-lens/reports/ after claude session"
+        # Locate the report via filesystem — bash tool output does not appear in
+        # claude --print stdout (only the final assistant text response does).
+        downloads = Path.home() / "Downloads" / "video-lens"
+        matches = sorted(
+            [p for p in downloads.glob("reports/????-??-??-??????-video-lens_*.html")
+             if p.stat().st_mtime >= before],
+            key=lambda p: p.stat().st_mtime,
+        )
+        assert matches, "No video-lens HTML report found in ~/Downloads/video-lens/reports/ after claude session"
 
-    report_path = matches[-1]
-    # Filename: YYYY-MM-DD-HHMMSS-video-lens_<VIDEO_ID>_<slug>.html
-    assert re.match(r"\d{4}-\d{2}-\d{2}-\d{6}-video-lens_[A-Za-z0-9_-]+_[a-z0-9_]+\.html$", report_path.name)
-    html = report_path.read_text(encoding="utf-8")
-    assert "{{" not in html                        # no unreplaced placeholders
-    assert VIDEO_ID in html                        # iframe + JS embed
-    assert 'id="summary"' in html
-    assert 'id="takeaway"' in html
-    assert 'id="key-points"' in html
-    assert 'class="ts"' in html                   # outline timestamp links
-    assert len(re.findall(r'data-t="\d+"', html)) >= 3  # at least 3 outline entries
-    # Non-trivial content
-    summary_m = re.search(r'id="summary".*?<p>(.*?)</p>', html, re.DOTALL)
-    assert summary_m, "Could not find summary <p> in rendered HTML"
-    assert len(re.sub(r"<[^>]+>", "", summary_m.group(1)).strip()) >= 50
-    takeaway_m = re.search(r'id="takeaway".*?<p>(.*?)</p>', html, re.DOTALL)
-    assert takeaway_m, "Could not find takeaway <p> in rendered HTML"
-    assert len(re.sub(r"<[^>]+>", "", takeaway_m.group(1)).strip()) >= 30
-    # Key points: count <li> only within the key-points section
-    kp_match = re.search(r'id="key-points".*?</section>', html, re.DOTALL)
-    assert kp_match and kp_match.group().count("<li>") >= 3
-    subprocess.run(["bash", "-c", "for p in $(lsof -ti:8765 -sTCP:LISTEN 2>/dev/null); do ps -p \"$p\" -o args= 2>/dev/null | grep -q http.server && kill \"$p\"; done 2>/dev/null || true"],
-                   capture_output=True)
+        report_path = matches[-1]
+        # Filename: YYYY-MM-DD-HHMMSS-video-lens_<VIDEO_ID>_<slug>.html
+        assert re.match(r"\d{4}-\d{2}-\d{2}-\d{6}-video-lens_[A-Za-z0-9_-]+_[a-z0-9_]+\.html$", report_path.name)
+        html = report_path.read_text(encoding="utf-8")
+        assert "{{" not in html                        # no unreplaced placeholders
+        assert VIDEO_ID in html                        # iframe + JS embed
+        assert 'id="summary"' in html
+        assert 'id="takeaway"' in html
+        assert 'id="key-points"' in html
+        assert 'class="ts"' in html                   # outline timestamp links
+        assert len(re.findall(r'data-t="\d+"', html)) >= 3  # at least 3 outline entries
+        # Non-trivial content
+        summary_m = re.search(r'id="summary".*?<p>(.*?)</p>', html, re.DOTALL)
+        assert summary_m, "Could not find summary <p> in rendered HTML"
+        assert len(re.sub(r"<[^>]+>", "", summary_m.group(1)).strip()) >= 50
+        takeaway_m = re.search(r'id="takeaway".*?<p>(.*?)</p>', html, re.DOTALL)
+        assert takeaway_m, "Could not find takeaway <p> in rendered HTML"
+        assert len(re.sub(r"<[^>]+>", "", takeaway_m.group(1)).strip()) >= 30
+        # Key points: count <li> only within the key-points section
+        kp_match = re.search(r'id="key-points".*?</section>', html, re.DOTALL)
+        assert kp_match and kp_match.group().count("<li>") >= 3
+    finally:
+        subprocess.run(["bash", "-c", "for p in $(lsof -ti:8765 -sTCP:LISTEN 2>/dev/null); do ps -p \"$p\" -o args= 2>/dev/null | grep -q http.server && kill \"$p\"; done 2>/dev/null || true"],
+                       capture_output=True)
 
 
 # ---------- tag-normalization drift guard ----------
@@ -1205,6 +1207,229 @@ def test_normalize_tags_identical_across_call_sites():
         base = preflight._normalize_tags(tags)
         assert build_index._normalize_tags(tags) == base, tags
         assert rr._normalize_tags(tags) == base, tags
+
+
+# ---------- 024 assessment regressions ----------
+
+def test_render_allows_template_tokens_in_agent_content(tmp_path):
+    """024-B1: agent content may legitimately quote a `{{TOKEN}}` — a video about
+    Jinja or GitHub Actions puts one in front of the model, which quotes it back.
+    Substituted text must never be rescanned as if it were a template slot."""
+    out = tmp_path / "report.html"
+    render_from_payload(
+        sample_render_payload(
+            SUMMARY="The speaker mentions the {{FOO_BAR}} template variable.",
+            TAKEAWAY="Ship {{VIDEO_TITLE}} carefully.",
+        ),
+        str(out), template_path=TEMPLATE,
+    )
+    html = out.read_text(encoding="utf-8")
+    assert "{{FOO_BAR}}" in html
+    assert "{{VIDEO_TITLE}}" in html
+
+
+def test_render_allows_meta_token_in_summary(tmp_path):
+    """024-B1, second path: VIDEO_LENS_META is substituted last and embeds a copy
+    of SUMMARY, so a summary quoting `{{VIDEO_LENS_META}}` used to re-inject the
+    token after its only substitution pass had run."""
+    out = tmp_path / "report.html"
+    render_from_payload(
+        sample_render_payload(SUMMARY="It reads the {{VIDEO_LENS_META}} block."),
+        str(out), template_path=TEMPLATE,
+    )
+    assert "{{VIDEO_LENS_META}}" in out.read_text(encoding="utf-8")
+
+
+def test_render_still_reports_a_genuinely_missing_placeholder(tmp_path):
+    """The B1 fix must not weaken the guard: a key the template needs and the
+    payload lacks still has to fail loudly."""
+    clean = {
+        "VIDEO_ID": "x", "VIDEO_TITLE": "x", "VIDEO_URL": "x", "META_LINE": "x",
+        "SUMMARY": "x", "TAKEAWAY": "x", "KEY_POINTS": "x", "OUTLINE": "x",
+        "DESCRIPTION_SECTION": "x",
+    }  # VIDEO_LENS_META deliberately absent
+    with pytest.raises(ValueError) as exc:
+        _render_clean(clean, str(tmp_path / "report.html"), template_path=TEMPLATE)
+    assert "RENDER_UNREPLACED_PLACEHOLDERS" in str(exc.value)
+    assert "{{VIDEO_LENS_META}}" in str(exc.value)
+
+
+@pytest.mark.parametrize("value", [None, 0, ""])
+def test_format_duration_blank_when_missing(value):
+    """024-B2: live streams and premieres have no duration; "0 min" is a lie that
+    flows into META_LINE and the gallery card. Matches _format_views(None) == ""."""
+    import fetch_metadata
+    assert fetch_metadata._format_duration(value) == ""
+
+
+def test_format_duration_still_formats_real_values():
+    import fetch_metadata
+    assert fetch_metadata._format_duration(600) == "10 min"
+    assert fetch_metadata._format_duration(3900) == "1h 5m"
+
+
+def test_html_metadata_decodes_entities_and_escapes(monkeypatch):
+    """024-B3: <title> carries HTML entities and channelName carries JSON \\u
+    escapes; the renderer escapes again, so an entity passed through would surface
+    in the <h1> as the literal text "Rock &amp; Roll"."""
+    import fetch_transcript
+
+    page = (
+        '<title>Rock &amp; Roll: &quot;Best&quot; Hits - YouTube</title>'
+        '"channelName":"Caf\\u00e9 M\\u00fcsik"'
+        '"lengthSeconds":"600"'
+    ).encode("utf-8")
+
+    class _Resp:
+        def read(self):
+            return page
+
+    monkeypatch.setattr(fetch_transcript.urllib.request, "urlopen",
+                        lambda *a, **k: _Resp())
+    title, channel, _published, _views, duration = \
+        fetch_transcript._fetch_html_metadata("dQw4w9WgXcQ")
+    assert title == 'Rock & Roll: "Best" Hits'
+    assert channel == "Café Müsik"
+    assert duration == "10 min"
+
+
+def test_fetch_metadata_emits_ytdlp_title():
+    """024-B3: yt-dlp is the one clean, unescaped source for the title, and every
+    other metadata field already prefers it."""
+    src = (SCRIPT_DIR / "fetch_metadata.py").read_text(encoding="utf-8")
+    assert 'YTDLP_TITLE: {data.get("title")' in src
+    skill = (REPO_ROOT / "skills" / "video-lens" / "SKILL.md").read_text(encoding="utf-8")
+    assert "`YTDLP_TITLE`" in skill
+
+
+def test_empty_meta_line_leaves_no_dangling_separator(tmp_path):
+    """024-B4: with no yt-dlp and a failed HTML scrape, META_LINE composes to ""
+    and the header used to render as " · Open on YouTube ↗"."""
+    out = tmp_path / "report.html"
+    render_from_payload(
+        sample_render_payload(META_LINE="", CHANNEL="", DURATION="",
+                              PUBLISH_DATE="", VIEWS=""),
+        str(out), template_path=TEMPLATE,
+    )
+    html = out.read_text(encoding="utf-8")
+    meta = re.search(r'<p class="meta-line">(.*?)</p>', html, re.DOTALL).group(1)
+    assert '<span class="meta-facts"></span>' in meta
+    assert "·" not in meta, "separator must not render when there are no facts"
+
+
+def test_meta_line_separator_present_when_facts_are(tmp_path):
+    out = tmp_path / "report.html"
+    render_from_payload(sample_render_payload(META_LINE="Test Channel · 10 min"),
+                        str(out), template_path=TEMPLATE)
+    meta = re.search(r'<p class="meta-line">(.*?)</p>',
+                     out.read_text(encoding="utf-8"), re.DOTALL).group(1)
+    assert '<span class="meta-facts">Test Channel · 10 min</span>' in meta
+
+
+def test_build_index_sorts_by_date_not_storage_location(tmp_path):
+    """024-B5: phase-1 entries are stored as "reports/<name>" and legacy ones as a
+    bare name; "r" > "2", so a raw path sort put every reports/ entry ahead of
+    every legacy one regardless of date."""
+    scan = tmp_path / "video-lens"
+    (scan / "reports").mkdir(parents=True)
+
+    def write(path, name, video_id):
+        meta = {"videoId": video_id, "title": name, "channel": "c",
+                "generationDate": name[:10], "summary": "s", "tags": ["t"],
+                "keywords": ["k"], "filename": name}
+        path.write_text(
+            '<script type="application/json" id="video-lens-meta">'
+            + json.dumps(meta) + "</script>", encoding="utf-8")
+
+    # Legacy file is NEWER than the one in reports/.
+    old_new = "2026-08-20-120000-video-lens_aaaaaaaaaaa_x.html"
+    legacy_newer = "2026-08-21-120000-video-lens_bbbbbbbbbbb_y.html"
+    write(scan / "reports" / old_new, old_new, "aaaaaaaaaaa")
+    write(scan / legacy_newer, legacy_newer, "bbbbbbbbbbb")
+
+    r = subprocess.run(
+        [sys.executable, str(GALLERY_SCRIPT_DIR / "build_index.py"),
+         "--dir", str(scan), "--output", str(scan)],
+        capture_output=True, text=True,
+    )
+    assert r.returncode == 0, r.stderr
+    reports = json.loads((scan / "manifest.json").read_text())["reports"]
+    assert [r["filename"] for r in reports] == [legacy_newer, "reports/" + old_new]
+
+
+def test_template_honours_os_colour_scheme_on_first_visit():
+    """024-B6: the gallery falls back to prefers-color-scheme, the report did not,
+    so a dark-mode user's first visit showed a white report beside a dark gallery."""
+    tpl = TEMPLATE.read_text(encoding="utf-8")
+    assert "prefers-color-scheme: dark" in tpl
+    assert "localStorage.getItem('theme')" in tpl
+
+
+def test_markdown_export_defers_blob_revoke_and_keeps_emphasis():
+    """024-B7: revoking the object URL synchronously cancels the download outside
+    Chrome, and a textContent-only export threw away the <strong>/<em> structure
+    SKILL.md spends three rules specifying."""
+    tpl = TEMPLATE.read_text(encoding="utf-8")
+    assert "document.body.appendChild(a)" in tpl
+    assert re.search(r"setTimeout\(function \(\) \{\s*document\.body\.removeChild\(a\);"
+                     r"\s*URL\.revokeObjectURL\(url\);", tpl)
+    assert "function mdInline(node)" in tpl
+    assert "'**' + inner.trim() + '**'" in tpl
+
+
+def test_outline_entries_are_keyboard_reachable():
+    """024-U4: expansion was bound to a click on a <li> with no tabindex, role or
+    aria-expanded, so outline-detail was unreachable by keyboard entirely."""
+    tpl = TEMPLATE.read_text(encoding="utf-8")
+    assert "item.li.setAttribute('role', 'button')" in tpl
+    assert "item.li.setAttribute('tabindex', '0')" in tpl
+    assert "aria-expanded" in tpl
+    assert "addEventListener('keydown'" in tpl
+    assert "ol.topics li:focus-visible" in tpl
+
+
+def test_raycast_accepts_mobile_youtube_and_does_not_pin_models():
+    """024-B8: m.youtube.com is what the iOS share sheet emits and preflight
+    already accepts it; the pinned model IDs were two generations stale."""
+    src = (REPO_ROOT / "scripts" / "raycast-video-lens.sh").read_text(encoding="utf-8")
+    assert "(www|m)" in src
+    assert "claude-opus-4-6" not in src and "claude-sonnet-4-6" not in src
+    assert 'set modelArg to ""' in src
+    # install-raycast inserts copilot's/cursor's `-p` by matching the space before
+    # the quoted prompt — folding that space into modelArg silently drops the flag.
+    assert ' ' + chr(92) + '"/video-lens ' in src
+    taskfile = (REPO_ROOT / "Taskfile.yml").read_text(encoding="utf-8")
+    assert "claude-opus-4.6" not in taskfile and "claude-haiku-4-5-20251001" not in taskfile
+
+
+def test_payload_dir_is_outside_the_served_tree():
+    """024-H1: serve_report.sh serves ~/Downloads/video-lens, which used to contain
+    .tmp/payload-*/payload.json — the full generated content of every recent run."""
+    import preflight
+    served_root = pathlib.Path.home() / "Downloads" / "video-lens"
+    assert served_root not in preflight.PAYLOAD_BASE_DIR.parents
+    assert preflight.PAYLOAD_BASE_DIR.name == "payloads"
+
+
+def test_preflight_sweeps_the_legacy_payload_dir(tmp_path, monkeypatch, capsys):
+    """024-H1: payloads written before the move still sit inside the served tree."""
+    import preflight
+    legacy = tmp_path / "legacy-tmp"
+    stale = legacy / "payload-old"
+    stale.mkdir(parents=True)
+    (stale / "payload.json").write_text("{}", encoding="utf-8")
+    os.utime(stale, (0, 0))
+
+    monkeypatch.setattr(preflight, "LEGACY_PAYLOAD_BASE_DIR", legacy)
+    monkeypatch.setattr(preflight, "PAYLOAD_BASE_DIR", tmp_path / "payload-base")
+    monkeypatch.setattr(preflight, "REPORTS_DIR", tmp_path / "reports")
+    monkeypatch.setattr(preflight, "MANIFEST_PATH", tmp_path / "manifest.json")
+    monkeypatch.setattr(sys, "argv", ["preflight.py", f"https://youtu.be/{VIDEO_ID}"])
+    assert preflight.main() == 0
+    capsys.readouterr()
+
+    assert not stale.exists()
+    assert not legacy.exists(), "empty legacy dir should be removed"
 
 
 def test_download_audio_times_out_with_a_structured_error(monkeypatch, capsys):

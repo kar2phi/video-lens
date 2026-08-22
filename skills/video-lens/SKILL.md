@@ -86,7 +86,7 @@ python3 "SCRIPTS_DIR/fetch_metadata.py" -- "VIDEO_ID"
 ```
 
 Parse the prefixed output lines:
-- **Metadata:** prefer `YTDLP_CHANNEL`, `YTDLP_PUBLISHED`, `YTDLP_VIEWS`, `YTDLP_DURATION` over 2a's HTML-scraped values (they are more reliable). Pass them into Step 4 as `CHANNEL`, `PUBLISH_DATE`, `VIEWS`, `DURATION`.
+- **Metadata:** prefer `YTDLP_TITLE`, `YTDLP_CHANNEL`, `YTDLP_PUBLISHED`, `YTDLP_VIEWS`, `YTDLP_DURATION` over 2a's HTML-scraped values (they are more reliable — yt-dlp returns plain text, while 2a scrapes HTML). Pass them into Step 4 as `VIDEO_TITLE`, `CHANNEL`, `PUBLISH_DATE`, `VIEWS`, `DURATION`. Copy the title **verbatim**; never re-type or clean it up.
 - **Description:** `YTDLP_DESC_HTML` is the HTML-safe, linkified description text; save for use in Steps 3 and 4.
 - **Chapters:** `YTDLP_CHAPTERS` is a JSON array of `{"start_time": N, "title": "..."}` objects; when non-empty, use them to anchor the Outline (see Step 3).
 - **Language:** `YTDLP_LANGUAGE` is the video's primary language subtag, already normalized (e.g. `en`, not `en-US`); may be empty. Only needed if the local-transcription fallback runs (Step 2a fallback).
@@ -226,7 +226,7 @@ The renderer:
 
 **Never `Edit` the payload — always `Write` the whole file.** Populate every field (including `DESCRIPTION_SECTION`, even when empty `""`) in the initial `Write`. If you need to change a field afterwards, re-`Write` the entire payload — do not try to `Edit` a single key. The JSON serializer's exact whitespace is not visible without first `Read`ing the file, so `Edit` calls on the payload almost always fail with "string not found" and burn 3–4 retries guessing tabs vs spaces.
 
-Use the path emitted by preflight — do not reuse a path from a prior run. Preflight puts each run in its own fresh `0700` subdirectory under `~/Downloads/video-lens/.tmp/`, so the `Write` tool sees a brand-new file and never asks you to `Read` it first.
+Use the path emitted by preflight — do not reuse a path from a prior run. Preflight puts each run in its own fresh `0700` subdirectory under `~/.cache/video-lens/payloads/` (outside the directory the local server publishes), so the `Write` tool sees a brand-new file and never asks you to `Read` it first.
 
 1. `Write` the JSON payload to the `PAYLOAD_PATH` captured in Step 1.
 2. Run the renderer (substitute `<PAYLOAD_PATH>` with the literal path from Step 1):

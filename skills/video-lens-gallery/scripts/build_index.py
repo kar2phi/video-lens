@@ -15,6 +15,7 @@ import re
 import shutil
 import sys
 from datetime import datetime, timezone
+from pathlib import PurePosixPath
 
 
 SCRIPT_START = '<script type="application/json" id="video-lens-meta">'
@@ -150,8 +151,10 @@ def main():
             meta["tags"] = _normalize_tags(meta["tags"])
         reports.append(meta)
 
-    # Re-sort combined list newest-first
-    reports.sort(key=lambda m: m.get("filename", ""), reverse=True)
+    # Re-sort combined list newest-first. Sort on the basename, not the stored
+    # path: phase-1 entries carry a "reports/" prefix and phase-2 ones do not, so
+    # a raw path sort orders by storage location before date.
+    reports.sort(key=lambda m: PurePosixPath(m.get("filename", "")).name, reverse=True)
 
     manifest = {
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

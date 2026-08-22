@@ -35,7 +35,9 @@ def _format_views(vc):
 
 
 def _format_duration(dur_s):
-    h, rem = divmod(int(dur_s or 0), 3600)
+    if not dur_s:
+        return ""
+    h, rem = divmod(int(dur_s), 3600)
     m2 = rem // 60
     return f"{h}h {m2}m" if h > 0 else f"{m2} min"
 
@@ -116,6 +118,7 @@ def main():
     views = _format_views(data.get("view_count"))
     duration = _format_duration(data.get("duration"))
 
+    print(f'YTDLP_TITLE: {data.get("title") or ""}')
     print(f'YTDLP_CHANNEL: {data.get("channel") or ""}')
     print(f"YTDLP_PUBLISHED: {published}")
     print(f"YTDLP_VIEWS: {views}")

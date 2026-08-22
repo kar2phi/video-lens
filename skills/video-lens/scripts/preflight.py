@@ -13,7 +13,7 @@ Stdout on success (lines that apply only):
     LANG_CODE: <code or empty>
     START_EPOCH: <int>
     SCRIPTS_DIR: <absolute>      # directory holding the video-lens scripts
-    PAYLOAD_PATH: <absolute>     # ~/Downloads/video-lens/.tmp/payload-XXXX/payload.json (0700 parent, file not pre-created)
+    PAYLOAD_PATH: <absolute>     # $XDG_CACHE_HOME/video-lens/payloads/payload-XXXX/payload.json (0700 parent, file not pre-created)
     DUPLICATE_PATH: <absolute>   # newest match by mtime, if any
     EXISTING_TAGS: a, b, c, …    # top tags across saved reports (omitted when no manifest yet)
 
@@ -23,6 +23,7 @@ Stderr + non-zero exit on:
 """
 import argparse
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -34,7 +35,13 @@ from urllib.parse import parse_qs, urlparse
 VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 REPORTS_DIR = pathlib.Path.home() / "Downloads" / "video-lens" / "reports"
 MANIFEST_PATH = pathlib.Path.home() / "Downloads" / "video-lens" / "manifest.json"
-PAYLOAD_BASE_DIR = pathlib.Path.home() / "Downloads" / "video-lens" / ".tmp"
+# Deliberately outside ~/Downloads/video-lens: serve_report.sh serves that whole
+# tree over loopback, and payload dirs hold the full generated content of every run.
+PAYLOAD_BASE_DIR = (
+    pathlib.Path(os.environ.get("XDG_CACHE_HOME") or (pathlib.Path.home() / ".cache"))
+    / "video-lens" / "payloads"
+)
+LEGACY_PAYLOAD_BASE_DIR = pathlib.Path.home() / "Downloads" / "video-lens" / ".tmp"
 PAYLOAD_TTL_SECONDS = 7 * 24 * 60 * 60  # sweep payload-* dirs older than ~7 days
 EXISTING_TAGS_LIMIT = 40  # how many of the most-common tags to feed back to Step 3
 
@@ -195,6 +202,14 @@ def main() -> int:
 
     PAYLOAD_BASE_DIR.mkdir(parents=True, exist_ok=True)
     sweep_stale_payloads(PAYLOAD_BASE_DIR)
+    # Payloads written before the move still sit inside the served tree; keep
+    # ageing them out and drop the directory once it is empty.
+    sweep_stale_payloads(LEGACY_PAYLOAD_BASE_DIR)
+    try:
+        if LEGACY_PAYLOAD_BASE_DIR.is_dir() and not any(LEGACY_PAYLOAD_BASE_DIR.iterdir()):
+            LEGACY_PAYLOAD_BASE_DIR.rmdir()
+    except OSError:
+        pass
     payload_dir = tempfile.mkdtemp(prefix="payload-", dir=str(PAYLOAD_BASE_DIR))
     payload_path = pathlib.Path(payload_dir) / "payload.json"
 

@@ -5,9 +5,19 @@ Usage: python3 fetch_transcript.py VIDEO_ID [LANG_PREF]
 """
 import argparse
 import datetime
+import html as html_lib
+import json
 import re
 import sys
 import urllib.request
+
+
+def _json_str(raw):
+    """Decode a captured JSON string body; fall back to the raw text."""
+    try:
+        return json.loads(f'"{raw}"')
+    except (ValueError, TypeError):
+        return raw
 
 
 def _fetch_html_metadata(video_id):
@@ -19,12 +29,16 @@ def _fetch_html_metadata(video_id):
         html = urllib.request.urlopen(req, timeout=10).read().decode("utf-8", errors="ignore")
 
         m = re.search(r"<title>([^<]+)</title>", html)
-        title = m.group(1).replace(" - YouTube", "").strip() if m else ""
+        # The <title> element carries HTML entities ("Rock &amp; Roll"); the renderer
+        # escapes again downstream, so decode here or the entity reaches the <h1> verbatim.
+        title = html_lib.unescape(m.group(1)).replace(" - YouTube", "").strip() if m else ""
 
+        # channelName is a JSON string literal: decode \u00e9-style escapes rather
+        # than passing the raw source text through.
         channel = ""
-        m_ch = re.search(r'"channelName"\s*:\s*"([^"]+)"', html)
+        m_ch = re.search(r'"channelName"\s*:\s*"((?:[^"\\]|\\.)*)"', html)
         if m_ch:
-            channel = m_ch.group(1)
+            channel = _json_str(m_ch.group(1))
 
         published = ""
         m_pub = re.search(r'"publishDate"\s*:\s*"([^"]+)"', html)

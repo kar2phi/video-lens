@@ -504,12 +504,20 @@ def _render_clean(data: dict, output_path: str, template_path: pathlib.Path | No
         template_path = find_template()
 
     html = template_path.read_text(encoding="utf-8")
-    for key, value in data.items():
-        html = html.replace("{{" + key + "}}", value)
 
-    remaining = re.findall(r"\{\{[A-Z_]+\}\}", html)
-    if remaining:
-        raise ValueError(f"RENDER_UNREPLACED_PLACEHOLDERS {sorted(set(remaining))}")
+    # Collect the template's own placeholders *before* substituting: agent content
+    # may legitimately quote a `{{TOKEN}}` (videos about Jinja, Handlebars, GitHub
+    # Actions), and a rescan after substitution would mistake it for a template slot.
+    missing = sorted(set(re.findall(r"\{\{([A-Z_]+)\}\}", html)) - set(data))
+    if missing:
+        raise ValueError(
+            "RENDER_UNREPLACED_PLACEHOLDERS "
+            f"{['{{' + k + '}}' for k in missing]}"
+        )
+
+    # Single pass: re.sub never re-examines the text it inserted, so injected
+    # content cannot re-introduce a placeholder for a later key.
+    html = re.sub(r"\{\{([A-Z_]+)\}\}", lambda m: data[m.group(1)], html)
 
     out = pathlib.Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)

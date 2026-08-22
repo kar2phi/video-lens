@@ -201,6 +201,11 @@
       color: var(--left-meta);
     }
 
+    /* Separator belongs to the facts, not the link: no facts, no dangling "·". */
+    .video-meta .meta-line .meta-facts:not(:empty)::after {
+      content: " \00b7 ";
+    }
+
     .video-meta .meta-line a {
       color: var(--left-link);
       text-decoration: none;
@@ -336,6 +341,11 @@
       max-height: 150px;
       opacity: 1;
       pointer-events: auto;
+    }
+
+    ol.topics li:focus-visible {
+      outline: 2px solid var(--left-link);
+      outline-offset: 2px;
     }
 
     ol.topics li:hover {
@@ -1111,7 +1121,7 @@
       </div>
       <div class="video-meta">
         <h1>{{VIDEO_TITLE}}</h1>
-        <p class="meta-line">{{META_LINE}} · <a href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a></p>
+        <p class="meta-line"><span class="meta-facts">{{META_LINE}}</span><a href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a></p>
       </div>
       <div class="left-scroll">
         <div class="outline-section">
@@ -1364,8 +1374,12 @@
         }
       }
 
+      // Fall back to the OS preference on a first visit, as the gallery does —
+      // otherwise a dark-mode user gets a white report beside a dark gallery.
       var saved = localStorage.getItem('theme');
-      applyTheme(saved === 'dark');
+      applyTheme(saved
+        ? saved === 'dark'
+        : window.matchMedia('(prefers-color-scheme: dark)').matches);
 
       btn.addEventListener('click', function () {
         var isDark = html.getAttribute('data-theme') === 'dark';
@@ -1596,20 +1610,44 @@
         });
       });
 
+      function setExpanded(li, on) {
+        li.classList.toggle('expanded', on);
+        if (li.hasAttribute('aria-expanded')) {
+          li.setAttribute('aria-expanded', on ? 'true' : 'false');
+        }
+      }
+
+      function activateTopic(item) {
+        if (item.li.querySelector('.outline-detail')) {
+          var wasExpanded = item.li.classList.contains('expanded');
+          // Accordion: collapse all manually-expanded items
+          document.querySelectorAll('ol.topics li.expanded').forEach(function (li) {
+            setExpanded(li, false);
+          });
+          // Toggle this one (if it was already expanded, it stays collapsed)
+          if (!wasExpanded) setExpanded(item.li, true);
+        } else {
+          seekToTimestamp(item.t, item.li);
+        }
+      }
+
       topicItems.forEach(function (item) {
+        // Disclosure semantics are added here rather than in the payload so the
+        // renderer's attribute allowlist does not have to admit them.
+        if (item.li.querySelector('.outline-detail')) {
+          item.li.setAttribute('role', 'button');
+          item.li.setAttribute('tabindex', '0');
+          item.li.setAttribute('aria-expanded', 'false');
+        }
         item.li.addEventListener('click', function (e) {
           if (e.target.closest('a.ts')) return; // timestamp click seeks via link handler
-          if (item.li.querySelector('.outline-detail')) {
-            var wasExpanded = item.li.classList.contains('expanded');
-            // Accordion: collapse all manually-expanded items
-            document.querySelectorAll('ol.topics li.expanded').forEach(function (li) {
-              li.classList.remove('expanded');
-            });
-            // Toggle this one (if it was already expanded, it stays collapsed)
-            if (!wasExpanded) item.li.classList.add('expanded');
-          } else {
-            seekToTimestamp(item.t, item.li);
-          }
+          activateTopic(item);
+        });
+        item.li.addEventListener('keydown', function (e) {
+          if (e.target.closest('a.ts')) return; // let the timestamp link keep Enter
+          if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+          e.preventDefault();  // Space would otherwise scroll the page
+          activateTopic(item);
         });
       });
 
@@ -1776,20 +1814,36 @@
         }
       });
 
+      // Walk a node to Markdown so the <strong>/<em>/<code> structure the skill
+      // is asked to produce survives the export instead of flattening to prose.
+      function mdInline(node) {
+        if (!node) return '';
+        return Array.from(node.childNodes).map(function (n) {
+          if (n.nodeType === 3) return n.textContent;
+          if (n.nodeType !== 1) return '';
+          var inner = mdInline(n);
+          switch (n.tagName) {
+            case 'STRONG': case 'B': return '**' + inner.trim() + '**';
+            case 'EM': case 'I':     return '*' + inner.trim() + '*';
+            case 'CODE':             return '`' + inner.trim() + '`';
+            case 'BR':               return '\n';
+            default:                 return inner;
+          }
+        }).join('').replace(/[ \t]+/g, ' ').trim();
+      }
+
       document.getElementById('md-export-btn').addEventListener('click', function () {
         // Title
         var title = document.querySelector('h1').innerText;
 
         // Meta line — strip the "Open on YouTube ↗" link text, keep the rest
         var metaEl = document.querySelector('.meta-line');
-        var metaText = Array.from(metaEl.childNodes)
-          .filter(function (n) { return n.nodeType === 3; })  // text nodes only
-          .map(function (n) { return n.textContent; })
-          .join('').replace(/·\s*$/, '').trim();
+        var factsEl = metaEl.querySelector('.meta-facts');
+        var metaText = (factsEl ? factsEl.textContent : '').trim();
         var videoUrl = metaEl.querySelector('a') ? metaEl.querySelector('a').href : '';
 
         // Summary
-        var summary = document.querySelector('#summary p').innerText;
+        var summary = mdInline(document.querySelector('#summary p'));
 
         // Description (optional — only present when yt-dlp was used)
         var descEl = document.querySelector('.description-details .video-description');
@@ -1799,16 +1853,17 @@
         var keyPoints = Array.from(document.querySelectorAll('#key-points li'))
           .map(function (li) {
             var detail = li.querySelector('p');
-            var headline = Array.from(li.childNodes)
+            var headlineSrc = document.createElement('span');
+            Array.from(li.childNodes)
               .filter(function (n) { return n.nodeType === 3 || (n.nodeType === 1 && n.tagName !== 'P'); })
-              .map(function (n) { return n.textContent; }).join('').trim();
-            var line = '- ' + headline;
-            if (detail) line += '\n  ' + detail.innerText.trim();
+              .forEach(function (n) { headlineSrc.appendChild(n.cloneNode(true)); });
+            var line = '- ' + mdInline(headlineSrc);
+            if (detail) line += '\n  ' + mdInline(detail);
             return line;
           }).join('\n');
 
         // Takeaway
-        var takeaway = document.querySelector('#takeaway p').innerText;
+        var takeaway = mdInline(document.querySelector('#takeaway p'));
 
         // Outline — each li has data-t (seconds), .outline-title and optional .outline-detail
         var outline = Array.from(document.querySelectorAll('.topics li')).map(function (li) {
@@ -1817,8 +1872,8 @@
           var tsText = tsEl ? tsEl.innerText : '0:00';
           var titleEl = li.querySelector('.outline-title');
           var detailEl = li.querySelector('.outline-detail');
-          var topicText = titleEl ? titleEl.innerText : li.innerText.replace(tsText, '').trim();
-          var detail = detailEl ? detailEl.innerText.trim() : '';
+          var topicText = titleEl ? mdInline(titleEl) : li.innerText.replace(tsText, '').trim();
+          var detail = mdInline(detailEl);
           var url = 'https://www.youtube.com/watch?v=' + VIDEO_ID + '&t=' + t;
           var line = '- [' + tsText + '](' + url + ') ' + topicText;
           if (detail) line += ' — ' + detail;
@@ -1870,11 +1925,19 @@
 
         // Trigger download
         var blob = new Blob([md], { type: 'text/markdown' });
+        var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
+        a.href = url;
         a.download = window.location.pathname.split('/').pop().replace(/\.html$/, '.md');
+        // Anchor must be in the document, and the URL must outlive the click —
+        // revoking synchronously cancels the download outside Chrome.
+        a.style.display = 'none';
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(a.href);
+        setTimeout(function () {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 0);
       });
 
       function cycleSpeed(dir) {

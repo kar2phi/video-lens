@@ -5,7 +5,7 @@
 # @raycast.title video-lens
 # @raycast.mode silent
 # @raycast.argument1 {"type": "text", "placeholder": "YouTube URL (leave blank to use clipboard)", "optional": true}
-# @raycast.argument2 {"type": "text", "placeholder": "Model (haiku/sonnet/opus, default: sonnet)", "optional": true}
+# @raycast.argument2 {"type": "text", "placeholder": "Model (optional — e.g. opus, sonnet; blank uses the CLI default)", "optional": true}
 
 # Optional parameters:
 # @raycast.icon 📺
@@ -19,7 +19,8 @@ if [[ -z "$ytURL" ]]; then
   ytURL="$(pbpaste)"
 fi
 
-if [[ ! "$ytURL" =~ ^https?://(www\.)?(youtube\.com|youtu\.be)/ ]]; then
+# Mirrors preflight.py's YOUTUBE_HOSTS — m.youtube.com is what the iOS share sheet emits.
+if [[ ! "$ytURL" =~ ^https?://((www|m)\.)?(youtube\.com|youtu\.be)/ ]]; then
   osascript -e "display dialog \"Invalid YouTube URL: $ytURL\" buttons {\"OK\"} default button 1"
   exit 1
 fi
@@ -31,14 +32,14 @@ on run argv
   set ytURL to item 1 of argv
   set outputDir to item 2 of argv
   set modelInput to item 3 of argv
-  if modelInput is "haiku" then
-    set modelId to "claude-haiku-4-5-20251001"
-  else if modelInput is "opus" then
-    set modelId to "claude-opus-4-6"
+  -- Pass the model through verbatim; blank means "whatever the CLI is configured
+  -- to use". Pinning IDs here only creates a standing maintenance tax.
+  if modelInput is "" then
+    set modelArg to ""
   else
-    set modelId to "claude-sonnet-4-6"
+    set modelArg to "--model " & quoted form of modelInput
   end if
-  set cmd to "cd " & quoted form of outputDir & " && claude --dangerously-skip-permissions --allowedTools \"Bash,Read\" --model " & modelId & " \"/video-lens " & ytURL & "\""
+  set cmd to "cd " & quoted form of outputDir & " && claude --dangerously-skip-permissions --allowedTools \"Bash,Read\" " & modelArg & " \"/video-lens " & ytURL & "\""
 
   if application "iTerm2" is running or (exists application "iTerm2") then
     tell application "iTerm2"
