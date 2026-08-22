@@ -1205,3 +1205,22 @@ def test_normalize_tags_identical_across_call_sites():
         base = preflight._normalize_tags(tags)
         assert build_index._normalize_tags(tags) == base, tags
         assert rr._normalize_tags(tags) == base, tags
+
+
+def test_download_audio_times_out_with_a_structured_error(monkeypatch, capsys):
+    """024-H4: --socket-timeout bounds reads, not total runtime, so a throttled
+    transfer ran until the agent's 600 s Bash cap killed the whole step."""
+    sys.path.insert(0, str(SCRIPT_DIR))
+    import transcribe_local
+
+    def _timeout(*a, **k):
+        assert k.get("timeout") == transcribe_local.DOWNLOAD_TIMEOUT_SECONDS
+        raise subprocess.TimeoutExpired(cmd="yt-dlp", timeout=k["timeout"])
+
+    monkeypatch.setattr(transcribe_local.subprocess, "run", _timeout)
+    with pytest.raises(SystemExit) as exc:
+        transcribe_local._download_audio("dQw4w9WgXcQ", "/tmp")
+    assert exc.value.code == 1
+    out = capsys.readouterr().out
+    assert "ERROR:AUDIO_DOWNLOAD_FAILED" in out
+    assert "timed out" in out

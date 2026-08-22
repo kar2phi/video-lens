@@ -186,6 +186,89 @@ def test_audio_download_failed_error(tmp_path):
     assert result.stdout.startswith("ERROR:AUDIO_DOWNLOAD_FAILED: ERROR: boom")
 
 
+def _stub_env(tmp_path, ytdlp_body):
+    """mlx_whisper stubbed on PYTHONPATH; ffmpeg + yt-dlp shimmed onto PATH."""
+    stub = tmp_path / "mlx_whisper.py"
+    stub.write_text("def transcribe(*a, **k):\n    raise RuntimeError('stub')\n")
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir(exist_ok=True)
+    for tool, body in [("ffmpeg", "exit 0"), ("yt-dlp", ytdlp_body)]:
+        f = fake_bin / tool
+        f.write_text(f"#!/bin/sh\n{body}\n")
+        f.chmod(0o755)
+    return {**os.environ, "PYTHONPATH": str(tmp_path),
+            "PATH": f"{fake_bin}:{os.environ['PATH']}"}
+
+
+def test_stale_ytdlp_403_gets_upgrade_hint(tmp_path):
+    """A 403 from an outdated yt-dlp must name the real cause.
+
+    Regression guard for the TOmb5UTIUU8 failure: YouTube serves only the first
+    ~1 MiB from android_vr media URLs, so an old yt-dlp reports a bare
+    "HTTP Error 403" that reads like an IP ban.
+    """
+    env = _stub_env(tmp_path, (
+        'case "$1" in --no-update) echo 2026.03.17; exit 0;; esac\n'
+        "echo 'ERROR: unable to download video data: HTTP Error 403: Forbidden' >&2\nexit 1"
+    ))
+    result = subprocess.run(
+        [sys.executable, str(TRANSCRIBE), VIDEO_ID],
+        capture_output=True, text=True, env=env,
+    )
+    assert result.returncode == 1
+    # Prefix preserved for SKILL.md's error table; hint appended, never prepended.
+    assert result.stdout.startswith("ERROR:AUDIO_DOWNLOAD_FAILED: ERROR: unable to download")
+    assert "brew upgrade yt-dlp" in result.stdout
+    assert "2026.03.17" in result.stdout
+
+
+def test_current_ytdlp_403_gets_no_upgrade_hint(tmp_path):
+    """An up-to-date yt-dlp must not be blamed for an unrelated 403."""
+    env = _stub_env(tmp_path, (
+        'case "$1" in --no-update) echo 2026.08.19; exit 0;; esac\n'
+        "echo 'ERROR: HTTP Error 403: Forbidden' >&2\nexit 1"
+    ))
+    result = subprocess.run(
+        [sys.executable, str(TRANSCRIBE), VIDEO_ID],
+        capture_output=True, text=True, env=env,
+    )
+    assert result.returncode == 1
+    assert result.stdout.startswith("ERROR:AUDIO_DOWNLOAD_FAILED:")
+    assert "brew upgrade" not in result.stdout
+
+
+# ---------- --audio-file escape hatch ----------
+
+def test_audio_file_missing_path_rejected(tmp_path):
+    env = _stub_env(tmp_path, "exit 1")
+    result = subprocess.run(
+        [sys.executable, str(TRANSCRIBE), "--audio-file",
+         str(tmp_path / "nope.m4a"), "--", VIDEO_ID],
+        capture_output=True, text=True, env=env,
+    )
+    assert result.returncode == 1
+    assert result.stdout.startswith("ERROR:INVALID_INPUT: audio file not found")
+
+
+def test_audio_file_skips_ytdlp_and_preserves_file(tmp_path):
+    """--audio-file must never invoke yt-dlp, and must leave the file on disk."""
+    sentinel = tmp_path / "ytdlp-was-called"
+    env = _stub_env(tmp_path, f"touch '{sentinel}'\nexit 1")
+    audio = tmp_path / "talk.m4a"
+    audio.write_bytes(b"not really audio")
+
+    result = subprocess.run(
+        [sys.executable, str(TRANSCRIBE), "--audio-file", str(audio), "--", VIDEO_ID],
+        capture_output=True, text=True, env=env,
+    )
+    # The mlx_whisper stub raises, so we stop at TRANSCRIBE_FAILED — which is
+    # itself proof we got past download and into transcription.
+    assert result.returncode == 1
+    assert result.stdout.startswith("ERROR:TRANSCRIBE_FAILED")
+    assert not sentinel.exists(), "yt-dlp was invoked despite --audio-file"
+    assert audio.exists(), "user-supplied audio file was deleted"
+
+
 # ---------- end-to-end (skips without mlx-whisper/ffmpeg) ----------
 
 def _has_mlx_whisper():

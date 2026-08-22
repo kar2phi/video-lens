@@ -30,7 +30,7 @@ video-lens is a coding agent skill that fetches a YouTube transcript and generat
 | A supported coding agent                         | Runs the skill (see [Supported Agents](#supported-agents)) |
 | Python 3                                         | Runs the helper scripts                                    |
 | `youtube-transcript-api`                         | Fetches YouTube captions/subtitles                         |
-| `yt-dlp`                                         | Fetches metadata and downloads audio for local transcription |
+| `yt-dlp` (>=2026.8.19)                           | Fetches metadata and downloads audio for local transcription |
 | **Optional:** [Raycast](https://www.raycast.com) | Trigger from anywhere via hotkey (macOS)                   |
 | **Optional:** [Task](https://taskfile.dev)       | Install/dev commands alias (`brew install go-task`)        |
 | **Optional:** [Deno](https://deno.com)           | Used by yt-dlp only for edge-case extractors (`brew install deno`) |

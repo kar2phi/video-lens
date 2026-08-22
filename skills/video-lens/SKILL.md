@@ -2,11 +2,11 @@
 name: video-lens
 description: Fetch a YouTube transcript and generate an executive summary, key points, and timestamped topic list as a polished HTML report. Activate on YouTube URLs or requests like "summarize this video", "what's this about", "give me the highlights", "TL;DR this", "digest this video", "watch this for me", "I watched this and want a breakdown", or "make notes on this talk". Supports non-English videos, language selection, and yt-dlp enrichment for chapters, video description, and richer metadata. Falls back to local Whisper transcription when a video has no captions.
 license: MIT
-compatibility: "Requires Python 3 and youtube-transcript-api >=0.6.3. Optional but recommended: yt-dlp and deno for enriched metadata and chapters. Local transcription fallback (videos without captions) additionally requires mlx-whisper, ffmpeg, and yt-dlp (Apple Silicon only)."
+compatibility: "Requires Python 3 and youtube-transcript-api >=0.6.3. Optional but recommended: yt-dlp and deno for enriched metadata and chapters. Local transcription fallback (videos without captions) additionally requires mlx-whisper, ffmpeg, and yt-dlp >=2026.8.19 (Apple Silicon only) — older yt-dlp builds cannot download YouTube audio."
 allowed-tools: Bash Read
 metadata:
   author: kar2phi
-  version: "5.0"
+  version: "5.1"
 ---
 
 ## Quick reference
@@ -109,6 +109,11 @@ python3 "SCRIPTS_DIR/transcribe_local.py" --model medium -- "VIDEO_ID"
 - **Timeouts:** invoke with an explicit 600000 ms timeout. Transcription runs at roughly 4–8 min per hour of video and a first run adds the model download — both count against the 10-minute Bash cap. For videos longer than ~60 min, or any first run where the model must still download, run the command in the background and poll until it finishes.
 - **Output** is `fetch_transcript.py`-compatible (same header block and `[M:SS] text` lines) — use it as the transcript for Steps 3–6 without modification. The extra `SOURCE:` line is informational.
 - **Provenance:** when the fallback produced the transcript, append ` · 🎙 transcribed locally` to `META_LINE` — compose `META_LINE` explicitly in the Step 4 payload (like the existing `LANG_WARN` case): `<channel> · <duration> · <published> · <views> · 🎙 transcribed locally`.
+- **When the download itself is blocked:** if the script returns `ERROR:AUDIO_DOWNLOAD_FAILED`, first check the hint in the message — a yt-dlp older than 2026.8.19 cannot download YouTube audio at all, and `brew upgrade yt-dlp` fixes it. If the download is still blocked after updating, the user can supply the audio themselves:
+  ```bash
+  python3 "SCRIPTS_DIR/transcribe_local.py" --model medium --audio-file "/path/to/audio.m4a" -- "VIDEO_ID"
+  ```
+  `VIDEO_ID` is still required (metadata for the header comes from it), any ffmpeg-readable audio or video file works, and the file is left in place. Offer this only after the update hint has been tried — never download on the user's behalf from a third-party site.
 - Any `ERROR:` line from the script follows the **Error Handling** table below.
 
 ### 3. Generate the summary content
@@ -278,7 +283,8 @@ Scripts emit structured error codes with the prefix `ERROR:` followed by a typed
 | `ERROR:CAPTIONS_DISABLED`, `ERROR:NO_TRANSCRIPT`, `ERROR:IP_BLOCKED`, `ERROR:PO_TOKEN_REQUIRED` | Report the message, then offer the local Whisper fallback (see **Step 2a fallback**). Proceed only if the user agrees or already asked for local transcription; otherwise stop. |
 | `ERROR:VIDEO_UNAVAILABLE`, `ERROR:AGE_RESTRICTED`, `ERROR:INVALID_VIDEO_ID`, `ERROR:LIBRARY_MISSING`, `ERROR:TRANSCRIPT_FETCH_FAILED` | Report the message and stop. For `LIBRARY_MISSING`, print the install command from the message. |
 | `ERROR:REQUEST_BLOCKED`, `ERROR:NETWORK_ERROR` | Retry once. If `REQUEST_BLOCKED` persists, offer the local Whisper fallback (see **Step 2a fallback**) instead of stopping; if `NETWORK_ERROR` persists, report and stop. |
-| `ERROR:WHISPER_MISSING`, `ERROR:FFMPEG_MISSING`, `ERROR:AUDIO_DOWNLOAD_FAILED`, `ERROR:TRANSCRIBE_FAILED` | Report the code and message (include the install hint when present). Stop. |
+| `ERROR:WHISPER_MISSING`, `ERROR:FFMPEG_MISSING`, `ERROR:TRANSCRIBE_FAILED` | Report the code and message (include the install hint when present). Stop. |
+| `ERROR:AUDIO_DOWNLOAD_FAILED` | Report the code and message. When the message carries the outdated-yt-dlp hint, surface `brew upgrade yt-dlp` and offer to retry. Otherwise offer the `--audio-file` escape hatch (see **Step 2a fallback**) before stopping. |
 | `ERROR:YTDLP_*` | Non-fatal — print a one-line note and proceed with 2a metadata and no description context. For `YTDLP_MISSING`, suggest `brew install yt-dlp` or `pip install yt-dlp`. |
 | `ERROR:RENDER_*`, `ERROR:SERVE_*` | Report the code and message. Stop. Do NOT emit the success line. |
 | `LANG_WARN:` line (not an `ERROR:`) | Fall back to the auto-selected transcript; append `⚠ Requested language not available` to `META_LINE`. |

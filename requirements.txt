@@ -1,5 +1,8 @@
 youtube-transcript-api>=0.6.3
-yt-dlp>=2026.3.17
+# 2026.8.19+ required: older builds resolve media via the android_vr client, and
+# YouTube now serves only the first ~1 MiB from those URLs (everything past it 403s),
+# which breaks the local-transcription audio download.
+yt-dlp>=2026.8.19
 pytest>=8.0
 
 # Optional — local transcription fallback (Apple Silicon):
