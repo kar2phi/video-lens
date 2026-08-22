@@ -6,7 +6,7 @@ compatibility: "Requires Python 3 and youtube-transcript-api >=0.6.3. Optional b
 allowed-tools: Bash Read
 metadata:
   author: kar2phi
-  version: "5.1"
+  version: "5.2"
 ---
 
 ## Quick reference
