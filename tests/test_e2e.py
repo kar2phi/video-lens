@@ -581,6 +581,7 @@ def test_build_index_folds_tags_in_manifest(tmp_path):
         f'<html><body><script type="application/json" id="video-lens-meta">{meta}</script></body></html>',
         encoding="utf-8",
     )
+
     r = subprocess.run(
         [sys.executable, str(BUILD_INDEX), "--dir", str(tmp_path)],
         capture_output=True, text=True,
@@ -588,6 +589,48 @@ def test_build_index_folds_tags_in_manifest(tmp_path):
     assert r.returncode == 0, f"build_index failed:\n{r.stderr}"
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["reports"][0]["tags"] == ["ai coding", "productivity"]
+
+
+def test_backfill_meta_escapes_script_closers(tmp_path):
+    """backfill_meta must match render_report._serialize_meta and escape </ in JSON."""
+    BACKFILL = GALLERY_SCRIPT_DIR / "backfill_meta.py"
+    BUILD_INDEX = GALLERY_SCRIPT_DIR / "build_index.py"
+
+    # Report without a meta block; title contains a literal </script> closer.
+    html = (
+        "<html><head><title>Break </script> me — video-lens</title></head>"
+        '<body><p class="meta-line">Chan · 1 min · Jan 01 2025</p>'
+        '<section id="summary"><p>Summary with </script> too.</p></section>'
+        "</body></html>"
+    )
+    report = tmp_path / "2025-01-01-000000-video-lens_escape.html"
+    report.write_text(html, encoding="utf-8")
+
+    r = subprocess.run(
+        [sys.executable, str(BACKFILL), "--dir", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert r.returncode == 0, f"backfill failed:\n{r.stderr}\n{r.stdout}"
+    assert "updated:" in r.stdout
+
+    patched = report.read_text(encoding="utf-8")
+    assert 'id="video-lens-meta">' in patched
+    # Raw closer must not appear inside the JSON script body.
+    meta_start = patched.index('id="video-lens-meta">') + len('id="video-lens-meta">')
+    meta_end = patched.index("</script>", meta_start)
+    meta_body = patched[meta_start:meta_end]
+    assert "</script>" not in meta_body
+    assert "<\\/" in meta_body
+
+    # build_index must still extract the escaped payload.
+    r2 = subprocess.run(
+        [sys.executable, str(BUILD_INDEX), "--dir", str(tmp_path)],
+        capture_output=True, text=True,
+    )
+    assert r2.returncode == 0, f"build_index failed:\n{r2.stderr}"
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["count"] == 1
+    assert "</script>" in manifest["reports"][0]["title"]
 
 
 # --- preflight ---
