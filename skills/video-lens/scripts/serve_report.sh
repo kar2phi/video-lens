@@ -9,6 +9,34 @@
 
 set -euo pipefail
 
+# Normalize a possibly-Windows-style path ("C:\foo\bar") to POSIX form
+# ("/c/foo/bar"). On native Linux/macOS paths (already "/...") this is a
+# no-op. Needed because on Windows the renderer emits native paths (Python's
+# os.path uses backslashes there), while this script's own path arithmetic
+# further down (dirname/basename/prefix-stripping against `pwd` output) is
+# POSIX-only — without normalizing first, the prefix-strip silently fails to
+# match and leaks the raw Windows path into the served URL. Used only for
+# that internal arithmetic; $HTML_PATH itself is left exactly as given, since
+# `-f`/`wc`/`grep` all accept native Windows paths fine under Cygwin/MSYS,
+# and callers may rely on getting back the same path they passed in (see the
+# final "HTML_REPORT:" line).
+to_posix() {
+  local p="$1"
+  case "$p" in
+    /*) printf '%s\n' "$p"; return ;;
+  esac
+  if command -v cygpath &>/dev/null; then
+    cygpath -u "$p"
+    return
+  fi
+  p="${p//\\//}"
+  if [[ "$p" =~ ^([A-Za-z]):(.*)$ ]]; then
+    local drive="${BASH_REMATCH[1],,}"
+    p="/${drive}${BASH_REMATCH[2]}"
+  fi
+  printf '%s\n' "$p"
+}
+
 if [ $# -lt 1 ]; then
     echo "Usage: serve_report.sh /path/to/report.html" >&2
     exit 1
@@ -27,14 +55,15 @@ if [ "$BYTES" -lt 4096 ] || ! grep -q '</html>' "$HTML_PATH"; then
     exit 1
 fi
 
-DIR="$(cd "$(dirname "$HTML_PATH")" && pwd)"
-FILE="$(basename "$HTML_PATH")"
+HTML_PATH_POSIX="$(to_posix "$HTML_PATH")"
+DIR="$(cd "$(dirname "$HTML_PATH_POSIX")" && pwd)"
+FILE="$(basename "$HTML_PATH_POSIX")"
 PORT=8765
 
 # Use explicit root if provided (tilde-expanded by caller), else fall back to heuristic
 if [ $# -ge 2 ]; then
   SERVE_DIR="$(cd "$2" && pwd)"
-  URL_PATH="${HTML_PATH#${SERVE_DIR}/}"
+  URL_PATH="${HTML_PATH_POSIX#${SERVE_DIR}/}"
 elif [[ "$(basename "$DIR")" == "reports" ]]; then
   SERVE_DIR="$(dirname "$DIR")"
   URL_PATH="reports/$FILE"
