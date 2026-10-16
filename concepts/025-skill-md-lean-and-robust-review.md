@@ -382,10 +382,15 @@ compression pass, gated by the eval.
 | Q1 Target models | **Local qwen and Claude are both first-class** | R1 and R5 are the priority after Phase 0. Every prompt change is judged against qwen, not only Claude. |
 | Q2 Payload contract | **Full R1 + R2 approved** | Arrays for `KEY_POINTS`/`OUTLINE` and a run directory, both backward compatible. R1-lite is no longer needed as a stopgap. |
 | Q3 Platforms | **macOS/Linux; Windows best-effort** | Merge #5, fix #6's silent-wrong-server case, and document the level (done in README + `compatibility`). No Windows CI, and no faster-whisper backend for now. |
-| Q4 Next step | **Phase 0 now** | See §12. |
+| Next step | **Phase 0 now** | See §12. |
 
-Q4 (re-runs) and Q5 (`--replace`) are still open. The revision paragraph that shipped keeps
-every version, which matches current behaviour.
+Decided after Phase 0 merged (2026-10-16):
+
+| Question (§9) | Answer | Consequence |
+|---|---|---|
+| Q4 Re-runs | **Intentional: model comparisons** | The duplicate notice stays informational and the run goes ahead. The gallery should group runs of one video side by side (024-U1). That grouping relies on `agentModel`, so S9 (strip `[1m]`) comes first. |
+| Q5 Revisions | **Replace the earlier file** | The renderer gets `--replace OUTPUT_PATH` (S8, script half), and the "Revisions" section re-renders over the same file. A revision replaces its report; a re-run with another model is still a new file (Q4). |
+| Next step | **Validate 5.3 (the A/B below), then R1 + R5** | The R1/R5 work is measured with the same eval. |
 
 ## 12. Implementation record — Phase 0 (2026-10-16)
 
@@ -428,17 +433,28 @@ changes (Phase 1). Step 4 now stands at 4.5 KB, against 7.5 KB before, and R1+R2
 further. Fast suite: **122 passed** (121 plus the new contract test). Deployed with
 `task install-skill-local AGENT=agents` (`~/.claude/skills/video-lens` is a symlink to it).
 
-**Not done:**
+**Status after merge (2026-10-16):**
 
-- PR #5 is not merged. That is an action on GitHub and the maintainer's call: `gh pr merge 5`.
-- No real-agent run (`task test-full`). It spends API quota and adds a report to the live
-  library.
-- No qwen run of the new prompt yet. Given Q1, that is the check that matters most.
+- Phase 0 is on `main` as #7 (`0dc5b58`), together with the real-video suite: `task
+  test-real`, `task eval`, `task eval-compare`, and the replay cache in `evals/replay.py`.
+- PR #5 merged and closed #4. #6 is fixed by #8 (`4cb26ff`).
+- **5.3 was merged before the A/B gate below ran.** YouTube rate-limited this machine
+  (HTTP 429 on the transcript API and on yt-dlp captions) from about 15:20 onward, and it
+  was still blocked at 17:00. No real agent, Claude or qwen, has run 5.3 yet. This gate is
+  the next task.
+- Real-video testing found three fetcher bugs, to fix with T1 tests first:
+  - an IP block during the transcript download prints `TRANSCRIPT_FETCH_FAILED`, which
+    stops the run, instead of `IP_BLOCKED`, which offers the fallback;
+  - a German video's auto-dubbed `en-US` track is picked by default;
+  - a `de` request misses a `de-DE` track and gives a false `LANG_WARN`.
 
-**Regression gate (proposed, before committing 5.3).** The fast suite tests scripts, and the
+  The two language bugs are pinned as strict xfails in `tests/test_real_videos.py`.
+
+**Regression gate (not yet run).** The fast suite tests scripts, and the
 scripts did not change, so it says nothing about model behaviour. The gate is an A/B run: 5.2
-(`HEAD`) against 5.3, same scripts, on both Claude and qwen. That moves the §8 eval harness
-ahead of Phase 1.
+(`REF=c3f42be`) against 5.3 (`REF=0dc5b58`), on both Claude and qwen. Their scripts differ
+only by #5, which does nothing on POSIX paths. That moves the §8 eval harness ahead of
+Phase 1.
 
 - **Fixtures (8 videos, one per branch):** short (<10 min); very long (>90 min, the
   transcript-reading path); with chapters; without chapters; non-English; a language request

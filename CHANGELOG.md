@@ -10,9 +10,10 @@ it was reconstructed from.
 
 ## [5.3] — 2026-10-16
 
-Phase 0 of `concepts/025-skill-md-lean-and-robust-review.md`: text only, no script or
-payload-contract change. SKILL.md goes from 33.1 KB to 25.9 KB (−22 %), and the Step 3
-content guidance is untouched apart from the two rule fixes below.
+Phase 0 of `concepts/025-skill-md-lean-and-robust-review.md`: a text-only SKILL.md rewrite
+with no payload-contract change, plus two `serve_report.sh` fixes and one template fix.
+SKILL.md goes from 33.1 KB to 25.9 KB (−22 %), and the Step 3 content guidance is untouched
+apart from the two rule fixes below.
 
 ### Changed
 
@@ -47,6 +48,21 @@ content guidance is untouched apart from the two rule fixes below.
   rule that diverged whenever a translated track was requested.
 - The Accuracy rule allows information from the video description, which Step 3
   already told the model to use.
+- Without `lsof` (Windows, minimal Linux), `serve_report.sh` missed a stale server on port
+  8765, and on Windows a second listener could bind beside it. The script then printed
+  `HTML_REPORT:` while another directory answered the URL (#6). A socket probe now detects
+  a busy port. A holder it can't identify is reused only if it already serves this report;
+  otherwise the script fails with `ERROR:SERVE_PORT_BUSY`. `HTML_REPORT:` is printed only
+  once the URL returns this exact file, otherwise `ERROR:SERVE_PORT_CONFLICT`. Taking over
+  a server now needs an exact `--directory` match: the old substring match also killed
+  servers for subdirectories. Serving takes about 0.3 s instead of at least 1 s. The serve
+  tests use their own port (`VIDEO_LENS_PORT`) and no longer kill the user's server.
+- Windows-style paths (backslashes, drive letter) produced a broken report URL (#4, fixed
+  by #5 from an outside contributor). The drive letter is lowercased with `tr`, because
+  macOS's bash 3.2 rejects `${var,,}`.
+- The meta-line separator lost its trailing space, so the YouTube link ran into the `·`.
+  The 5.2 fix for the dangling separator wrote it as `" \00b7 "`, and a CSS hex escape
+  swallows the whitespace character that follows it.
 
 ### Added
 
