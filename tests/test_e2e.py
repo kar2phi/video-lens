@@ -1415,13 +1415,14 @@ def test_empty_meta_line_leaves_no_dangling_separator(tmp_path):
     assert "·" not in meta, "separator must not render when there are no facts"
 
 
-def test_meta_line_separator_present_when_facts_are(tmp_path):
+def test_meta_line_separator_present_and_spaced_when_facts_are(tmp_path):
     out = tmp_path / "report.html"
     render_from_payload(sample_render_payload(META_LINE="Test Channel · 10 min"),
                         str(out), template_path=TEMPLATE)
     meta = re.search(r'<p class="meta-line">(.*?)</p>',
                      out.read_text(encoding="utf-8"), re.DOTALL).group(1)
     assert '<span class="meta-facts">Test Channel · 10 min</span>' in meta
+    assert 'content: " · ";' in TEMPLATE.read_text(encoding="utf-8")
 
 
 def test_build_index_sorts_by_date_not_storage_location(tmp_path):
