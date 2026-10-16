@@ -3,7 +3,7 @@ Runs the full pipeline: transcript → metadata → render → serve.
 Run with: pytest tests/test_e2e.py -v
 """
 import html as html_lib
-import json, os, pathlib, re, shutil, subprocess, sys, time, urllib.request
+import json, os, pathlib, re, shutil, socket, subprocess, sys, time, urllib.request
 from datetime import date
 from pathlib import Path
 
@@ -427,6 +427,75 @@ def test_sanitiser_rejects_nested_anchor_without_href_in_description():
     assert "a href missing" in exc.value.detail
 
 
+def _free_port():
+    """A port nothing listens on, so serve tests never touch a real server on 8765."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _serve(report, port, tmp_path, path_prefix=None):
+    env = {**os.environ, "NO_BROWSER": "1", "XDG_CACHE_HOME": str(tmp_path / "cache"),
+           "VIDEO_LENS_PORT": str(port)}
+    if path_prefix:
+        env["PATH"] = f"{path_prefix}{os.pathsep}{env['PATH']}"
+    return subprocess.run(["bash", str(SCRIPT_DIR / "serve_report.sh"), str(report)],
+                          capture_output=True, text=True, timeout=15, env=env)
+
+
+def _stop_served(tmp_path):
+    """Kill the server serve_report.sh started for this test, and only that one."""
+    pid_file = tmp_path / "cache" / "video-lens" / "server.pid"
+    if pid_file.exists():
+        try:
+            os.kill(int(pid_file.read_text().strip()), 15)
+        except (ValueError, ProcessLookupError):
+            pass
+
+
+def _stray_server(directory, port):
+    """A python http.server on `port` that serve_report.sh did not start (no PID file)."""
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1",
+         "--directory", str(directory)],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    end = time.monotonic() + 5
+    while time.monotonic() < end:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+                return proc
+        except OSError:
+            time.sleep(0.05)
+    proc.kill()
+    raise AssertionError(f"stray server on {port} never came up")
+
+
+def _hide_lsof(tmp_path):
+    """PATH prefix whose lsof finds nothing, as on Windows or a minimal Linux image."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / "lsof"
+    fake.write_text("#!/bin/sh\nexit 1\n")
+    fake.chmod(0o755)
+    return bin_dir
+
+
+def _render_sample(out):
+    _render_clean({
+        "VIDEO_ID":            VIDEO_ID,
+        "VIDEO_TITLE":         "Test Video Title",
+        "VIDEO_URL":           f"https://www.youtube.com/watch?v={VIDEO_ID}",
+        "META_LINE":           "Test Channel",
+        "SUMMARY":             "E2E test summary.",
+        "TAKEAWAY":            "E2E test takeaway.",
+        "KEY_POINTS":          "<li><strong>Point</strong> — detail</li>",
+        "OUTLINE":             f'<li><a class="ts" data-t="0" href="https://www.youtube.com/watch?v={VIDEO_ID}&t=0" target="_blank">▶ 0:00</a> — <span class="outline-title">Intro</span><span class="outline-detail"> Opening.</span></li>',
+        "DESCRIPTION_SECTION": "",
+        "VIDEO_LENS_META":     SAMPLE_META,
+    }, str(out), template_path=TEMPLATE)
+
+
 def test_render_and_serve(tmp_path):
     """Fast, no-network check: render with canned data and verify HTTP serve."""
     out = tmp_path / "report.html"
@@ -456,68 +525,97 @@ def test_render_and_serve(tmp_path):
     assert 'class="outline-detail"' in html
 
     # Serve and verify HTTP
+    port = _free_port()
     try:
-        r = subprocess.run(
-            ["bash", str(SCRIPT_DIR / "serve_report.sh"), str(out)],
-            capture_output=True, text=True, timeout=10,
-            env={**os.environ, "NO_BROWSER": "1", "XDG_CACHE_HOME": str(tmp_path / "cache")},
-        )
+        r = _serve(out, port, tmp_path)
         assert r.returncode == 0, f"serve_report failed:\n{r.stderr}"
         assert f"HTML_REPORT: {out}" in r.stdout
-        time.sleep(0.5)
-        resp = urllib.request.urlopen(f"http://127.0.0.1:8765/{out.name}", timeout=5)
+        # HTML_REPORT: is printed only once the URL answers, so no wait is needed.
+        resp = urllib.request.urlopen(f"http://127.0.0.1:{port}/{out.name}", timeout=5)
         assert resp.status == 200
     finally:
-        subprocess.run(["bash", "-c", "for p in $(lsof -ti:8765 -sTCP:LISTEN 2>/dev/null); do ps -p \"$p\" -o args= 2>/dev/null | grep -q http.server && kill \"$p\"; done 2>/dev/null || true"],
-                       capture_output=True)
+        _stop_served(tmp_path)
 
 
+@pytest.mark.skipif(not shutil.which("lsof"), reason="takeover needs lsof to name the holder")
 def test_serve_takes_over_untracked_server(tmp_path):
-    """A stale http.server on 8765 with no PID file must be killed, not bind-failed."""
+    """A stale http.server for this directory with no PID file is replaced, not bind-failed."""
     out = tmp_path / "report.html"
-    _render_clean({
-        "VIDEO_ID":            VIDEO_ID,
-        "VIDEO_TITLE":         "Test Video Title",
-        "VIDEO_URL":           f"https://www.youtube.com/watch?v={VIDEO_ID}",
-        "META_LINE":           "Test Channel",
-        "SUMMARY":             "E2E test summary.",
-        "TAKEAWAY":            "E2E test takeaway.",
-        "KEY_POINTS":          "<li><strong>Point</strong> — detail</li>",
-        "OUTLINE":             f'<li><a class="ts" data-t="0" href="https://www.youtube.com/watch?v={VIDEO_ID}&t=0" target="_blank">▶ 0:00</a> — <span class="outline-title">Intro</span><span class="outline-detail"> Opening.</span></li>',
-        "DESCRIPTION_SECTION": "",
-        "VIDEO_LENS_META":     SAMPLE_META,
-    }, str(out), template_path=TEMPLATE)
-
-    def _wait_for_server(deadline=5.0):
-        end = time.monotonic() + deadline
-        while time.monotonic() < end:
-            try:
-                return urllib.request.urlopen(
-                    f"http://127.0.0.1:8765/{out.name}", timeout=1)
-            except Exception:
-                time.sleep(0.1)
-        raise AssertionError("server on 8765 never became reachable")
-
-    stray = subprocess.Popen(
-        [sys.executable, "-m", "http.server", "8765", "--bind", "127.0.0.1",
-         "--directory", str(tmp_path)],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
+    _render_sample(out)
+    port = _free_port()
+    stray = _stray_server(tmp_path, port)
     try:
-        _wait_for_server()
-        r = subprocess.run(
-            ["bash", str(SCRIPT_DIR / "serve_report.sh"), str(out)],
-            capture_output=True, text=True, timeout=10,
-            env={**os.environ, "NO_BROWSER": "1", "XDG_CACHE_HOME": str(tmp_path / "cache")},
-        )
+        r = _serve(out, port, tmp_path)
         assert r.returncode == 0, f"serve_report failed:\n{r.stderr}"
         assert f"HTML_REPORT: {out}" in r.stdout
-        resp = _wait_for_server()
+        assert stray.wait(timeout=5) is not None           # taken over, not reused
+        assert (tmp_path / "cache" / "video-lens" / "server.pid").exists()
+        resp = urllib.request.urlopen(f"http://127.0.0.1:{port}/{out.name}", timeout=5)
         assert resp.status == 200
     finally:
         stray.kill()
-        subprocess.run(["bash", "-c", "for p in $(lsof -ti:8765 -sTCP:LISTEN 2>/dev/null); do ps -p \"$p\" -o args= 2>/dev/null | grep -q http.server && kill \"$p\"; done 2>/dev/null || true"],
-                       capture_output=True)
+        _stop_served(tmp_path)
+
+
+def test_serve_reuses_a_server_it_cannot_identify(tmp_path):
+    """#6: without lsof the port's holder has no name. If it already returns this
+    report, reuse it rather than start a second listener: Windows lets both bind
+    and then routes requests to either one."""
+    out = tmp_path / "report.html"
+    _render_sample(out)
+    port = _free_port()
+    stray = _stray_server(tmp_path, port)
+    try:
+        r = _serve(out, port, tmp_path, path_prefix=_hide_lsof(tmp_path))
+        assert r.returncode == 0, f"serve_report failed:\n{r.stderr}"
+        assert f"HTML_REPORT: {out}" in r.stdout
+        assert "Reusing the server" in r.stderr
+        assert stray.poll() is None                        # still the one serving
+        assert not (tmp_path / "cache" / "video-lens" / "server.pid").exists()
+    finally:
+        stray.kill()
+        _stop_served(tmp_path)
+
+
+@pytest.mark.parametrize("hide_lsof", [False, True], ids=["lsof", "no-lsof"])
+def test_serve_refuses_a_server_for_another_directory(tmp_path, hide_lsof):
+    """#6: a server on the port that does not return this report is neither killed
+    nor trusted. Its directory sits inside ours, so a substring match on the
+    command line would wrongly take it over."""
+    out = tmp_path / "report.html"
+    _render_sample(out)
+    other = tmp_path / "other"
+    other.mkdir()
+    port = _free_port()
+    stray = _stray_server(other, port)
+    try:
+        r = _serve(out, port, tmp_path, path_prefix=_hide_lsof(tmp_path) if hide_lsof else None)
+        assert r.returncode == 1, r.stdout + r.stderr
+        assert "ERROR:SERVE_PORT_BUSY" in r.stderr
+        assert "HTML_REPORT:" not in r.stdout
+        assert stray.poll() is None
+    finally:
+        stray.kill()
+        _stop_served(tmp_path)
+
+
+@pytest.mark.parametrize("port", ["abc", "80", "70000", "8765 9"])
+def test_serve_rejects_an_invalid_port(tmp_path, port):
+    out = tmp_path / "report.html"
+    _render_sample(out)
+    r = _serve(out, port, tmp_path)
+    assert r.returncode == 1
+    assert "ERROR:SERVE_PORT_INVALID" in r.stderr
+
+
+def test_to_posix_lowercases_the_drive_letter_under_old_bash():
+    """macOS ships bash 3.2, which rejects ${var,,} as a bad substitution."""
+    script = (SCRIPT_DIR / "serve_report.sh").read_text(encoding="utf-8")
+    func = re.search(r"^to_posix\(\) \{\n.*?^\}\n", script, re.M | re.S).group(0)
+    r = subprocess.run(["bash", "-c", func + 'to_posix "$1"', "bash", r"C:\Users\me\report.html"],
+                       capture_output=True, text=True, timeout=10)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout == "/c/Users/me/report.html\n"
 
 
 def test_build_index(tmp_path):
