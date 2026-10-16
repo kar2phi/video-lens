@@ -39,7 +39,7 @@ on run argv
   else
     set modelArg to "--model " & quoted form of modelInput
   end if
-  set cmd to "cd " & quoted form of outputDir & " && claude --dangerously-skip-permissions --allowedTools \"Bash,Read\" " & modelArg & " \"/video-lens " & ytURL & "\""
+  set cmd to "cd " & quoted form of outputDir & " && claude --dangerously-skip-permissions --allowedTools \"Bash,Read,Write\" " & modelArg & " \"/video-lens " & ytURL & "\""
 
   if application "iTerm2" is running or (exists application "iTerm2") then
     tell application "iTerm2"

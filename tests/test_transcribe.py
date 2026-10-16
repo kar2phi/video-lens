@@ -279,6 +279,7 @@ def _has_mlx_whisper():
         return False
 
 
+@pytest.mark.network
 @pytest.mark.skipif(
     not _has_mlx_whisper() or not shutil.which("ffmpeg") or not shutil.which("yt-dlp"),
     reason="requires mlx-whisper, ffmpeg, and yt-dlp",

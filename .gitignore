@@ -4,3 +4,5 @@ __pycache__/
 .env
 .DS_Store
 .obsidian/
+evals/results/
+evals/cache/
