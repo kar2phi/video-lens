@@ -8,6 +8,65 @@ git tags in this repo — versions here track the `metadata.version` field of
 carries its own version; it is called out wherever it moved. Each entry lists the commits
 it was reconstructed from.
 
+## [5.3] — 2026-10-16
+
+Phase 0 of `concepts/025-skill-md-lean-and-robust-review.md`: text only, no script or
+payload-contract change. SKILL.md goes from 33.1 KB to 25.9 KB (−22 %), and the Step 3
+content guidance is untouched apart from the two rule fixes below.
+
+### Changed
+
+- The "Quick reference" block and its "Step 4 is the authoritative spec" disclaimer are
+  gone, along with "When to Activate" (the frontmatter description already handles
+  triggering). In their place is one opening block: the role, a pipeline-at-a-glance table,
+  and four rules that must hold even when the rest of the prompt has faded.
+- The Whisper fallback details moved to `references/whisper-fallback.md`, read only once
+  the user agrees to local transcription. The ask-first gate stays inline, and the fallback is
+  now limited to Apple Silicon Macs instead of being offered everywhere.
+- Facts stated two to four times (heredoc warning, parallel fetch, `META_LINE` composition,
+  `OUTPUT_PATH` capture, bash-not-python3) are now stated once. The Step 4 table gives types
+  and formats only, and points to Step 3 for content.
+- Preflight takes a two-letter language *code*, not a phrase or a name. `"in Spanish"` used to be passed
+  through as the language code and produced a false `⚠ Requested language not available`.
+- Step 1 uses the harness-provided skill base directory when there is one, and falls back
+  to the 8-directory discovery loop.
+- Reading the transcript no longer assumes Claude Code's save-to-file truncation. A cut-off
+  view is re-run into `transcript.txt` beside the payload and read in full.
+- The `KEY_POINTS` row now asks for a `<p>` paragraph on each headline. Its old
+  "(may be omitted…)" aside read as a licence to drop them, and 33 of 65 qwen-generated
+  reports did exactly that.
+- README states the support level (macOS and Linux; Windows best-effort) and fixes
+  install-doc drift (`install-skill-local` agent list, missing `AGENT=`, `yt-dlp` floor).
+
+### Fixed
+
+- `allowed-tools` now includes `Write`, which Step 4 requires. The Raycast launcher, the
+  `install-raycast` rewrite table (including Gemini's `write_file`) and the slow e2e test
+  pass it too.
+- One language rule, the `LANG:` line, replaces a conflicting "video's original language"
+  rule that diverged whenever a translated track was requested.
+- The Accuracy rule allows information from the video description, which Step 3
+  already told the model to use.
+
+### Added
+
+- A "Revisions and follow-up questions" section: re-`Write` the payload and re-render,
+  never edit the rendered HTML; answer questions from the transcript with timestamps.
+- `install-skill-local` syncs `references/`.
+- `test_skill_md_contract_matches_the_repo` checks that `Write` is allowed, every invoked
+  script ships, the fallback reference exists and is deployed, and the Raycast tool list
+  stays in sync with the Taskfile rewrite.
+- A real-video test suite. `evals/fixtures.json` lists eight YouTube videos, one per branch.
+  `task test-real` runs the fetch scripts against them with no LLM, and pins two live
+  language-selection bugs as strict xfails. `task eval AGENT=claude|pi` runs an agent on
+  them from an isolated copy of the skill and validates every report and tool trace
+  (`evals/checks.py`). The agent's transcript and metadata fetches are recorded once per
+  fixture and replayed after that (`evals/replay.py`), so both A/B arms read identical
+  inputs and a full A/B doesn't get the IP blocked. `task eval-compare` A/Bs two runs, and
+  `task eval-library` scores the saved library by model family.
+- `task test`, `test-real` and `test-full` call `python3 -m pytest`, so they work when
+  the `pytest` script is not on `PATH`.
+
 ## [5.2] — 2026-08-22
 
 _video-lens-gallery 2.1._ Findings from `concepts/024-comprehensive-skill-assessment.md`.

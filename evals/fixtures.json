@@ -1,0 +1,66 @@
+{
+  "_doc": "Real YouTube fixtures. sets: fetch = network tier (tests/test_real_videos.py, no LLM); slim = default agent eval; full = slim plus the expensive cases. expect.lang is the transcript language the fetcher must pick and the report must be written in. known_bug marks a fetch expectation that fails today (strict xfail, so a fix flips it to a failure to un-mark).",
+  "fixtures": [
+    {
+      "name": "smoke",
+      "video": "bjdBVZa66oU",
+      "why": "3 min, English auto-captions, 5 chapters: the happy path, chapter-anchored outline.",
+      "sets": ["fetch", "slim", "full"],
+      "expect": {"lang": "en", "chapters": 5}
+    },
+    {
+      "name": "german",
+      "video": "TFqxvqd0OBI",
+      "why": "9 min, German only, no chapters: language fidelity and a free-form outline.",
+      "sets": ["fetch", "slim", "full"],
+      "expect": {"lang": "de", "chapters": 0}
+    },
+    {
+      "name": "lang-request",
+      "video": "HQcABjEQq7E",
+      "lang": "de",
+      "why": "German video whose default track is a manual English one; the requested de track must win. 8 German chapters.",
+      "sets": ["fetch", "slim", "full"],
+      "expect": {"lang": "de", "chapters": 8}
+    },
+    {
+      "name": "lang-warn",
+      "video": "bjdBVZa66oU",
+      "lang": "ja",
+      "why": "Requested language does not exist: LANG_WARN, English report, warning suffix on the meta line.",
+      "sets": ["fetch", "slim", "full"],
+      "expect": {"lang": "en", "lang_warn": true, "chapters": 5}
+    },
+    {
+      "name": "no-captions",
+      "video": "TOmb5UTIUU8",
+      "why": "Captions disabled: the agent must stop and offer local transcription, never run it unasked.",
+      "sets": ["fetch", "slim", "full"],
+      "expect": {"error": "CAPTIONS_DISABLED"}
+    },
+    {
+      "name": "long",
+      "video": "-QFHIoCo-Ko",
+      "why": "1h36m talk, 11 chapters: the full-transcript reading path (>90 min band).",
+      "sets": ["fetch", "full"],
+      "expect": {"lang": "en", "chapters": 11}
+    },
+    {
+      "name": "auto-dub",
+      "video": "Ds-Q8hTuxdU",
+      "why": "German video with an auto-dubbed en-US track listed first; with no request the fetcher must pick the original de track.",
+      "sets": ["fetch"],
+      "expect": {"lang": "de"},
+      "known_bug": "fetch_transcript.py takes the first non-translated track, which is the en-US dub (025 R3: pick by YTDLP_LANGUAGE)."
+    },
+    {
+      "name": "region-subtag",
+      "video": "qOvc9IUKEIc",
+      "lang": "de",
+      "why": "Only a de-DE track exists; a de request must match it by primary subtag.",
+      "sets": ["fetch"],
+      "expect": {"lang": "de-DE", "lang_warn": false},
+      "known_bug": "Exact-code matching misses de-DE and emits a false LANG_WARN (025 §8, part of T1)."
+    }
+  ]
+}

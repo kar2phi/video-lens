@@ -27,12 +27,34 @@ tasks:
     cmd: pip install -r requirements.txt
 
   test:
-    desc: Run fast tests (no LLM invocation) — whole tests/ dir
-    cmd: pytest tests/ -v -m "not slow"
+    desc: Run fast tests (no network, no LLM) — whole tests/ dir
+    cmd: python3 -m pytest tests/ -v -m "not slow and not network"
+
+  test-real:
+    desc: Real YouTube fetches for every fixture in evals/fixtures.json (network, no LLM, ~1 min)
+    cmd: python3 -m pytest tests/ -v -m network
+
+  eval:
+    desc: "Run an agent on the fixture videos and validate every report (AGENT=claude|pi MODEL= REF=<git ref> SET=slim|full ONLY=a,b RUNS=1 LIVE=1)"
+    vars:
+      AGENT: '{{.AGENT | default "claude"}}'
+      SET: '{{.SET | default "slim"}}'
+      RUNS: '{{.RUNS | default "1"}}'
+    cmd: >-
+      python3 evals/run_eval.py --agent {{.AGENT}} --set {{.SET}} --runs {{.RUNS}}
+      {{if .MODEL}}--model {{.MODEL}}{{end}} {{if .REF}}--ref {{.REF}}{{end}} {{if .ONLY}}--only {{.ONLY}}{{end}} {{if .LIVE}}--live{{end}}
+
+  eval-compare:
+    desc: "Compare two eval runs (A=evals/results/<run> B=evals/results/<run>); exits 1 on a gate regression"
+    cmd: python3 evals/run_eval.py --compare {{.A}} {{.B}}
+
+  eval-library:
+    desc: Score the saved reports in REPORTS_DIR by model family (no network)
+    cmd: python3 evals/checks.py {{.REPORTS_DIR}}/reports
 
   test-full:
     desc: Run all tests including real Claude session (slow, requires API key)
-    cmd: pytest tests/ -v
+    cmd: python3 -m pytest tests/ -v
 
   dev:
     desc: Run template dev server with sample content
@@ -57,8 +79,8 @@ tasks:
         # claude/gemini/codex/opencode take the prompt as a positional argument
         # copilot/cursor require -p before the prompt
         FLAGS = {
-            "claude":   ("--dangerously-skip-permissions", "--allowedTools " + Q + "Bash,Read" + Q, ""),
-            "gemini":   ("--yolo",                         "--allowed-tools " + Q + "read_file,run_shell_command" + Q, ""),
+            "claude":   ("--dangerously-skip-permissions", "--allowedTools " + Q + "Bash,Read,Write" + Q, ""),
+            "gemini":   ("--yolo",                         "--allowed-tools " + Q + "read_file,write_file,run_shell_command" + Q, ""),
             "codex":    ("-a never",                       "",                                                          ""),
             "cursor":   ("--force",                        "",                                                          "-p"),
             "opencode": ("",                               "",                                                          ""),
@@ -76,7 +98,7 @@ tasks:
             src = src.replace("--dangerously-skip-permissions ", "{} ".format(skip_perm))
         else:
             src = src.replace("--dangerously-skip-permissions ", "")
-        old_tools = "--allowedTools " + Q + "Bash,Read" + Q
+        old_tools = "--allowedTools " + Q + "Bash,Read,Write" + Q
         if tools:
             src = src.replace(old_tools, tools)
         else:
@@ -119,6 +141,7 @@ tasks:
         cp skills/video-lens/SKILL.md "$dir/video-lens/SKILL.md"
         cp skills/video-lens/template.html "$dir/video-lens/template.html"
         rsync -a --delete --exclude='__pycache__' skills/video-lens/scripts/ "$dir/video-lens/scripts/"
+        rsync -a --delete skills/video-lens/references/ "$dir/video-lens/references/"
         echo "Synced skills/video-lens/ → $dir/video-lens/"
         mkdir -p "$dir/video-lens-gallery"
         cp skills/video-lens-gallery/SKILL.md "$dir/video-lens-gallery/SKILL.md"

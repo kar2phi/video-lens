@@ -1140,7 +1140,7 @@ def test_claude_session(tmp_path):
     try:
         result = subprocess.run(
             ["claude", "--print", "--dangerously-skip-permissions",
-             "--allowedTools", "Bash,Read",
+             "--allowedTools", "Bash,Read,Write",
              "--",
              f"Summarize this video: https://www.youtube.com/watch?v={VIDEO_ID}"],
             capture_output=True, text=True, timeout=300,
@@ -1449,3 +1449,29 @@ def test_download_audio_times_out_with_a_structured_error(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "ERROR:AUDIO_DOWNLOAD_FAILED" in out
     assert "timed out" in out
+
+
+def test_skill_md_contract_matches_the_repo():
+    """025: SKILL.md promises must hold against the files it names — Step 4
+    requires the Write tool, every script it invokes ships, and the fallback
+    reference it sends the agent to exists and is deployed by install."""
+    skill_dir = REPO_ROOT / "skills" / "video-lens"
+    skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+    frontmatter = skill.split("---", 2)[1]
+    allowed = re.search(r"^allowed-tools:\s*(.+)$", frontmatter, re.M).group(1).split()
+    assert {"Bash", "Read", "Write"} <= set(allowed)
+
+    invoked = set(re.findall(r"SCRIPTS_DIR/([\w.]+)", skill))
+    assert len(invoked) >= 4, invoked
+    for name in invoked:
+        assert (skill_dir / "scripts" / name).is_file(), name
+
+    assert "references/whisper-fallback.md" in skill
+    assert (skill_dir / "references" / "whisper-fallback.md").is_file()
+    taskfile = (REPO_ROOT / "Taskfile.yml").read_text(encoding="utf-8")
+    assert "skills/video-lens/references/" in taskfile
+
+    raycast = (REPO_ROOT / "scripts" / "raycast-video-lens.sh").read_text(encoding="utf-8")
+    assert "Bash,Read,Write" in raycast
+    # install-raycast swaps the claude tool list by exact match; keep them in sync.
+    assert '"Bash,Read,Write" + Q' in taskfile

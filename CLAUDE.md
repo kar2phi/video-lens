@@ -30,6 +30,11 @@ video-lens/
   scripts/
     raycast-video-lens.sh  ← Raycast script (source of truth)
     yt_template_dev.py     ← dev server helper
+  evals/
+    fixtures.json          ← real fixture videos + expected branch behaviour
+    checks.py              ← report/trace gates and metrics
+    run_eval.py            ← agent eval on real videos (task eval), A/B compare
+    replay.py              ← records the fetch scripts' output once, replays it (evals/cache/)
   skills/
     video-lens/
       SKILL.md             ← skill prompt (source of truth)
@@ -47,3 +52,13 @@ video-lens/
 ```bash
 task dev   # renders template → ~/Downloads/sample_output.html, serves at http://localhost:8765/sample_output.html
 ```
+
+## Tests
+
+```bash
+task test                 # fast, no network
+task test-real            # real YouTube fetches for evals/fixtures.json, no LLM
+task eval AGENT=claude    # real agent runs, validated (AGENT=pi MODEL=qwen3.6:27b for local qwen)
+```
+
+Judge SKILL.md changes with `task eval` on both arms (`REF=HEAD` vs working tree) and `task eval-compare`, on Claude *and* qwen.

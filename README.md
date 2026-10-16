@@ -36,7 +36,9 @@ video-lens is a coding agent skill that fetches a YouTube transcript and generat
 | **Optional:** [Deno](https://deno.com)           | Used by yt-dlp only for edge-case extractors (`brew install deno`) |
 | **Optional:** `mlx-whisper` + `ffmpeg`           | Local Whisper fallback for videos without captions (Apple Silicon) |
 
-> **Note:** video-lens first tries YouTube captions/subtitles. If captions are missing or blocked, it can fall back to local Whisper transcription when the optional local dependencies are installed. YouTube Shorts are not supported.
+> **Note:** video-lens first tries YouTube captions/subtitles. If captions are missing or blocked, it can fall back to local Whisper transcription when the optional local dependencies are installed (Apple Silicon only). YouTube Shorts are not supported.
+>
+> **Platforms:** macOS and Linux are supported. Windows is best-effort — fixes are welcome, but it is not tested.
 
 ---
 
@@ -54,7 +56,7 @@ video-lens uses the universal [SKILL.md](https://agents.md/) format — any agen
 
 ```bash
 npx skills add kar2phi/video-lens
-pip install youtube-transcript-api yt-dlp
+pip install youtube-transcript-api 'yt-dlp>=2026.8.19'
 
 # Optional: local transcription fallback on Apple Silicon
 pip install mlx-whisper
@@ -72,7 +74,7 @@ Clone the repo and use `task install-skill-local` to copy the skill (prompt, tem
 ```bash
 git clone https://github.com/kar2phi/video-lens.git
 cd video-lens
-task install-skill-local AGENT=claude   # or copilot, gemini, cursor, …
+task install-skill-local AGENT=claude   # or agents, gemini, opencode, cursor
 pip install -r requirements.txt
 
 # Optional: local transcription fallback on Apple Silicon
@@ -102,7 +104,7 @@ brew install deno
 #### 2. Install the skill
 
 ```bash
-task install-skill-local
+task install-skill-local AGENT=claude
 ```
 
 #### 3. (Optional) Install the Raycast script for Claude
@@ -167,6 +169,55 @@ Opens a rendered sample report at `http://localhost:8765/sample_output.html`.
 
 ---
 
+## Testing
+
+Three tiers, cheapest first:
+
+```bash
+task test                      # fast: scripts, renderer, sanitiser, eval checks (no network, ~10 s)
+task test-real                 # real YouTube: fetch every fixture video, no LLM (~30 s)
+task eval AGENT=claude         # real agent runs on the fixture videos, every report validated
+task eval AGENT=pi MODEL=qwen3.6:27b
+```
+
+The fixtures in `evals/fixtures.json` each cover one branch: the happy path with chapters, a
+German video, a language request, a missing language (`LANG_WARN`), a captions-disabled video
+that must stop and ask before transcribing locally, and (with `SET=full`) a 1h36m talk.
+`task eval` loads the skill from the working tree (or `REF=<git ref>`) into a throwaway
+directory, so your installed copy is never touched. Each report is moved out of
+`~/Downloads/video-lens` right after its run, and the gallery index is rebuilt at the end.
+
+Each case is checked against **gates**: report served, no `template.html` read, no hand-written
+HTML, first render accepted or fixed on the one retry, written in the transcript's language,
+outline links to this video, chapters anchored, `⚠` suffix after `LANG_WARN`, no claimed
+success without `HTML_REPORT:`, and for the captions-disabled video: no report and no
+transcription without consent. It also records **metrics**: key-point count and paragraph
+share, timestamp mismatches, outline and summary length against the SKILL.md bands, tag reuse,
+Takeaway/Summary overlap, tool calls, wall time and cost.
+
+To A/B a SKILL.md change, run both arms and compare them. The compare exits 1 on any gate that
+held in every A run and broke in a B run:
+
+```bash
+task eval AGENT=claude REF=HEAD RUNS=2      # committed skill
+task eval AGENT=claude RUNS=2               # working tree
+task eval-compare A=evals/results/<run-a> B=evals/results/<run-b>
+task eval-library                           # same metrics over every saved report, by model family
+```
+
+The agent's transcript and metadata fetches are recorded in `evals/cache/` the first time
+each fixture runs and replayed after that. Both arms of an A/B then read byte-identical
+transcripts, and a 40-run comparison makes about 15 YouTube requests instead of about a
+hundred. The cache key includes the fetch script's hash, so a branch that changes the
+fetcher records its own inputs. `LIVE=1` fetches everything fresh; `task test-real` always
+does.
+
+Bursts of transcript requests get the IP blocked by YouTube, sometimes for hours. On live
+fetches the runner pauses between cases, checks once before starting, and marks blocked
+cases `BLOCKED` (not scored). Blocks are never recorded into the cache.
+
+---
+
 ## Repo layout
 
 ```
@@ -191,6 +242,12 @@ video-lens/
   scripts/
     raycast-video-lens.sh ← Raycast script (source of truth)
     yt_template_dev.py← Dev server helper
+  evals/
+    fixtures.json     ← real fixture videos and what each must produce
+    checks.py         ← report/trace gates and metrics (also scores the saved library)
+    run_eval.py       ← runs an agent on the fixtures; --compare for A/B
+    replay.py         ← records each fixture's fetch once, replays it after
+  tests/              ← fast suite, network tier (test_real_videos.py), slow e2e
   Taskfile.yml
   requirements.txt
 ```
