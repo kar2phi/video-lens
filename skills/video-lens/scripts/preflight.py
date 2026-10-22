@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
-"""Pre-flight checks for video-lens: URL→ID, language mapping, duplicate detection, start epoch.
+"""Pre-flight checks for video-lens: URL→ID, request parsing, duplicate detection,
+start epoch, machine capabilities.
 
-Usage: python3 preflight.py URL_OR_ID [LANG_REQUEST]
+Usage: python3 preflight.py URL_OR_ID [REQUEST]
 
 URL_OR_ID may be:
 - A YouTube URL (watch / youtu.be / embed / live)
 - A bare 11-character video ID
-- A bare ID followed by a 2–3 char language hint (e.g. "dQw4w9WgXcQ es") — passed as a single argv
+- Either of those followed by the user's request in a single argv
+  ("dQw4w9WgXcQ es", "https://youtu.be/… in Spanish, focus on pricing")
+
+The request is read for a transcript language: a language name in English or in
+the language itself ("Spanish", "español"), or a code ("es", "pt-BR") given
+alone or with filler words ("in es", "de subtitles"). Words other than the
+language and filler make the whole request an EXTRA_REQUEST.
 
 Stdout on success (lines that apply only):
     VIDEO_ID: <11 chars>
     LANG_CODE: <code or empty>
+    EXTRA_REQUEST: <the request verbatim>   # when it asks for more than a language
+    CAPABILITIES: a, b, …        # whisper (Apple Silicon: the local fallback can run),
+                                 # mlx-whisper, ffmpeg, yt-dlp | yt-dlp-outdated; may be empty
     START_EPOCH: <int>
     SCRIPTS_DIR: <absolute>      # directory holding the video-lens scripts
     PAYLOAD_PATH: <absolute>     # $XDG_CACHE_HOME/video-lens/payloads/payload-XXXX/payload.json (0700 parent, file not pre-created)
@@ -22,6 +32,7 @@ Stderr + non-zero exit on:
     ERROR:INVALID_INPUT <reason>
 """
 import argparse
+import importlib.util
 import json
 import os
 import pathlib
@@ -31,6 +42,8 @@ import sys
 import tempfile
 import time
 from urllib.parse import parse_qs, urlparse
+
+from transcribe_local import MIN_YTDLP, whisper_platform_supported, ytdlp_version
 
 VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 REPORTS_DIR = pathlib.Path.home() / "Downloads" / "video-lens" / "reports"
@@ -45,11 +58,45 @@ LEGACY_PAYLOAD_BASE_DIR = pathlib.Path.home() / "Downloads" / "video-lens" / ".t
 PAYLOAD_TTL_SECONDS = 7 * 24 * 60 * 60  # sweep payload-* dirs older than ~7 days
 EXISTING_TAGS_LIMIT = 40  # how many of the most-common tags to feed back to Step 3
 
+# English names, then each language's own name (with and without accents).
+# "polish" and "indonesia" are left out: in a request they are more often a verb
+# or a country than a transcript language.
 LANGUAGE_MAP = {
-    "english": "en", "spanish": "es", "french": "fr", "german": "de",
-    "japanese": "ja", "portuguese": "pt", "italian": "it",
-    "chinese": "zh", "korean": "ko", "russian": "ru",
+    "english": "en",
+    "spanish": "es", "español": "es", "espanol": "es", "castellano": "es",
+    "french": "fr", "français": "fr", "francais": "fr",
+    "german": "de", "deutsch": "de",
+    "italian": "it", "italiano": "it",
+    "portuguese": "pt", "português": "pt", "portugues": "pt",
+    "dutch": "nl", "nederlands": "nl",
+    "swedish": "sv", "svenska": "sv",
+    "norwegian": "no", "norsk": "no",
+    "danish": "da", "dansk": "da",
+    "finnish": "fi", "suomi": "fi",
+    "polski": "pl",
+    "czech": "cs", "čeština": "cs", "cestina": "cs",
+    "turkish": "tr", "türkçe": "tr", "turkce": "tr",
+    "greek": "el", "ελληνικά": "el",
+    "russian": "ru", "русский": "ru",
+    "ukrainian": "uk", "українська": "uk",
+    "arabic": "ar", "العربية": "ar",
+    "hindi": "hi", "हिन्दी": "hi", "हिंदी": "hi",
+    "indonesian": "id",
+    "vietnamese": "vi",
+    "thai": "th", "ไทย": "th",
+    "chinese": "zh", "mandarin": "zh", "中文": "zh",
+    "japanese": "ja", "日本語": "ja",
+    "korean": "ko", "한국어": "ko",
 }
+# Words that may surround a language without asking for anything else.
+REQUEST_FILLER = {
+    "a", "an", "and", "the", "in", "into", "with", "on", "use", "using", "please", "pls",
+    "language", "lang", "subtitles", "subtitle", "subs", "captions", "caption", "cc",
+    "transcript", "track", "version", "audio",
+    "en", "auf", "im", "mit", "untertitel", "sous-titres", "con", "subtítulos",
+}
+REQUEST_WORD_RE = re.compile(r"[^\W_]+(?:-[^\W_]+)*")
+LANG_CODE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
 YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com"}
 YOUTUBE_SHORT_HOSTS = {"youtu.be", "www.youtu.be"}
 
@@ -86,16 +133,59 @@ def extract_video_id(raw: str) -> tuple[str, str | None]:
     return "", "INVALID_INPUT"
 
 
-def map_language(raw: str) -> str:
-    """Map a name (english) or a short code (en) to a code. No format validation.
+def parse_request(raw: str) -> tuple[str, str]:
+    """Split the user's request into (language code, extra request).
 
-    Unknown codes pass through; fetch_transcript.py already emits LANG_WARN: when
-    youtube-transcript-api rejects them, so a second validation layer here is dead weight.
+    A language name counts anywhere in the request. A code counts only when it
+    stands alone or among filler words: inside a sentence, two-letter words are
+    too often ordinary words ("de" in "resumen de la charla", "it" in "focus on it").
+    Unknown codes pass through; fetch_transcript.py emits LANG_WARN: for them.
+
+    The extra request is the whole request, verbatim, whenever it holds words
+    other than the language and filler; the agent reads it in full.
     """
-    raw = raw.strip().lower()
-    if not raw:
-        return ""
-    return LANGUAGE_MAP.get(raw, raw)
+    text = " ".join(raw.split())
+    words = REQUEST_WORD_RE.findall(text.lower())
+    if not words:
+        return "", ""
+
+    lang_word = next((w for w in words if w in LANGUAGE_MAP), None)
+    if lang_word is not None:
+        lang_code = LANGUAGE_MAP[lang_word]
+    elif len(words) == 1 and LANG_CODE_RE.fullmatch(words[0]):
+        lang_word = lang_code = words[0]
+    else:
+        content = [w for w in words if w not in REQUEST_FILLER]
+        if len(content) == 1 and LANG_CODE_RE.fullmatch(content[0]):
+            lang_word = lang_code = content[0]
+        else:
+            lang_code = ""
+
+    rest = [w for w in words if w != lang_word and w not in REQUEST_FILLER]
+    return lang_code, (text if rest else "")
+
+
+def probe_capabilities() -> list[str]:
+    """What this machine can run, so the skill offers the local fallback only
+    where it works (025 R6/S5).
+
+    `whisper` means mlx-whisper can run here, installed or not; `mlx-whisper`
+    that it is installed. The yt-dlp version is checked only where the fallback
+    can run, because only its audio download needs the newer release; elsewhere
+    the check would add a subprocess to every run for nothing.
+    """
+    caps = []
+    whisper = whisper_platform_supported()
+    if whisper:
+        caps.append("whisper")
+        if importlib.util.find_spec("mlx_whisper") is not None:
+            caps.append("mlx-whisper")
+    if shutil.which("ffmpeg"):
+        caps.append("ffmpeg")
+    if shutil.which("yt-dlp"):
+        found = ytdlp_version() if whisper else None
+        caps.append("yt-dlp-outdated" if found and found[0] < MIN_YTDLP else "yt-dlp")
+    return caps
 
 
 def sweep_stale_payloads(base_dir: pathlib.Path, now: float | None = None) -> None:
@@ -179,14 +269,14 @@ def find_duplicate(video_id: str) -> pathlib.Path | None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("url_or_id")
-    parser.add_argument("lang_request", nargs="?", default="")
+    parser.add_argument("request", nargs="?", default="")
     args = parser.parse_args()
 
     raw = args.url_or_id.strip()
-    lang_request = args.lang_request
-    if " " in raw and not lang_request:
+    request = args.request
+    if " " in raw and not request:
         first, _, rest = raw.partition(" ")
-        raw, lang_request = first, rest.strip()
+        raw, request = first, rest.strip()
 
     video_id, err = extract_video_id(raw)
     if err == "SHORTS_NOT_SUPPORTED":
@@ -196,7 +286,7 @@ def main() -> int:
         print(f"ERROR:INVALID_INPUT could not extract video id from {raw!r}", file=sys.stderr)
         return 1
 
-    lang_code = map_language(lang_request)
+    lang_code, extra_request = parse_request(request)
     start_epoch = int(time.time())
     dup = find_duplicate(video_id)
 
@@ -217,6 +307,9 @@ def main() -> int:
 
     print(f"VIDEO_ID: {video_id}")
     print(f"LANG_CODE: {lang_code}")
+    if extra_request:
+        print(f"EXTRA_REQUEST: {extra_request}")
+    print(f"CAPABILITIES: {', '.join(probe_capabilities())}")
     print(f"START_EPOCH: {start_epoch}")
     print(f"SCRIPTS_DIR: {scripts_dir}")
     print(f"PAYLOAD_PATH: {payload_path}")

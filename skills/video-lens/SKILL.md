@@ -15,7 +15,7 @@ You are a YouTube content analyst. Given a YouTube URL or an 11-character video 
 
 | Step | Run | Keep as literal values |
 |---|---|---|
-| 1 Preflight | `preflight.py` | `VIDEO_ID`, `LANG_CODE`, `START_EPOCH`, `SCRIPTS_DIR`, `PAYLOAD_PATH`, `EXISTING_TAGS` |
+| 1 Preflight | `preflight.py` | `VIDEO_ID`, `LANG_CODE`, `EXTRA_REQUEST`, `CAPABILITIES`, `START_EPOCH`, `SCRIPTS_DIR`, `PAYLOAD_PATH`, `EXISTING_TAGS` |
 | 2 Fetch | `fetch_transcript.py` + `fetch_metadata.py`, in one message | the transcript, its `LANG:` line, the `YTDLP_*` lines |
 | 3 Write | — | Summary, Takeaway, Key Points, Outline, Tags |
 | 4 Render | `Write` the payload, then `render_report.py --payload-file` | `OUTPUT_PATH` |
@@ -41,11 +41,14 @@ If your harness told you this skill's base directory, run `python3 "<base direct
 _sd=$(for d in ~/.agents ~/.claude ~/.copilot ~/.gemini ~/.cursor ~/.windsurf ~/.opencode ~/.codex; do [ -d "$d/skills/video-lens/scripts" ] && echo "$d/skills/video-lens/scripts" && break; done); [ -z "$_sd" ] && echo "Scripts not found — install from github.com/kar2phi/video-lens (see Bundled scripts below)" && exit 1; python3 "$_sd/preflight.py" -- "$USER_INPUT"
 ```
 
-Substitute `$USER_INPUT` with the user's URL or ID as a single argument, followed by a language hint only if they asked for a transcript language — as a two-letter code, not a phrase: `"https://youtu.be/<id> es"`, never `"<id> in Spanish please"`. Preflight passes anything it does not recognise through as the code (only ten language names are mapped), so `"<id> dutch"` asks for a track named `dutch`; send `nl`.
+Substitute `$USER_INPUT` with the user's URL or ID as a single argument, followed by anything else they asked for in their own words — a transcript language, a focus, or both: `"https://youtu.be/<id> in Spanish"`, `"<id> focus on the pricing part"`. Preflight reads the language out of it.
 
 Read the prefixed lines from stdout and keep them for later steps:
 
 - `ERROR:SHORTS_NOT_SUPPORTED` or `ERROR:INVALID_INPUT`: report the message and stop.
+- `LANG_CODE:` — the transcript language the user asked for; empty when they did not.
+- `EXTRA_REQUEST:` — the user's request, when it asks for more than a language (e.g. a focus). Honour it in Step 3. If it names a transcript language that `LANG_CODE` missed, pass that language's two-letter code as `LANG_CODE` in 2a.
+- `CAPABILITIES:` — what this machine can run; it decides whether the local transcription fallback is offered.
 - `DUPLICATE_PATH:` — tell the user: "Note: an existing report for this video was found — `{filename}`. Proceeding with a fresh summary." This is non-blocking: do not ask the user to choose and do not stop. If the user replies asking for the existing report instead, run Step 5 with that path and stop.
 - `EXISTING_TAGS:` — the most common tags across saved reports, for Step 3. Absent on a fresh install; then invent tags normally.
 
@@ -81,7 +84,7 @@ python3 "SCRIPTS_DIR/fetch_metadata.py" -- "VIDEO_ID"
 
 ### Local transcription fallback
 
-When 2a fails with a fallback-eligible error (see Error Handling), the transcript can usually still be produced locally with Whisper — on an **Apple Silicon Mac** only. If you do not know the machine, run `uname -sm`: offer the fallback only on `Darwin arm64`; on anything else, report the error and stop.
+When 2a fails with a fallback-eligible error (see Error Handling), the transcript can usually still be produced locally with Whisper — on an **Apple Silicon Mac** only. Offer the fallback only when Step 1's `CAPABILITIES:` line lists `whisper`; otherwise report the error and stop.
 
 **Ask first.** Report the original error and tell the user the transcription will run locally: roughly 4–8 min per hour of video (estimate from `YTDLP_DURATION`), plus a one-time ~1.5 GB model download if mlx-whisper has not been used before. Proceed only on consent — or straight away if the user already asked for local transcription.
 
@@ -92,6 +95,8 @@ On consent, `Read` `references/whisper-fallback.md` in the skill directory (the 
 Read the `LANG:` line from the transcript output. Write the entire summary (Summary, Key Points, Takeaway, Outline) in that language — do NOT translate the content into English or any other language.
 
 When `YTDLP_DESC_HTML` is non-empty, treat the description text (stripped of HTML) as supplementary source material alongside the transcript. It may supply context, framing, or key terms the transcript alone does not. Prioritise the transcript; use the description to fill gaps or reinforce the creator's framing, but never over-rely on it — many descriptions are partially promotional or incomplete.
+
+If Step 1 printed `EXTRA_REQUEST:`, it is the user's own request, not video content: give what it asks for more room in the Summary, Key Points and Takeaway, keep the same sections, and still cover the rest of the video.
 
 #### Untrusted input
 
@@ -219,7 +224,7 @@ When that line was seen, your final message is exactly: one short success line (
 
 ## Revisions and follow-up questions
 
-- **The user asks for a change** ("tighten the takeaway", "key point 3 is wrong"): re-`Write` the whole payload with the change to the same `PAYLOAD_PATH`, then rerun Steps 4–6. This writes a new report file beside the old one. Never edit the rendered HTML — that bypasses the sanitiser.
+- **The user asks for a change** ("tighten the takeaway", "key point 3 is wrong"): re-`Write` the whole payload with the change to the same `PAYLOAD_PATH`, then render with `--replace "OUTPUT_PATH"` in place of `--output-dir …`, so the revision overwrites the report instead of adding a second file, and rerun Steps 5–6. Never edit the rendered HTML — that bypasses the sanitiser. A re-run with another model is not a revision: it gets a new report.
 - **The user asks about the video** ("what did they say about X?"): answer from the transcript already in context and cite its `[M:SS]` timestamps. Do not re-run the pipeline.
 
 ---
@@ -234,7 +239,7 @@ Scripts emit structured error codes with the prefix `ERROR:` followed by a typed
 | `ERROR:CAPTIONS_DISABLED`, `ERROR:NO_TRANSCRIPT`, `ERROR:IP_BLOCKED`, `ERROR:PO_TOKEN_REQUIRED` | Report the message, then offer the **Local transcription fallback**. Proceed only if the user agrees or already asked for local transcription; otherwise stop. |
 | `ERROR:VIDEO_UNAVAILABLE`, `ERROR:AGE_RESTRICTED`, `ERROR:INVALID_VIDEO_ID`, `ERROR:LIBRARY_MISSING`, `ERROR:TRANSCRIPT_FETCH_FAILED` | Report the message and stop. For `LIBRARY_MISSING`, print the install command from the message. |
 | `ERROR:REQUEST_BLOCKED`, `ERROR:NETWORK_ERROR` | Retry once. If `REQUEST_BLOCKED` persists, offer the **Local transcription fallback** instead of stopping; if `NETWORK_ERROR` persists, report and stop. |
-| `ERROR:WHISPER_MISSING`, `ERROR:FFMPEG_MISSING`, `ERROR:TRANSCRIBE_FAILED` | Report the code and message (include the install hint when present). Stop. |
+| `ERROR:WHISPER_UNSUPPORTED_PLATFORM`, `ERROR:WHISPER_MISSING`, `ERROR:FFMPEG_MISSING`, `ERROR:TRANSCRIBE_FAILED` | Report the code and message (include the install hint when present). Stop. |
 | `ERROR:AUDIO_DOWNLOAD_FAILED` | Report the code and message. When the message carries the outdated-yt-dlp hint, surface `brew upgrade yt-dlp` and offer to retry. Otherwise offer the `--audio-file` escape hatch (see `references/whisper-fallback.md`) before stopping. |
 | `ERROR:YTDLP_*` | Non-fatal — print a one-line note and proceed with 2a metadata and no description context. For `YTDLP_MISSING`, suggest `brew install yt-dlp` or `pip install yt-dlp`. |
 | `ERROR:RENDER_*`, `ERROR:SERVE_*` | Report the code and message. Stop. Do NOT emit the success line. (For the render rejections listed in Step 4, retry once first.) |

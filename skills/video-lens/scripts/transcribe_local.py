@@ -15,6 +15,7 @@ the header block is still built from the video's public metadata.
 import argparse
 import datetime
 import pathlib
+import platform
 import shutil
 import subprocess
 import sys
@@ -49,6 +50,15 @@ def model_repo(size):
     return repo
 
 
+def whisper_platform_supported():
+    """mlx-whisper runs only on Apple Silicon: macOS on arm64.
+
+    Asks the interpreter, not the hardware: a Python under Rosetta reports x86_64
+    and cannot load MLX either.
+    """
+    return platform.system() == "Darwin" and platform.machine() == "arm64"
+
+
 def _format_timestamp(seconds):
     total_s = int(seconds)
     h, rem = divmod(total_s, 3600)
@@ -56,7 +66,7 @@ def _format_timestamp(seconds):
     return f"[{h}:{m2:02d}:{s2:02d}]" if h > 0 else f"[{m2}:{s2:02d}]"
 
 
-def _ytdlp_version():
+def ytdlp_version():
     """Installed yt-dlp as (comparable tuple, string as yt-dlp reports it), or None.
 
     The raw string is kept so the hint echoes back exactly what `yt-dlp --version`
@@ -82,7 +92,7 @@ def _stale_ytdlp_hint(stderr):
     which reads like an IP ban or a dead URL and sends you down the wrong path.
     Only consulted after a failure, so the happy path pays nothing for it.
     """
-    found = _ytdlp_version()
+    found = ytdlp_version()
     if found is None or found[0] >= MIN_YTDLP:
         return ""
     if "403" not in stderr and "Forbidden" not in stderr:
@@ -144,6 +154,12 @@ def main():
     repo = model_repo(args.model)
     lang = normalize_language(args.language)
     supplied_audio = args.audio_file.strip()
+
+    # Checked first: on any other machine `pip install mlx-whisper` cannot fix it.
+    if not whisper_platform_supported():
+        print("ERROR:WHISPER_UNSUPPORTED_PLATFORM: local transcription needs an Apple Silicon"
+              f" Mac; this is {platform.system()} {platform.machine()}")
+        sys.exit(1)
 
     try:
         import mlx_whisper

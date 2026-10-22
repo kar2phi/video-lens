@@ -5,6 +5,7 @@ Usage:
     echo '{"VIDEO_ID": "...", ...}' | python3 render_report.py OUTPUT_PATH
     echo '{"VIDEO_ID": "...", ...}' | python3 render_report.py --output-dir DIR
     python3 render_report.py --payload-file payload.json --output-dir DIR
+    python3 render_report.py --payload-file payload.json --replace EXISTING.html
 
 Reads JSON from stdin, or from `--payload-file PATH` (use the file form when
 the payload contains double quotes — shells/heredocs mangle them). Required keys:
@@ -19,7 +20,8 @@ Renderer builds VIDEO_LENS_META from agent-authored content. Optional fields:
 
 With --output-dir, the renderer derives the filename
 ``YYYY-MM-DD-HHMMSS-video-lens_<VIDEO_ID>_<slug>.html`` from VIDEO_TITLE,
-VIDEO_ID, and GENERATION_DATE.
+VIDEO_ID, and GENERATION_DATE. With --replace, a revision overwrites an existing
+report for the same video; it keeps that report's generation date and time.
 
 Discovers template.html via multi-agent path search.
 """
@@ -97,6 +99,8 @@ YOUTUBE_SHORT_HOSTS = {"youtu.be", "www.youtu.be"}
 AGENT_DIRS = ("agents", "claude", "copilot", "gemini", "cursor", "windsurf", "opencode", "codex")
 
 SUMMARY_TRUNCATE_AT = 300
+
+META_BLOCK_RE = re.compile(r'id="video-lens-meta">(.*?)</script>', re.S)
 
 
 class RenderValidationError(Exception):
@@ -333,6 +337,15 @@ def _maybe_compose_meta_line(payload: dict) -> str:
     return " · ".join(p for p in parts if p)
 
 
+def _clean_agent_model(value) -> str:
+    """Drop harness decoration such as the `[1m]` context-window suffix.
+
+    `claude-opus-5[1m]` and `claude-opus-5` are one model; the gallery groups
+    re-runs by this field, so the suffix would split them.
+    """
+    return re.sub(r"\s*\[[^\]]*\]", "", str(value)).strip()
+
+
 def _coerce_duration_seconds(value) -> int | None:
     """Return a non-negative integer duration, or None when omitted."""
     if value is None:
@@ -415,7 +428,7 @@ def _build_meta_dict(raw_payload: dict, clean_key_points: str, output_path: str)
         "tags":           tags,
         "keywords":       _extract_keywords_from_key_points(clean_key_points),
         "filename":       pathlib.Path(output_path).name,
-        "agentModel":     str(raw_payload.get("AGENT_MODEL", "")),
+        "agentModel":     _clean_agent_model(raw_payload.get("AGENT_MODEL", "")),
         "generatedAt":    datetime.now(timezone.utc)
                                   .isoformat(timespec="seconds")
                                   .replace("+00:00", "Z"),
@@ -553,6 +566,49 @@ def _derived_filename(payload: dict) -> str:
     )
 
 
+def _read_report_meta(path: pathlib.Path) -> dict:
+    """The meta block of a rendered report, or {} when it has none."""
+    match = META_BLOCK_RE.search(path.read_text(encoding="utf-8", errors="replace"))
+    if not match:
+        return {}
+    try:
+        meta = json.loads(match.group(1))
+    except ValueError:
+        return {}
+    return meta if isinstance(meta, dict) else {}
+
+
+def _prepare_replace(data: dict, target: str) -> None:
+    """Check a --replace target and carry its generation date and time into `data`.
+
+    A revision replaces its report (025 S8), so the target must already exist and
+    be a report of the same video. The gallery measures how long a model took to
+    write the report; the time the user spent before asking for the revision is
+    not part of that, so the original figure is kept.
+    """
+    path = validate_output_path(target)
+    if not path.is_file():
+        raise RenderValidationError(
+            "RENDER_INVALID_OUTPUT_PATH", f"--replace target does not exist: {path}",
+        )
+    meta = _read_report_meta(path)
+    video_id = str(data.get("VIDEO_ID", ""))
+    report_id = meta.get("videoId")
+    if report_id is None:
+        same_video = f"_{video_id}_" in path.name
+    else:
+        same_video = report_id == video_id
+    if not same_video:
+        raise RenderValidationError(
+            "RENDER_REPLACE_MISMATCH",
+            f"{path.name} is not a report of {video_id!r}",
+        )
+    if not str(data.get("GENERATION_DATE", "")).strip() and meta.get("generationDate"):
+        data["GENERATION_DATE"] = meta["generationDate"]
+    if data.get("GENERATION_DURATION_SECONDS") in (None, "") and "durationSeconds" in meta:
+        data["GENERATION_DURATION_SECONDS"] = meta["durationSeconds"]
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Render a video-lens HTML report.",
@@ -568,6 +624,11 @@ def main():
         "--output-dir",
         help="Directory to write the report into; filename is derived from payload.",
     )
+    group.add_argument(
+        "--replace",
+        metavar="REPORT",
+        help="Overwrite this existing report of the same video (a revision).",
+    )
     parser.add_argument(
         "--payload-file",
         help="Read JSON payload from this path instead of stdin. Use this when the "
@@ -579,8 +640,8 @@ def main():
         print(_schema_help())
         sys.exit(0)
 
-    if args.path is None and args.output_dir is None:
-        parser.error("one of path or --output-dir is required")
+    if args.path is None and args.output_dir is None and args.replace is None:
+        parser.error("one of path, --output-dir or --replace is required")
 
     if args.payload_file:
         try:
@@ -625,10 +686,14 @@ def main():
 
     if args.output_dir is not None:
         target = str(pathlib.Path(args.output_dir).expanduser() / _derived_filename(data))
+    elif args.replace is not None:
+        target = args.replace
     else:
         target = args.path
 
     try:
+        if args.replace is not None:
+            _prepare_replace(data, target)
         output_path = validate_output_path(target)
         result = render_from_payload(data, str(output_path))
     except RenderValidationError as e:

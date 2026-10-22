@@ -736,7 +736,8 @@ def test_backfill_meta_escapes_script_closers(tmp_path):
 from preflight import (  # noqa: E402
     extract_video_id,
     find_duplicate,
-    map_language,
+    parse_request,
+    probe_capabilities,
     read_existing_tags,
     sweep_stale_payloads,
 )
@@ -770,14 +771,106 @@ def test_preflight_invalid_input():
 
 
 @pytest.mark.parametrize("inp,expected", [
-    ("Spanish", "es"),
-    ("english", "en"),
-    ("fr", "fr"),
-    ("", ""),
-    ("klingon", "klingon"),
+    ("Spanish", ("es", "")),
+    ("english", ("en", "")),
+    ("fr", ("fr", "")),
+    ("", ("", "")),
+    ("klingon", ("", "klingon")),
+    # 025 S1: the phrases SKILL.md triggers on used to pass through as the code.
+    ("in Spanish", ("es", "")),
+    ("French subtitles", ("fr", "")),
+    ("with English captions", ("en", "")),
+    ("en español", ("es", "")),
+    ("auf Deutsch", ("de", "")),
+    ("dutch", ("nl", "")),
+    ("pt-BR", ("pt-br", "")),
+    ("in es", ("es", "")),
+    ("de subtitles", ("de", "")),
+    # Unknown codes pass through; fetch_transcript.py warns about them.
+    ("nl", ("nl", "")),
 ])
-def test_preflight_maps_language_names(inp, expected):
-    assert map_language(inp) == expected
+def test_preflight_parses_language_requests(inp, expected):
+    assert parse_request(inp) == expected
+
+
+@pytest.mark.parametrize("inp,expected", [
+    ("focus on the pricing part", ("", "focus on the pricing part")),
+    # Two-letter words inside a sentence are not codes.
+    ("focus on it", ("", "focus on it")),
+    ("resumen de la charla", ("", "resumen de la charla")),
+    # "polish" is too often the verb to count as the language.
+    ("polish the takeaway", ("", "polish the takeaway")),
+    # A language plus more: the code, and the request verbatim.
+    ("in Spanish,  focus on pricing", ("es", "in Spanish, focus on pricing")),
+])
+def test_preflight_carries_other_requests_as_extra(inp, expected):
+    assert parse_request(inp) == expected
+
+
+def test_preflight_main_emits_extra_request(monkeypatch, capsys, tmp_path):
+    rc, out = _run_preflight_main(
+        monkeypatch, capsys, tmp_path,
+        ["preflight.py", "--", "https://youtu.be/dQw4w9WgXcQ focus on the pricing part"],
+    )
+    assert rc == 0
+    assert "LANG_CODE: \n" in out
+    assert "EXTRA_REQUEST: focus on the pricing part\n" in out
+
+
+def test_preflight_main_omits_extra_request_for_a_language(monkeypatch, capsys, tmp_path):
+    rc, out = _run_preflight_main(
+        monkeypatch, capsys, tmp_path, ["preflight.py", "--", "dQw4w9WgXcQ in Spanish"],
+    )
+    assert rc == 0
+    assert "LANG_CODE: es\n" in out
+    assert "EXTRA_REQUEST:" not in out
+
+
+def _fake_machine(monkeypatch, tmp_path, *, apple_silicon, tools=(), mlx=False,
+                  ytdlp="2026.08.19"):
+    import preflight  # type: ignore
+    monkeypatch.setattr(preflight, "whisper_platform_supported", lambda: apple_silicon)
+    monkeypatch.setattr(preflight.shutil, "which",
+                        lambda name: f"/bin/{name}" if name in tools else None)
+    monkeypatch.setattr(preflight.importlib.util, "find_spec",
+                        lambda name: object() if mlx and name == "mlx_whisper" else None)
+    calls = []
+
+    def version():
+        calls.append(1)
+        return tuple(int(p) for p in ytdlp.split(".")), ytdlp
+    monkeypatch.setattr(preflight, "ytdlp_version", version)
+    return calls
+
+
+def test_capabilities_on_a_ready_apple_silicon_mac(monkeypatch, tmp_path):
+    _fake_machine(monkeypatch, tmp_path, apple_silicon=True,
+                  tools=("ffmpeg", "yt-dlp"), mlx=True)
+    assert probe_capabilities() == ["whisper", "mlx-whisper", "ffmpeg", "yt-dlp"]
+
+
+def test_capabilities_flag_a_yt_dlp_too_old_for_audio(monkeypatch, tmp_path):
+    _fake_machine(monkeypatch, tmp_path, apple_silicon=True,
+                  tools=("yt-dlp",), ytdlp="2026.03.17")
+    assert probe_capabilities() == ["whisper", "yt-dlp-outdated"]
+
+
+def test_capabilities_without_apple_silicon_omit_whisper(monkeypatch, tmp_path):
+    """025 S5: Linux, Windows and Intel Macs never get the fallback offered, and
+    pay no yt-dlp subprocess for a version only the fallback needs."""
+    calls = _fake_machine(monkeypatch, tmp_path, apple_silicon=False,
+                          tools=("ffmpeg", "yt-dlp"), mlx=True, ytdlp="2026.03.17")
+    assert probe_capabilities() == ["ffmpeg", "yt-dlp"]
+    assert calls == []
+
+
+def test_preflight_main_emits_capabilities_even_when_empty(monkeypatch, capsys, tmp_path):
+    _fake_machine(monkeypatch, tmp_path, apple_silicon=False)
+    rc, out = _run_preflight_main(
+        monkeypatch, capsys, tmp_path, ["preflight.py", "dQw4w9WgXcQ"],
+    )
+    assert rc == 0
+    assert "CAPABILITIES: \n" in out
 
 
 def test_preflight_main_splits_argv_on_space(monkeypatch, capsys, tmp_path):
@@ -1172,6 +1265,85 @@ def test_renderer_output_dir_outside_clamp_rejected(tmp_path):
     )
     assert r.returncode != 0
     assert "RENDER_INVALID_OUTPUT_PATH" in r.stderr
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("claude-opus-5[1m]", "claude-opus-5"),
+    ("claude-opus-5 [1m]", "claude-opus-5"),
+    ("qwen3.6:27b", "qwen3.6:27b"),
+    ("", ""),
+])
+def test_renderer_strips_harness_suffix_from_agent_model(raw, expected):
+    """025 S9: the context-window suffix would split one model's runs in the gallery."""
+    clean = sanitise_payload(new_shape_payload(AGENT_MODEL=raw))
+    meta = json.loads(clean["VIDEO_LENS_META"].replace("<\\/", "</"))
+    assert meta["agentModel"] == expected
+
+
+def _render_cli(args, payload):
+    return subprocess.run(
+        [sys.executable, str(SCRIPT_DIR / "render_report.py"), *args],
+        input=json.dumps(payload),
+        capture_output=True, text=True, timeout=10,
+        env={**os.environ, "VIDEO_LENS_ALLOW_ANY_PATH": "1"},
+    )
+
+
+def _first_render(tmp_path, **overrides):
+    out_dir = tmp_path / "reports"
+    out_dir.mkdir(exist_ok=True)
+    r = _render_cli(["--output-dir", str(out_dir)], new_shape_payload(**overrides))
+    assert r.returncode == 0, r.stderr
+    return pathlib.Path(r.stdout.split(": ", 1)[1].strip())
+
+
+def test_renderer_replace_overwrites_the_report_in_place(tmp_path):
+    """025 S8: a revision replaces its report instead of adding another file."""
+    original = _first_render(tmp_path, GENERATION_DATE="2026-05-17",
+                             GENERATION_DURATION_SECONDS=42)
+    revised = new_shape_payload(TAKEAWAY="A tighter takeaway.",
+                                GENERATION_DATE="", GENERATION_DURATION_SECONDS=None)
+    r = _render_cli(["--replace", str(original)], revised)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == f"OUTPUT_PATH: {original}"
+    assert sorted(original.parent.iterdir()) == [original]
+    html = original.read_text(encoding="utf-8")
+    assert "A tighter takeaway." in html
+    block = re.search(r'id="video-lens-meta">(.*?)</script>', html, re.S).group(1)
+    meta = json.loads(block.replace("<\\/", "</"))
+    # The revision keeps the report's own date and generation time.
+    assert meta["generationDate"] == "2026-05-17"
+    assert meta["durationSeconds"] == 42
+    assert meta["filename"] == original.name
+
+
+def test_renderer_replace_rejects_a_missing_report(tmp_path):
+    r = _render_cli(["--replace", str(tmp_path / "nope.html")], new_shape_payload())
+    assert r.returncode == 1
+    assert "ERROR:RENDER_INVALID_OUTPUT_PATH" in r.stderr
+    assert not (tmp_path / "nope.html").exists()
+
+
+def test_renderer_replace_rejects_another_videos_report(tmp_path):
+    original = _first_render(tmp_path)
+    before = original.read_text(encoding="utf-8")
+    other = "dQw4w9WgXcQ"
+    payload = new_shape_payload(
+        VIDEO_ID=other, VIDEO_URL=f"https://youtu.be/{other}",
+        OUTLINE=new_shape_payload()["OUTLINE"].replace(VIDEO_ID, other),
+    )
+    r = _render_cli(["--replace", str(original)], payload)
+    assert r.returncode == 1
+    assert "ERROR:RENDER_REPLACE_MISMATCH" in r.stderr
+    assert original.read_text(encoding="utf-8") == before
+
+
+def test_renderer_replace_is_exclusive_with_output_dir(tmp_path):
+    original = _first_render(tmp_path)
+    r = _render_cli(["--replace", str(original), "--output-dir", str(tmp_path)],
+                    new_shape_payload())
+    assert r.returncode == 2
+    assert "not allowed with" in r.stderr
 
 
 def test_renderer_positional_path_still_works(tmp_path):

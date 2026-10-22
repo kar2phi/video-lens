@@ -22,7 +22,12 @@ TRANSCRIBE = SCRIPT_DIR / "transcribe_local.py"
 
 sys.path.insert(0, str(SCRIPT_DIR))
 from fetch_metadata import _detect_language  # noqa: E402
-from transcribe_local import MODEL_REPOS, normalize_language  # noqa: E402
+import transcribe_local  # noqa: E402
+from transcribe_local import (  # noqa: E402
+    MODEL_REPOS,
+    normalize_language,
+    whisper_platform_supported,
+)
 
 # "What are skills?" (2 min) — same short, stable video as test_e2e.py
 VIDEO_ID = "bjdBVZa66oU"
@@ -104,6 +109,39 @@ def test_detect_language_top_level_wins_over_formats():
 
 # ---------- structured-error paths (SKILL.md contract) ----------
 
+@pytest.mark.parametrize("system,machine,expected", [
+    ("Darwin", "arm64", True),
+    ("Darwin", "x86_64", False),  # Intel Mac, or a Python under Rosetta
+    ("Linux", "aarch64", False),
+    ("Windows", "AMD64", False),
+])
+def test_whisper_platform_supported(monkeypatch, system, machine, expected):
+    monkeypatch.setattr(transcribe_local.platform, "system", lambda: system)
+    monkeypatch.setattr(transcribe_local.platform, "machine", lambda: machine)
+    assert whisper_platform_supported() is expected
+
+
+def test_unsupported_platform_stops_before_the_install_hint(monkeypatch, capsys):
+    """025 S5: off Apple Silicon, `pip install mlx-whisper` cannot help, so the
+    backstop error comes before the import check."""
+    monkeypatch.setattr(transcribe_local.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(transcribe_local.platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(sys, "argv", ["transcribe_local.py", "--", VIDEO_ID])
+    with pytest.raises(SystemExit) as exc:
+        transcribe_local.main()
+    assert exc.value.code == 1
+    assert capsys.readouterr().out.startswith(
+        "ERROR:WHISPER_UNSUPPORTED_PLATFORM: local transcription needs an Apple Silicon Mac"
+    )
+
+
+# The subprocess tests below get past the platform check only on Apple Silicon.
+needs_apple_silicon = pytest.mark.skipif(
+    not whisper_platform_supported(), reason="mlx-whisper runs only on Apple Silicon",
+)
+
+
+@needs_apple_silicon
 def test_whisper_missing_error(tmp_path):
     """With mlx_whisper unimportable, the script prints ERROR:WHISPER_MISSING."""
     stub = tmp_path / "mlx_whisper.py"
@@ -117,6 +155,7 @@ def test_whisper_missing_error(tmp_path):
     assert result.stdout.startswith("ERROR:WHISPER_MISSING: pip install mlx-whisper")
 
 
+@needs_apple_silicon
 def test_ffmpeg_missing_error(tmp_path):
     """With mlx_whisper importable but ffmpeg absent from PATH: ERROR:FFMPEG_MISSING."""
     stub = tmp_path / "mlx_whisper.py"
@@ -132,6 +171,7 @@ def test_ffmpeg_missing_error(tmp_path):
     assert result.stdout.startswith("ERROR:FFMPEG_MISSING: brew install ffmpeg")
 
 
+@needs_apple_silicon
 def test_ytdlp_missing_is_fatal_download_error(tmp_path):
     """yt-dlp absent must NOT emit ERROR:YTDLP_MISSING — SKILL.md routes
     ERROR:YTDLP_* as non-fatal metadata errors, but here it is fatal."""
@@ -152,6 +192,7 @@ def test_ytdlp_missing_is_fatal_download_error(tmp_path):
     assert "ERROR:YTDLP_MISSING" not in result.stdout
 
 
+@needs_apple_silicon
 def test_leading_dash_video_id_accepted_with_separator(tmp_path):
     """SKILL.md invokes scripts with `--` before the ID; an ID starting with
     `-` must reach the dependency checks instead of dying in argparse."""
@@ -166,6 +207,7 @@ def test_leading_dash_video_id_accepted_with_separator(tmp_path):
     assert result.stdout.startswith("ERROR:WHISPER_MISSING")
 
 
+@needs_apple_silicon
 def test_audio_download_failed_error(tmp_path):
     """With all deps present but yt-dlp failing: ERROR:AUDIO_DOWNLOAD_FAILED."""
     stub = tmp_path / "mlx_whisper.py"
@@ -200,6 +242,7 @@ def _stub_env(tmp_path, ytdlp_body):
             "PATH": f"{fake_bin}:{os.environ['PATH']}"}
 
 
+@needs_apple_silicon
 def test_stale_ytdlp_403_gets_upgrade_hint(tmp_path):
     """A 403 from an outdated yt-dlp must name the real cause.
 
@@ -222,6 +265,7 @@ def test_stale_ytdlp_403_gets_upgrade_hint(tmp_path):
     assert "2026.03.17" in result.stdout
 
 
+@needs_apple_silicon
 def test_current_ytdlp_403_gets_no_upgrade_hint(tmp_path):
     """An up-to-date yt-dlp must not be blamed for an unrelated 403."""
     env = _stub_env(tmp_path, (
@@ -239,6 +283,7 @@ def test_current_ytdlp_403_gets_no_upgrade_hint(tmp_path):
 
 # ---------- --audio-file escape hatch ----------
 
+@needs_apple_silicon
 def test_audio_file_missing_path_rejected(tmp_path):
     env = _stub_env(tmp_path, "exit 1")
     result = subprocess.run(
@@ -250,6 +295,7 @@ def test_audio_file_missing_path_rejected(tmp_path):
     assert result.stdout.startswith("ERROR:INVALID_INPUT: audio file not found")
 
 
+@needs_apple_silicon
 def test_audio_file_skips_ytdlp_and_preserves_file(tmp_path):
     """--audio-file must never invoke yt-dlp, and must leave the file on disk."""
     sentinel = tmp_path / "ytdlp-was-called"
