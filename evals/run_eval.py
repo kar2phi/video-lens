@@ -78,9 +78,25 @@ def materialise_skill(ref, dest: pathlib.Path) -> dict:
         shutil.copytree(REPO_ROOT / "skills" / "video-lens", target,
                         ignore=shutil.ignore_patterns("__pycache__"))
     skill_md = (target / "SKILL.md").read_bytes()
+    pin_discovery(target)
     version = re.search(rb'^\s*version:\s*"?([^"\n]+)"?', skill_md, re.M)
     return {"path": str(target), "sha": hashlib.sha256(skill_md).hexdigest()[:12],
             "version": version.group(1).decode() if version else "?", "bytes": len(skill_md)}
+
+
+# The scripts-discovery loop probes ~/.agents, ~/.claude, ... and would find the installed
+# skill, with its own scripts and no replay shim (5.2 has no base-directory shortcut; 5.3
+# keeps the loop as a fallback). Point it at the copy instead; the sha above is taken first.
+DISCOVERY_RE = re.compile(r'for d in ~/\.agents[^;]*; do \[ -d "\$d/skills/video-lens/scripts" \] '
+                          r'&& echo "\$d/skills/video-lens/scripts"')
+
+
+def pin_discovery(target: pathlib.Path) -> int:
+    skill_md = target / "SKILL.md"
+    pinned = f'for d in {shlex.quote(str(target))}; do [ -d "$d/scripts" ] && echo "$d/scripts"'
+    text, n = DISCOVERY_RE.subn(lambda _: pinned, skill_md.read_text(encoding="utf-8"))
+    skill_md.write_text(text, encoding="utf-8")
+    return n
 
 
 _truth_cache = {}

@@ -76,3 +76,19 @@ def test_blocks_are_never_recorded_but_per_video_errors_are(tmp_path):
         r = call(scripts, "--", "nocaps")
         assert r.returncode == 1 and r.stdout.startswith("ERROR:CAPTIONS_DISABLED")
     assert live_runs(scripts) == 3
+
+
+def test_both_arms_find_the_copied_scripts_not_the_installed_skill(tmp_path):
+    # 5.2 (c3f42be) has only the ~/.agents… discovery loop; left alone it runs the installed
+    # skill's scripts and bypasses the replay shim.
+    import run_eval
+    for ref in ("c3f42be", None):
+        dest = tmp_path / (ref or "worktree")
+        dest.mkdir()
+        target = Path(run_eval.materialise_skill(ref, dest)["path"])
+        skill_md = (target / "SKILL.md").read_text(encoding="utf-8")
+        loop = skill_md.split("_sd=$(", 1)[1].split("; python3", 1)[0]
+        out = subprocess.run(["bash", "-c", f"_sd=$({loop}; echo \"$_sd\""],
+                             capture_output=True, text=True).stdout.strip()
+        assert out == str(target / "scripts"), ref
+        assert "video-lens-gallery/scripts" in skill_md   # the gallery loop is left alone
