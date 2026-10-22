@@ -8,6 +8,46 @@ git tags in this repo — versions here track the `metadata.version` field of
 carries its own version; it is called out wherever it moved. Each entry lists the commits
 it was reconstructed from.
 
+## [Unreleased]
+
+### Fixed
+
+- An IP block during the transcript *download* (the track list can still succeed) printed
+  `ERROR:TRANSCRIPT_FETCH_FAILED` on stderr, which stops the run. The download now goes
+  through the same error map as the list call, so it prints `ERROR:IP_BLOCKED` on stdout
+  and the skill offers the local fallback.
+- With no language requested, a German video's auto-dubbed `en-US` track was picked
+  because it is listed first. Auto-dubbed tracks (`variant=timing-optimized` in their
+  timedtext URL; the library does not expose it otherwise) now rank after the original.
+- A `de` request missed a `de-DE` track and stamped a false `⚠ Requested language not
+  available`. Matching is now exact first, then by primary subtag, in both directions.
+- Free-text language requests passed through as the code (025-S1): `in Spanish` became
+  `LANG_CODE: in spanish` and a false `⚠ Requested language not available`. Preflight now
+  finds a language name anywhere in the request (English or native, 25 languages, up from
+  10) and a code when it stands alone or among filler words (`es`, `in es`, `pt-BR`).
+- The local fallback could be offered where it cannot run (025-S5). `transcribe_local.py`
+  now stops with `ERROR:WHISPER_UNSUPPORTED_PLATFORM` off Apple Silicon, before the
+  `pip install mlx-whisper` hint that could not help there.
+- `AGENT_MODEL` kept harness decoration such as `claude-opus-5[1m]` (025-S9). The renderer
+  strips bracketed suffixes, so one model's runs group together.
+
+### Added
+
+- `EXTRA_REQUEST:` from preflight: a request beyond the language ("focus on the pricing
+  part"), verbatim. Step 3 gives it more room without changing the sections.
+- `CAPABILITIES:` from preflight (025-R6): `whisper` (Apple Silicon), `mlx-whisper`,
+  `ffmpeg`, and `yt-dlp` or `yt-dlp-outdated`. The skill offers the local fallback only when
+  `whisper` is listed, replacing the `uname -sm` check.
+- `render_report.py --replace REPORT` (025-S8): a revision overwrites its report, which
+  must be one of the same video, and keeps its generation date and time. The Revisions
+  section uses it, so revisions no longer add files.
+- `tests/test_fetch_transcript.py` (024-T1): track selection and the error contract, against
+  fake track lists shaped like the fixture videos'. The `auto-dub` and `region-subtag`
+  fixtures are no longer strict xfails.
+- The eval pins the skill copy's scripts-discovery loop to the copy. 5.2 has no
+  base-directory shortcut, so it found the installed skill instead: its scripts, and no
+  replay.
+
 ## [5.3] — 2026-10-16
 
 Phase 0 of `concepts/025-skill-md-lean-and-robust-review.md`: a text-only SKILL.md rewrite
