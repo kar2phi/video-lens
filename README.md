@@ -127,6 +127,10 @@ Requires Raycast. The script opens a new iTerm2 tab (or Terminal.app if iTerm2 i
 
 Claude fetches the transcript, generates the report, and opens it in your browser at `http://localhost:8765/`.
 
+Add a transcript language or a focus in your own words: `/video-lens <url> in Spanish`,
+`/video-lens <url> focus on the pricing part`. Ask for a change afterwards ("tighten the
+takeaway") and the same report is re-rendered in place.
+
 If captions are unavailable, video-lens can ask to run local transcription instead. The fallback downloads the video's audio with `yt-dlp`, transcribes it with `mlx-whisper`, and then generates the same report format. It is slower than captions and may download a Whisper model the first time it runs.
 
 ### Gallery

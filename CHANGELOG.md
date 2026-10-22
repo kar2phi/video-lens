@@ -8,7 +8,13 @@ git tags in this repo — versions here track the `metadata.version` field of
 carries its own version; it is called out wherever it moved. Each entry lists the commits
 it was reconstructed from.
 
-## [Unreleased]
+## [5.4] — 2026-10-22
+
+Phase 1 of `concepts/025-skill-md-lean-and-robust-review.md`, small items only: three
+fetcher bugs found by the real-video suite, and S1, S5/R6, S8 and S9. Every script change
+landed with tests first (fast suite: 190 passed; real-video suite: 10 passed, including the
+two former xfails). The 5.2 → 5.3 A/B regression gate was run by the owner and reported
+passing. What is still open is collected in `concepts/027-open-backlog.md`.
 
 ### Fixed
 
