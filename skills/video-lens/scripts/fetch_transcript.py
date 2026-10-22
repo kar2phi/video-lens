@@ -9,6 +9,7 @@ import html as html_lib
 import json
 import re
 import sys
+import urllib.parse
 import urllib.request
 
 
@@ -69,6 +70,60 @@ def _fetch_html_metadata(video_id):
         return "", "", "", "", ""
 
 
+def _import_errors():
+    """(class, code) pairs, most specific first; classes renamed or removed upstream are skipped."""
+    import youtube_transcript_api as yta
+    pairs = [
+        ("TranscriptsDisabled",  "ERROR:CAPTIONS_DISABLED"),
+        ("AgeRestricted",        "ERROR:AGE_RESTRICTED"),
+        ("VideoUnavailable",     "ERROR:VIDEO_UNAVAILABLE"),
+        ("InvalidVideoId",       "ERROR:INVALID_VIDEO_ID"),
+        ("IpBlocked",            "ERROR:IP_BLOCKED"),       # before RequestBlocked, its base class
+        ("RequestBlocked",       "ERROR:REQUEST_BLOCKED"),
+        ("PoTokenRequired",      "ERROR:PO_TOKEN_REQUIRED"),
+        ("NoTranscriptFound",    "ERROR:NO_TRANSCRIPT"),
+        ("YouTubeRequestFailed", "ERROR:NETWORK_ERROR"),
+    ]
+    return [(getattr(yta, name), code) for name, code in pairs if hasattr(yta, name)]
+
+
+def error_code(e):
+    for cls, code in _import_errors():
+        if isinstance(e, cls):
+            return code
+    return "ERROR:TRANSCRIPT_FETCH_FAILED"
+
+
+def list_transcripts(video_id):
+    from youtube_transcript_api import YouTubeTranscriptApi
+    try:
+        return YouTubeTranscriptApi().list(video_id)
+    except (AttributeError, TypeError):
+        return YouTubeTranscriptApi.list_transcripts(video_id)
+
+
+def _is_dub(t):
+    """YouTube's auto-dubbed tracks are machine translations of the original audio. The
+    library does not expose that, but their timedtext URL carries variant=timing-optimized."""
+    query = urllib.parse.urlparse(getattr(t, "_url", "") or "").query
+    return urllib.parse.parse_qs(query).get("variant") == ["timing-optimized"]
+
+
+def pick_transcript(tlist, lang_pref):
+    """Return (transcript, LANG_WARN line or None). Originals rank before auto-dubs; a
+    requested language matches exactly first, then by primary subtag (de ↔ de-DE)."""
+    tracks = sorted(tlist, key=_is_dub)   # stable: keeps manual-before-generated order
+    if not lang_pref:
+        return tracks[0], None
+    want = lang_pref.lower()
+    for same in (lambda code: code == want,
+                 lambda code: code.split("-")[0] == want.split("-")[0]):
+        for t in tracks:
+            if same(t.language_code.lower()):
+                return t, None
+    return tracks[0], f'LANG_WARN: Requested language "{lang_pref}" not available; using {tracks[0].language_code}'
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("video_id")
@@ -79,97 +134,24 @@ def main():
     lang_pref = args.lang_pref
 
     try:
-        from youtube_transcript_api import YouTubeTranscriptApi
+        import youtube_transcript_api  # noqa: F401
     except ImportError:
         print("ERROR:LIBRARY_MISSING: pip install 'youtube-transcript-api>=0.6.3'")
         sys.exit(1)
-
-    # Defensive imports — fall back to generic handling if classes are renamed/removed
-    try:
-        from youtube_transcript_api import (
-            TranscriptsDisabled,
-            VideoUnavailable,
-            NoTranscriptFound,
-            InvalidVideoId,
-        )
-    except ImportError:
-        TranscriptsDisabled = VideoUnavailable = NoTranscriptFound = InvalidVideoId = None
-
-    try:
-        from youtube_transcript_api import (
-            AgeRestricted,
-            IpBlocked,
-            RequestBlocked,
-            PoTokenRequired,
-            YouTubeRequestFailed,
-        )
-    except ImportError:
-        AgeRestricted = IpBlocked = RequestBlocked = PoTokenRequired = YouTubeRequestFailed = None
 
     title, channel, published, views, duration = _fetch_html_metadata(video_id)
     if not title:
         title = f"YouTube video {video_id}"
 
+    # The list call can succeed while the download is blocked, so both share one error map.
     try:
-        try:
-            tlist = YouTubeTranscriptApi().list(video_id)
-        except (AttributeError, TypeError):
-            tlist = YouTubeTranscriptApi.list_transcripts(video_id)
-    except Exception as e:
-        _error_map = [
-            (TranscriptsDisabled,  "ERROR:CAPTIONS_DISABLED"),
-            (AgeRestricted,        "ERROR:AGE_RESTRICTED"),
-            (VideoUnavailable,     "ERROR:VIDEO_UNAVAILABLE"),
-            (InvalidVideoId,       "ERROR:INVALID_VIDEO_ID"),
-            (IpBlocked,            "ERROR:IP_BLOCKED"),
-            (RequestBlocked,       "ERROR:REQUEST_BLOCKED"),
-            (PoTokenRequired,      "ERROR:PO_TOKEN_REQUIRED"),
-            (NoTranscriptFound,    "ERROR:NO_TRANSCRIPT"),
-            (YouTubeRequestFailed, "ERROR:NETWORK_ERROR"),
-        ]
-        code = "ERROR:TRANSCRIPT_FETCH_FAILED"
-        for cls, mapped_code in _error_map:
-            if cls is not None and isinstance(e, cls):
-                code = mapped_code
-                break
-        print(f"{code}: {e}")
-        sys.exit(1)
-
-    transcript_obj = None
-    if lang_pref:
-        # 1. native exact match
-        for t in tlist:
-            if t.language_code == lang_pref and not getattr(t, "is_translation", False):
-                transcript_obj = t
-                break
-        # 2. any exact match (including translated)
-        if transcript_obj is None:
-            for t in tlist:
-                if t.language_code == lang_pref:
-                    transcript_obj = t
-                    break
-        # 3. native fallback
-        if transcript_obj is None:
-            for t in tlist:
-                if not getattr(t, "is_translation", False):
-                    transcript_obj = t
-                    break
-            if transcript_obj is None:
-                transcript_obj = next(iter(tlist))
-            print(f'LANG_WARN: Requested language "{lang_pref}" not available; using {transcript_obj.language_code}')
-    else:
-        for t in tlist:
-            if not getattr(t, "is_translation", False):
-                transcript_obj = t
-                break
-        if transcript_obj is None:
-            transcript_obj = next(iter(tlist))
-
-    try:
+        transcript_obj, lang_warn = pick_transcript(list_transcripts(video_id), lang_pref)
         transcript = transcript_obj.fetch()
     except Exception as e:
-        print(f"ERROR:TRANSCRIPT_FETCH_FAILED {type(e).__name__}: {e}", file=sys.stderr)
+        print(f"{error_code(e)}: {e}")
         sys.exit(1)
+    if lang_warn:
+        print(lang_warn)
     lang = transcript_obj.language_code
 
     # Detect entry type once before the loop

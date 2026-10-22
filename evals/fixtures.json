@@ -50,8 +50,7 @@
       "video": "Ds-Q8hTuxdU",
       "why": "German video with an auto-dubbed en-US track listed first; with no request the fetcher must pick the original de track.",
       "sets": ["fetch"],
-      "expect": {"lang": "de"},
-      "known_bug": "fetch_transcript.py takes the first non-translated track, which is the en-US dub (025 R3: pick by YTDLP_LANGUAGE)."
+      "expect": {"lang": "de"}
     },
     {
       "name": "region-subtag",
@@ -59,8 +58,7 @@
       "lang": "de",
       "why": "Only a de-DE track exists; a de request must match it by primary subtag.",
       "sets": ["fetch"],
-      "expect": {"lang": "de-DE", "lang_warn": false},
-      "known_bug": "Exact-code matching misses de-DE and emits a false LANG_WARN (025 §8, part of T1)."
+      "expect": {"lang": "de-DE", "lang_warn": false}
     }
   ]
 }
