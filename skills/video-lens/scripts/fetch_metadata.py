@@ -2,13 +2,25 @@
 """Fetch enriched YouTube metadata via yt-dlp.
 
 Usage: python3 fetch_metadata.py VIDEO_ID
+
+Besides the YTDLP_* lines it leaves a small sidecar, $XDG_CACHE_HOME/video-lens/metadata/
+<VIDEO_ID>.json, from which render_report.py takes the channel id for the gallery meta
+block, so the agent never has to copy it (026 §9.1; the R2 run directory will absorb this).
 """
 import argparse
 import html
 import json
+import os
+import pathlib
 import re
 import subprocess
 import sys
+import time
+
+METADATA_DIR = (
+    pathlib.Path(os.environ.get("XDG_CACHE_HOME") or (pathlib.Path.home() / ".cache"))
+    / "video-lens" / "metadata"
+)
 
 
 def _linkify(line):
@@ -75,6 +87,22 @@ def _format_published(upload_date):
     return f"{months[int(upload_date[4:6])-1]} {int(upload_date[6:8])} {upload_date[:4]}"
 
 
+def write_sidecar(video_id, data):
+    """Best-effort: a failed write only costs the gallery a channel id."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id or ""):
+        return
+    try:
+        METADATA_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+        (METADATA_DIR / f"{video_id}.json").write_text(json.dumps({
+            "videoId": video_id,
+            "channelId": data.get("channel_id") or "",
+            "channel": data.get("channel") or "",
+            "fetchedAt": int(time.time()),
+        }), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("video_id")
@@ -120,12 +148,14 @@ def main():
 
     print(f'YTDLP_TITLE: {data.get("title") or ""}')
     print(f'YTDLP_CHANNEL: {data.get("channel") or ""}')
+    print(f'YTDLP_CHANNEL_ID: {data.get("channel_id") or ""}')
     print(f"YTDLP_PUBLISHED: {published}")
     print(f"YTDLP_VIEWS: {views}")
     print(f"YTDLP_DURATION: {duration}")
     print(f"YTDLP_DESC_HTML: {desc_html}")
     print(f"YTDLP_CHAPTERS: {json.dumps(chapters)}")
     print(f"YTDLP_LANGUAGE: {_detect_language(data)}")
+    write_sidecar(video_id, data)
 
 
 if __name__ == "__main__":

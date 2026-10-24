@@ -8,6 +8,53 @@ git tags in this repo — versions here track the `metadata.version` field of
 carries its own version; it is called out wherever it moved. Each entry lists the commits
 it was reconstructed from.
 
+## [Unreleased]
+
+The new **video-lens-recs** skill (0.1), built from `concepts/026-video-lens-recs-concept.md`
+phases P0–P5, and the small video-lens and gallery changes it needs.
+
+### Added
+
+- `skills/video-lens-recs/`: recommends recent videos on a topic from your subscribed
+  channels, channels you summarise often, topic searches and (live mode) the home feed.
+  Three steps for the agent: `recs.py recommend` prints a profile and a candidate table,
+  the agent rates every row in `picks.json` (relevance 3–0, a reason for 3 and 2), and
+  `recs.py render` validates it, shows the best 12 (at most 2 per channel), writes the
+  Discover page, prints a chat list to relay unchanged, and serves the page. "next" pages
+  through the rest of the same run without fetching again, and the Discover page lists the
+  rows rated 1 under "Also in the window".
+  Scripts do the fetching, filtering (summarised, watched, dismissed, muted, Shorts and
+  premieres, duration, window; language, clickbait and tiny channels only outside your
+  subscriptions) and scoring (views against the channel's usual, velocity, affinity,
+  keywords, freshness). Picks you did not act on come back once as "Still waiting".
+  The 40-row table caps each channel at 3 rows (6 for a channel you have summarised 5+
+  times, or when rows would stay empty), keeps discovery quotas soft, and merges same-story
+  uploads on shared rare words. "What did I miss" runs search every topic, filter the home
+  feed by topic, take an equal share of the table per topic and group the page by topic.
+- Follow-ups: `resolve` (numbers to URLs for video-lens), `feedback`
+  dismiss/watched/mute/boost, topic editing (`topics add-channel`, `move-channel`,
+  `add-query`, …), `stats` (share of shown picks you later summarised or watched).
+- Setup (`references/setup.md`): Google Takeout import of subscriptions (any account
+  language; a history file in the archive is reported and never read), opt-in live mode via
+  yt-dlp's `--cookies-from-browser` (subscriptions daily, a recent-watch check kept in
+  memory, the home feed), and topics proposed by the agent from your library and confirmed
+  by you. The recent-watch check reads about 40 IDs per day of the window (at most 600)
+  and stores "watched" only for videos it showed you before. Setup says up front what the
+  conversation, and so a hosted model's provider, will see.
+- Optional `YOUTUBE_API_KEY` for Data API search, with a daily quota file and fallback to
+  yt-dlp.
+- Gallery: a Discover link and `manifest.recs` for pages under `recs/`; `backfill_meta.py
+  --channel-ids [--lookup]` adds channel ids to older reports. Gallery skill 2.2.
+- video-lens: `fetch_metadata.py` prints `YTDLP_CHANNEL_ID:` and leaves a sidecar in
+  `$XDG_CACHE_HOME/video-lens/metadata/`, which the renderer turns into `channelId` in the
+  meta block (preflight sweeps old sidecars). SKILL.md is unchanged.
+- Tests: scoring, Takeout, and an offline end-to-end pipeline on a synthetic replay world
+  (including a check that no non-matching watch-history id reaches disk), channel ids, and
+  a network canary for the public sources. `evals/run_recs_eval.py` (`task eval-recs`):
+  agent runs on replayed fixtures with gates, precision against labels, and A/B compare;
+  `record --extend` adds the source pulls a changed collect needs, and `label --review`
+  walks through drafted labels.
+
 ## [5.4] — 2026-10-22
 
 Phase 1 of `concepts/025-skill-md-lean-and-robust-review.md`, small items only: three

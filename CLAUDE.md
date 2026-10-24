@@ -5,7 +5,7 @@
 > **Source of truth is always this repo.** Edit files here first — never in deployed locations like `~/.{agent}/skills/` or `~/.raycast/scripts/`. Those are deploy targets, not sources.
 
 After editing, sync to deployed locations:
-- `skills/video-lens/` or `template.html` → `task install-skill-local AGENT=<agent>`
+- `skills/video-lens/`, `skills/video-lens-recs/` or `template.html` → `task install-skill-local AGENT=<agent>`
 - `skills/video-lens-gallery/index.html` → `task build-index` (regenerates `~/Downloads/video-lens/index.html`)
 
 > **Note:** `install-skill` pulls from GitHub — push first or it installs the last published version.
@@ -35,6 +35,7 @@ video-lens/
     checks.py              ← report/trace gates and metrics
     run_eval.py            ← agent eval on real videos (task eval), A/B compare
     replay.py              ← records the fetch scripts' output once, replays it (evals/cache/)
+    run_recs_eval.py       ← video-lens-recs eval (task eval-recs); fixtures in gitignored evals/recs_fixtures/
   skills/
     video-lens/
       SKILL.md             ← skill prompt (source of truth)
@@ -45,6 +46,11 @@ video-lens/
       scripts/
         backfill_meta.py   ← backfills meta blocks into old reports
         build_index.py     ← builds manifest.json and copies index.html
+    video-lens-recs/
+      SKILL.md             ← recommendations skill prompt (source of truth)
+      template.html        ← Discover page template
+      references/setup.md  ← first-run setup flow
+      scripts/             ← recs.py CLI + collect, scoring, yt_sources, page, store, takeout
 ```
 
 ## Dev
@@ -61,4 +67,6 @@ task test-real            # real YouTube fetches for evals/fixtures.json, no LLM
 task eval AGENT=claude    # real agent runs, validated (AGENT=pi MODEL=qwen3.6:27b for local qwen)
 ```
 
-Judge SKILL.md changes with `task eval` on both arms (`REF=HEAD` vs working tree) and `task eval-compare`, on Claude *and* qwen.
+Judge SKILL.md changes with `task eval` on both arms (`REF=HEAD` vs working tree) and `task eval-compare`, on Claude *and* qwen. For `skills/video-lens-recs/SKILL.md` the same with `task eval-recs` / `task eval-recs-compare`.
+
+The repo is public: recs fixtures, labels and examples built from a real library or topic config never get committed (they go in `evals/recs_fixtures/`, gitignored); docs and tests use made-up channels and topics.
