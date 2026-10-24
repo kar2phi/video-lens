@@ -14,7 +14,7 @@ the payload contains double quotes — shells/heredocs mangle them). Required ke
 
 Renderer builds VIDEO_LENS_META from agent-authored content. Optional fields:
     META_LINE (auto-composed from CHANNEL/DURATION/PUBLISH_DATE/VIEWS if omitted),
-    TAGS (list), CHANNEL, DURATION, PUBLISH_DATE, VIEWS, GENERATION_DATE,
+    TAGS (list), CHANNEL, CHANNEL_ID, DURATION, PUBLISH_DATE, VIEWS, GENERATION_DATE,
     GENERATION_DURATION_SECONDS, GENERATION_START_EPOCH, AGENT_MODEL,
     SLUG_HINT (ascii slug used for filename when title has no ascii letters).
 
@@ -91,6 +91,12 @@ ALLOWED_CLASSES_BY_TAG = {
 }
 
 VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+CHANNEL_ID_RE = re.compile(r"^UC[A-Za-z0-9_-]{22}$")
+# Written by fetch_metadata.py; the channel id comes from there unless the payload has one.
+METADATA_DIR = (
+    pathlib.Path(os.environ.get("XDG_CACHE_HOME") or (pathlib.Path.home() / ".cache"))
+    / "video-lens" / "metadata"
+)
 DATA_T_RE = re.compile(r"^\d{1,6}$")
 ALLOWED_OUTPUT_ROOT = pathlib.Path.home() / "Downloads" / "video-lens" / "reports"
 YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com"}
@@ -386,6 +392,23 @@ def _normalize_tags(tags: list) -> list:
     return out
 
 
+def _channel_id(raw_payload: dict) -> str:
+    """CHANNEL_ID from the payload, else from fetch_metadata.py's sidecar; '' if neither
+    is a valid UC… id. Never fails the render."""
+    value = str(raw_payload.get("CHANNEL_ID", "")).strip()
+    if CHANNEL_ID_RE.fullmatch(value):
+        return value
+    video_id = str(raw_payload.get("VIDEO_ID", ""))
+    if not VIDEO_ID_RE.fullmatch(video_id):
+        return ""
+    try:
+        sidecar = json.loads((METADATA_DIR / f"{video_id}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    value = str(sidecar.get("channelId", "")) if isinstance(sidecar, dict) else ""
+    return value if CHANNEL_ID_RE.fullmatch(value) else ""
+
+
 def _build_meta_dict(raw_payload: dict, clean_key_points: str, output_path: str) -> dict:
     """Build the VIDEO_LENS_META dict from agent-authored payload + clean KEY_POINTS."""
     tags_raw = raw_payload.get("TAGS")
@@ -435,6 +458,9 @@ def _build_meta_dict(raw_payload: dict, clean_key_points: str, output_path: str)
     }
     if duration_seconds is not None:
         meta["durationSeconds"] = duration_seconds
+    channel_id = _channel_id(raw_payload)
+    if channel_id:
+        meta["channelId"] = channel_id
     return meta
 
 
