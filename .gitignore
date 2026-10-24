@@ -6,3 +6,4 @@ __pycache__/
 .obsidian/
 evals/results/
 evals/cache/
+evals/recs_fixtures/

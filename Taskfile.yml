@@ -31,7 +31,7 @@ tasks:
     cmd: python3 -m pytest tests/ -v -m "not slow and not network"
 
   test-real:
-    desc: Real YouTube fetches for every fixture in evals/fixtures.json (network, no LLM, ~1 min)
+    desc: Real YouTube fetches for evals/fixtures.json and the recs sources (network, no LLM, ~1 min)
     cmd: python3 -m pytest tests/ -v -m network
 
   eval:
@@ -47,6 +47,31 @@ tasks:
   eval-compare:
     desc: "Compare two eval runs (A=evals/results/<run> B=evals/results/<run>); exits 1 on a gate regression"
     cmd: python3 evals/run_eval.py --compare {{.A}} {{.B}}
+
+  eval-recs:
+    desc: "Run an agent on the recs fixtures and gate its picks (AGENT=claude|pi MODEL= REF=<git ref> ONLY=a,b RUNS=1)"
+    vars:
+      AGENT: '{{.AGENT | default "claude"}}'
+      RUNS: '{{.RUNS | default "1"}}'
+    cmd: >-
+      python3 evals/run_recs_eval.py run --agent {{.AGENT}} --runs {{.RUNS}}
+      {{if .MODEL}}--model {{.MODEL}}{{end}} {{if .REF}}--ref {{.REF}}{{end}} {{if .ONLY}}--only {{.ONLY}}{{end}}
+
+  eval-recs-compare:
+    desc: "Compare two recs eval runs (A=evals/results/<run> B=evals/results/<run>); exits 1 on a gate regression"
+    cmd: python3 evals/run_recs_eval.py compare {{.A}} {{.B}}
+
+  eval-recs-rejudge:
+    desc: "Score a finished recs eval run again with the current labels and gates (RUN=evals/results/<run>); no agent runs"
+    cmd: python3 evals/run_recs_eval.py rejudge {{.RUN}}
+
+  eval-recs-record:
+    desc: "Record a recs fixture from your current topics into gitignored evals/recs_fixtures/ (NAME= REQUEST= TOPIC=)"
+    cmd: python3 evals/run_recs_eval.py record {{.NAME}} --request "{{.REQUEST}}" {{if .TOPIC}}--topic {{.TOPIC}}{{end}}
+
+  eval-recs-prior:
+    desc: Precision of the recs prior alone against your labels, per weight variant (no LLM)
+    cmd: python3 evals/run_recs_eval.py prior
 
   eval-library:
     desc: Score the saved reports in REPORTS_DIR by model family (no network)
@@ -92,8 +117,12 @@ tasks:
             sys.exit("Unknown agent '{}'. Valid: {}".format(agent, ", ".join(FLAGS)))
         skip_perm, tools, prompt_flag = FLAGS[agent]
         src = open("scripts/raycast-video-lens.sh").read()
-        src = src.replace("opens Claude in iTerm2", "opens {} in iTerm2".format(agent.capitalize()))
+        src = src.replace("opens Claude in cmux", "opens {} in cmux".format(agent.capitalize()))
         src = src.replace("&& claude ", "&& {} ".format(agent))
+        if agent != "claude":
+            # The Haiku 5.5 default is a Claude model ID; other CLIs use their own default.
+            src = src.replace("${2:-claude-haiku-5-5}", "${2:-}")
+            src = src.replace("blank = claude-haiku-5-5", "blank = the CLI default")
         if skip_perm:
             src = src.replace("--dangerously-skip-permissions ", "{} ".format(skip_perm))
         else:
@@ -108,8 +137,8 @@ tasks:
             old_prompt_prefix = ' ' + chr(92) + '"/video-lens '
             new_prompt_prefix = ' ' + prompt_flag + ' ' + chr(92) + '"/video-lens '
             src = src.replace(old_prompt_prefix, new_prompt_prefix)
-        # No model rewriting: the script passes the user's model argument straight
-        # through to whichever CLI it launches, and omits --model when it is blank.
+        # The script passes the user's model argument straight through to whichever CLI
+        # it launches (Haiku 5.5 for Claude when blank), and omits --model when it is blank.
         dest = os.path.expanduser("~/.raycast/scripts/video-lens.sh")
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         open(dest, "w").write(src)
@@ -148,3 +177,9 @@ tasks:
         cp skills/video-lens-gallery/index.html "$dir/video-lens-gallery/index.html"
         rsync -a --delete --exclude='__pycache__' skills/video-lens-gallery/scripts/ "$dir/video-lens-gallery/scripts/"
         echo "Synced skills/video-lens-gallery/ → $dir/video-lens-gallery/"
+        mkdir -p "$dir/video-lens-recs"
+        cp skills/video-lens-recs/SKILL.md "$dir/video-lens-recs/SKILL.md"
+        cp skills/video-lens-recs/template.html "$dir/video-lens-recs/template.html"
+        rsync -a --delete --exclude='__pycache__' skills/video-lens-recs/scripts/ "$dir/video-lens-recs/scripts/"
+        rsync -a --delete skills/video-lens-recs/references/ "$dir/video-lens-recs/references/"
+        echo "Synced skills/video-lens-recs/ → $dir/video-lens-recs/"

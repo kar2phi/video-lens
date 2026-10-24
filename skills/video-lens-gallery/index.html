@@ -113,6 +113,16 @@
       flex-shrink: 0;
     }
 
+    .discover-link {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--left-link);
+      text-decoration: none;
+      white-space: nowrap;
+      margin-right: 4px;
+    }
+    .discover-link:hover { text-decoration: underline; }
+
     #count {
       font-size: 13px;
       color: var(--left-heading);
@@ -569,6 +579,7 @@
     <input type="search" id="search" placeholder="Search titles, channels, summaries…" autocomplete="off" spellcheck="false">
   </div>
   <div class="header-right">
+    <a class="discover-link" id="discoverLink" href="#" hidden title="Newest recommendations from video-lens-recs">Discover →</a>
     <span id="count"></span>
     <div class="view-toggle" id="viewToggle">
       <button class="view-btn" data-view="cards" title="Cards view" aria-label="Cards view">
@@ -651,8 +662,18 @@
   // ── Load manifest ──────────────────────────────────────────────────────────
   // build_index.py inlines the manifest as window.__MANIFEST__ so this works
   // from file:// as well as http://localhost:8765/
+  function showDiscover(manifest) {
+    var recs = (manifest && manifest.recs) || [];
+    if (!recs.length) return;
+    var link = document.getElementById('discoverLink');
+    link.href = reportUrl(recs[0].filename);
+    link.title = 'Newest recommendations: ' + (recs[0].label || recs[0].topic) + ' · ' + recs[0].date;
+    link.hidden = false;
+  }
+
   if (window.__MANIFEST__) {
     allReports = window.__MANIFEST__.reports || [];
+    showDiscover(window.__MANIFEST__);
     init();
   } else {
     fetch('manifest.json?_=' + Date.now())
@@ -662,6 +683,7 @@
       })
       .then(function (manifest) {
         allReports = manifest.reports || [];
+        showDiscover(manifest);
         init();
       })
       .catch(function (err) {

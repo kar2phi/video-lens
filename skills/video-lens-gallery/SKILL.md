@@ -11,7 +11,7 @@ license: MIT
 allowed-tools: Bash Read
 metadata:
   author: kar2phi
-  version: "2.1"
+  version: "2.2"
 ---
 
 # video-lens-gallery
@@ -38,8 +38,10 @@ done)
 If the user's request mentions "backfill", run:
 
 ```bash
-python3 "$_gd/backfill_meta.py" --dir ~/Downloads/video-lens
+python3 "$_gd/backfill_meta.py" --dir ~/Downloads/video-lens --channel-ids
 ```
+
+`--channel-ids` adds channel ids to older reports by name; add `--lookup` when the user asks to fill the rest from YouTube (one yt-dlp call per channel).
 
 ## Step 3 — Rebuild index
 

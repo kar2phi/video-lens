@@ -20,6 +20,7 @@ video-lens is a coding agent skill that fetches a YouTube transcript and generat
 - **Markdown export** — copy the full report as Markdown in one click
 - **Dark mode** — auto-detects system preference; remembered across sessions
 - **Video gallery** — browse, search, and filter all your saved reports by title, channel, tag, or keyword; shows thumbnails, summaries, and tags at a glance
+- **Recommendations** — `video-lens-recs` suggests what to watch next on your topics, from your channels and beyond, with a one-line reason each, skipping what you already watched or summarised
 
 ---
 
@@ -113,7 +114,7 @@ task install-skill-local AGENT=claude
 task install-raycast AGENT=claude
 ```
 
-Requires Raycast. The script opens a new iTerm2 tab (or Terminal.app if iTerm2 isn't installed), launches Claude with the required permissions, and runs the skill.
+Requires Raycast and [cmux](https://cmux.com). The script opens a new cmux workspace in `~/Downloads`, launches Claude (Haiku 5.5 unless you pick another model) with the required permissions, and runs the skill. The first run asks to let Raycast control cmux (macOS Automation permission).
 
 ---
 
@@ -153,9 +154,34 @@ task build-index
 
 The gallery opens at `~/Downloads/video-lens/index.html`.
 
+### Recommendations
+
+Ask for new videos on a topic you follow:
+
+```
+/video-lens-recs what's new in Kubernetes this week
+/video-lens-recs recommend cooking videos from this month
+```
+
+The first run walks you through setup: import your subscriptions from a Google Takeout
+export (or opt in to reading them from your logged-in browser with yt-dlp), then group your
+channels into topics. Each run lists recent uploads from the topic's channels, from channels
+you summarise often, and from topic searches. It drops what you already summarised, Shorts,
+premieres and clickbait, scores the rest, and lets the agent rate every candidate. You get
+the best 12 as a numbered list in the chat, each with a reason, and a Discover page in the
+gallery that also lists the rest. Then reply "summarize 1, 4", "not interested in 3",
+"mute <channel>", "more like 2", or "next" for the following 12 from the same run.
+
+Watch history is never imported. In live mode each run checks only its candidates against
+your most recent watches, in memory, and records "watched" only for a video it showed you.
+The agent's model sees the titles, channels and tags of your recent reports on the topic
+(and, during setup, your subscription list): with a hosted model that goes to its provider.
+Personal state lives in `~/.config/video-lens` and `~/.local/share/video-lens`, outside the
+served `~/Downloads/video-lens`.
+
 ### Via Raycast
 
-Invoke the **video-lens** command, paste a YouTube URL (or leave blank to use the clipboard), and choose a model (default: Sonnet). The report opens automatically in your browser.
+Invoke the **video-lens** command, paste a YouTube URL (or leave blank to use the clipboard), and choose a model (default: Haiku 5.5). The report opens automatically in your browser.
 
 Reports are saved to `~/Downloads/video-lens/reports/`.
 
@@ -220,6 +246,26 @@ Bursts of transcript requests get the IP blocked by YouTube, sometimes for hours
 fetches the runner pauses between cases, checks once before starting, and marks blocked
 cases `BLOCKED` (not scored). Blocks are never recorded into the cache.
 
+`video-lens-recs` has its own eval, which replays recorded source pulls so runs are
+deterministic and free:
+
+```bash
+task eval-recs AGENT=claude                         # built-in synthetic fixture + your recorded ones
+task eval-recs AGENT=pi MODEL=qwen3.6:27b
+task eval-recs-record NAME=ai-week REQUEST="what's new in AI this week"
+python3 evals/run_recs_eval.py label ai-week        # yes / maybe / no per candidate (--review: all of them)
+task eval-recs-prior                                # precision of the scoring prior alone, per weight variant
+task eval-recs-compare A=evals/results/<run-a> B=evals/results/<run-b>
+task eval-recs-rejudge RUN=evals/results/<run>     # re-score a run after relabelling, no agent
+```
+
+Gates: every pick is in the candidate table and none was already summarised or dismissed,
+at most 2 per channel on a page, a full first page (12) unless fewer labelled-relevant rows fit under the channel cap, at least one pick from
+outside your subscriptions when a relevant one exists, reasons that are not the title, the
+chat list relayed unchanged, and the page served. With labels it also reports precision@5
+and @10. Recorded fixtures contain your topics and library, so they live in the gitignored
+`evals/recs_fixtures/`; the `synthetic` fixture uses made-up channels.
+
 ---
 
 ## Repo layout
@@ -243,6 +289,18 @@ video-lens/
       scripts/
         backfill_meta.py  ← backfills meta blocks into old reports
         build_index.py    ← builds manifest.json and copies index.html
+    video-lens-recs/
+      SKILL.md          ← recommendations skill prompt (source of truth)
+      template.html     ← Discover page template
+      references/setup.md ← first-run setup, read only during setup
+      scripts/
+        recs.py           ← CLI: recommend, render, resolve, feedback, topics, account, stats
+        collect.py        ← preflight + sources → filters → features → shortlist table
+        scoring.py        ← hard filters, perf/velocity/affinity, prior, shortlist quotas
+        yt_sources.py     ← yt-dlp listings and search, RSS, optional Data API, record/replay
+        page.py           ← picks validation, Discover page, chat list
+        store.py          ← config, subscriptions, shown log, feedback (XDG dirs)
+        takeout.py        ← Google Takeout subscriptions import
   scripts/
     raycast-video-lens.sh ← Raycast script (source of truth)
     yt_template_dev.py← Dev server helper
@@ -251,6 +309,7 @@ video-lens/
     checks.py         ← report/trace gates and metrics (also scores the saved library)
     run_eval.py       ← runs an agent on the fixtures; --compare for A/B
     replay.py         ← records each fixture's fetch once, replays it after
+    run_recs_eval.py  ← video-lens-recs eval: record, label, prior, run, compare
   tests/              ← fast suite, network tier (test_real_videos.py), slow e2e
   Taskfile.yml
   requirements.txt
