@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
 """Backfill video-lens-meta blocks into existing reports that lack them.
 
-Usage: python3 backfill_meta.py --dir DIR [--dry-run]
+Usage: python3 backfill_meta.py --dir DIR [--dry-run] [--channel-ids [--lookup]]
 
 Scans DIR for *video-lens*.html files without a <script id="video-lens-meta">
 block, extracts available metadata from the HTML structure, injects the block,
 and writes the file back.
 
+--channel-ids also adds a `channelId` to meta blocks that lack one (video-lens-recs
+matches channels by id). It matches the channel name against other reports, the
+video-lens-recs subscriptions and its name cache; --lookup asks yt-dlp for the rest,
+one video per channel.
+
 Note: tags will be empty for backfilled reports (cannot be generated retroactively).
 """
 import argparse
+import concurrent.futures
 import json
+import os
 import pathlib
 import re
+import subprocess
 import sys
 
 
@@ -166,10 +174,103 @@ def backfill_file(path: pathlib.Path, dry_run: bool) -> bool:
     return True
 
 
+META_BLOCK_RE = re.compile(r'(<script type="application/json" id="video-lens-meta">)(.*?)(</script>)', re.S)
+CHANNEL_ID_RE = re.compile(r"^UC[A-Za-z0-9_-]{22}$")
+
+
+def _read_meta(html: str):
+    m = META_BLOCK_RE.search(html)
+    if not m:
+        return None, None
+    try:
+        meta = json.loads(m.group(2).replace("<\\/", "</"))
+    except ValueError:
+        return None, None
+    return (meta, m) if isinstance(meta, dict) else (None, None)
+
+
+def _recs_name_map() -> dict:
+    """channel name (lowercase) → id from video-lens-recs state, when it is installed."""
+    out = {}
+    data_home = pathlib.Path(os.environ.get("XDG_DATA_HOME") or pathlib.Path.home() / ".local" / "share")
+    cache_home = pathlib.Path(os.environ.get("XDG_CACHE_HOME") or pathlib.Path.home() / ".cache")
+    try:
+        subs = json.loads((data_home / "video-lens" / "recs" / "subscriptions.json").read_text(encoding="utf-8"))
+        for c in subs.get("channels", []):
+            if c.get("title") and CHANNEL_ID_RE.fullmatch(c.get("id", "")):
+                out[c["title"].lower()] = c["id"]
+    except (OSError, ValueError, AttributeError):
+        pass
+    try:
+        cached = json.loads((cache_home / "video-lens" / "recs" / "channel_ids.json").read_text(encoding="utf-8"))
+        for name, cid in cached.items():
+            if CHANNEL_ID_RE.fullmatch(cid or ""):
+                out.setdefault(name.lower(), cid)
+    except (OSError, ValueError, AttributeError):
+        pass
+    return out
+
+
+def _lookup_channel(video_id: str) -> str:
+    try:
+        r = subprocess.run(["yt-dlp", "--quiet", "--no-warnings", "--skip-download", "--print", "%(channel_id)s",
+                            f"https://www.youtube.com/watch?v={video_id}"],
+                           capture_output=True, text=True, timeout=90)
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    cid = r.stdout.strip().splitlines()[0] if r.stdout.strip() else ""
+    return cid if CHANNEL_ID_RE.fullmatch(cid) else ""
+
+
+def backfill_channel_ids(report_files, dry_run: bool, lookup: bool) -> tuple[int, int]:
+    """Add channelId to meta blocks without one. Returns (updated, still missing)."""
+    metas = {}
+    names = _recs_name_map()
+    for path in report_files:
+        meta, _ = _read_meta(path.read_text(encoding="utf-8", errors="replace"))
+        if meta is None:
+            continue
+        metas[path] = meta
+        if CHANNEL_ID_RE.fullmatch(meta.get("channelId") or "") and meta.get("channel"):
+            names[meta["channel"].lower()] = meta["channelId"]
+    todo = {p: m for p, m in metas.items() if not CHANNEL_ID_RE.fullmatch(m.get("channelId") or "")}
+    if lookup:
+        missing = {}
+        for p, m in todo.items():
+            ch = (m.get("channel") or "").lower()
+            key = ch or m.get("videoId")
+            if (not ch or ch not in names) and m.get("videoId") and key not in missing:
+                missing[key] = m["videoId"]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            found = dict(zip(missing, pool.map(_lookup_channel, missing.values())))
+        for key, cid in found.items():
+            if cid:
+                names[key.lower()] = cid
+    updated = still = 0
+    for path, meta in todo.items():
+        key = (meta.get("channel") or meta.get("videoId") or "").lower()
+        cid = names.get(key, "")
+        if not cid:
+            still += 1
+            continue
+        meta["channelId"] = cid
+        if not dry_run:
+            html = path.read_text(encoding="utf-8", errors="replace")
+            block = json.dumps(meta, ensure_ascii=True).replace("</", "<\\/")
+            html = META_BLOCK_RE.sub(lambda m: m.group(1) + block + m.group(3), html, count=1)
+            path.write_text(html, encoding="utf-8")
+        updated += 1
+    return updated, still
+
+
 def main():
     parser = argparse.ArgumentParser(description="Backfill video-lens-meta into existing reports")
     parser.add_argument("--dir", required=True, help="Directory containing video-lens HTML reports")
     parser.add_argument("--dry-run", action="store_true", help="Print what would be changed without writing")
+    parser.add_argument("--channel-ids", action="store_true",
+                        help="Also add channelId to meta blocks that lack one (by channel name)")
+    parser.add_argument("--lookup", action="store_true",
+                        help="With --channel-ids: ask yt-dlp for channels no name matches (network)")
     args = parser.parse_args()
 
     scan_dir = pathlib.Path(args.dir).expanduser().resolve()
@@ -204,6 +305,12 @@ def main():
             skipped += 1
 
     print(f"\nDone: {modified} {'would be ' if args.dry_run else ''}updated, {skipped} already had meta block or skipped.")
+
+    if args.channel_ids:
+        files = [p for p in report_files if p.name != "index.html"]
+        updated, still = backfill_channel_ids(files, args.dry_run, args.lookup)
+        print(f"Channel ids: {updated} {'would be ' if args.dry_run else ''}added, {still} still unknown"
+              + ("" if args.lookup or not still else " (rerun with --lookup to ask yt-dlp)") + ".")
 
 
 if __name__ == "__main__":

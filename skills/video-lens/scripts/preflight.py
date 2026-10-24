@@ -188,6 +188,19 @@ def probe_capabilities() -> list[str]:
     return caps
 
 
+def sweep_stale_sidecars(meta_dir: pathlib.Path, now: float | None = None) -> None:
+    """Delete fetch_metadata.py sidecars older than PAYLOAD_TTL_SECONDS (best-effort)."""
+    if not meta_dir.is_dir():
+        return
+    cutoff = (time.time() if now is None else now) - PAYLOAD_TTL_SECONDS
+    for entry in meta_dir.glob("*.json"):
+        try:
+            if entry.stat().st_mtime < cutoff:
+                entry.unlink()
+        except OSError:
+            continue
+
+
 def sweep_stale_payloads(base_dir: pathlib.Path, now: float | None = None) -> None:
     """Delete `payload-*` dirs older than PAYLOAD_TTL_SECONDS.
 
@@ -292,6 +305,7 @@ def main() -> int:
 
     PAYLOAD_BASE_DIR.mkdir(parents=True, exist_ok=True)
     sweep_stale_payloads(PAYLOAD_BASE_DIR)
+    sweep_stale_sidecars(PAYLOAD_BASE_DIR.parent / "metadata")
     # Payloads written before the move still sit inside the served tree; keep
     # ageing them out and drop the directory once it is empty.
     sweep_stale_payloads(LEGACY_PAYLOAD_BASE_DIR)

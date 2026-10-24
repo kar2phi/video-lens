@@ -19,6 +19,7 @@ from pathlib import PurePosixPath
 
 
 SCRIPT_START = '<script type="application/json" id="video-lens-meta">'
+RECS_SCRIPT_START = '<script type="application/json" id="video-lens-recs-meta">'
 SCRIPT_END = "</script>"
 
 _CHAN_DURATION_RE = re.compile(r'^\d+\s*(min|h\b)', re.IGNORECASE)
@@ -67,13 +68,13 @@ def _normalize_tags(tags: list) -> list:
     return out
 
 
-def extract_meta(path: pathlib.Path) -> dict | None:
+def extract_meta(path: pathlib.Path, start: str = SCRIPT_START) -> dict | None:
     """Extract the video-lens-meta JSON block from an HTML report file."""
     content = path.read_text(encoding="utf-8", errors="replace")
-    i = content.find(SCRIPT_START)
+    i = content.find(start)
     if i == -1:
         return None
-    i += len(SCRIPT_START)
+    i += len(start)
     j = content.find(SCRIPT_END, i)
     if j == -1:
         return None
@@ -156,15 +157,33 @@ def main():
     # a raw path sort orders by storage location before date.
     reports.sort(key=lambda m: PurePosixPath(m.get("filename", "")).name, reverse=True)
 
+    # Discover pages from video-lens-recs, newest first; the gallery links the newest.
+    recs = []
+    recs_dir = scan_dir / "recs"
+    if recs_dir.is_dir():
+        for path in recs_dir.glob("*.html"):
+            meta = extract_meta(path, RECS_SCRIPT_START)
+            if not isinstance(meta, dict):
+                continue
+            recs.append({"filename": "recs/" + path.name, "topic": meta.get("topic", ""),
+                         "label": meta.get("label", ""), "date": meta.get("date", ""),
+                         "picks": meta.get("picks", 0), "mtime": path.stat().st_mtime})
+    recs.sort(key=lambda r: (r["date"], r["mtime"]), reverse=True)
+    for r in recs:
+        del r["mtime"]
+
     manifest = {
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "count": len(reports),
         "reports": reports,
     }
+    if recs:
+        manifest["recs"] = recs
 
     manifest_path = out_dir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"manifest.json → {manifest_path}  ({len(reports)} reports, {skipped} skipped)")
+    print(f"manifest.json → {manifest_path}  ({len(reports)} reports, {skipped} skipped"
+          + (f", {len(recs)} Discover pages)" if recs else ")"))
 
     # Write index.html with manifest inlined as window.__MANIFEST__ so it works
     # from file:// as well as http://localhost:8765/
