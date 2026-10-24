@@ -117,8 +117,12 @@ tasks:
             sys.exit("Unknown agent '{}'. Valid: {}".format(agent, ", ".join(FLAGS)))
         skip_perm, tools, prompt_flag = FLAGS[agent]
         src = open("scripts/raycast-video-lens.sh").read()
-        src = src.replace("opens Claude in iTerm2", "opens {} in iTerm2".format(agent.capitalize()))
+        src = src.replace("opens Claude in cmux", "opens {} in cmux".format(agent.capitalize()))
         src = src.replace("&& claude ", "&& {} ".format(agent))
+        if agent != "claude":
+            # The Haiku 5.5 default is a Claude model ID; other CLIs use their own default.
+            src = src.replace("${2:-claude-haiku-5-5}", "${2:-}")
+            src = src.replace("blank = claude-haiku-5-5", "blank = the CLI default")
         if skip_perm:
             src = src.replace("--dangerously-skip-permissions ", "{} ".format(skip_perm))
         else:
@@ -133,8 +137,8 @@ tasks:
             old_prompt_prefix = ' ' + chr(92) + '"/video-lens '
             new_prompt_prefix = ' ' + prompt_flag + ' ' + chr(92) + '"/video-lens '
             src = src.replace(old_prompt_prefix, new_prompt_prefix)
-        # No model rewriting: the script passes the user's model argument straight
-        # through to whichever CLI it launches, and omits --model when it is blank.
+        # The script passes the user's model argument straight through to whichever CLI
+        # it launches (Haiku 5.5 for Claude when blank), and omits --model when it is blank.
         dest = os.path.expanduser("~/.raycast/scripts/video-lens.sh")
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         open(dest, "w").write(src)

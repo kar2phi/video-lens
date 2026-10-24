@@ -5,14 +5,14 @@
 # @raycast.title video-lens
 # @raycast.mode silent
 # @raycast.argument1 {"type": "text", "placeholder": "YouTube URL (leave blank to use clipboard)", "optional": true}
-# @raycast.argument2 {"type": "text", "placeholder": "Model (optional — e.g. opus, sonnet; blank uses the CLI default)", "optional": true}
+# @raycast.argument2 {"type": "text", "placeholder": "Model (optional — e.g. opus, sonnet; blank = claude-haiku-5-5)", "optional": true}
 
 # Optional parameters:
 # @raycast.icon 📺
-# @raycast.packageName iTerm
+# @raycast.packageName cmux
 
 # Documentation:
-# @raycast.description Summarise a YouTube video — opens Claude in iTerm2 and launches the HTML report in the browser
+# @raycast.description Summarise a YouTube video — opens Claude in cmux and launches the HTML report in the browser
 
 ytURL="$1"
 if [[ -z "$ytURL" ]]; then
@@ -27,13 +27,25 @@ fi
 
 ytURL="$(printf '%s' "$ytURL" | tr -dc 'A-Za-z0-9/:?=&._%-')"
 
-osascript - "$ytURL" "$HOME/Downloads" "$2" <<'EOF'
+# `tell application "cmux"` below only compiles when the app is installed.
+if ! open -Ra cmux 2>/dev/null; then
+  osascript -e 'display dialog "cmux is not installed (https://cmux.com)." buttons {"OK"} default button 1'
+  exit 1
+fi
+
+# Blank model argument means Haiku 5.5. install-raycast blanks this default for the
+# non-Claude agents, whose CLIs don't know that ID.
+model="${2:-claude-haiku-5-5}"
+
+# stdout is dropped: Raycast shows a silent script's last output line as a toast, and
+# AppleScript would print "true" (the result of the Enter keystroke below).
+osascript - "$ytURL" "$HOME/Downloads" "$model" >/dev/null <<'EOF'
 on run argv
   set ytURL to item 1 of argv
   set outputDir to item 2 of argv
   set modelInput to item 3 of argv
-  -- Pass the model through verbatim; blank means "whatever the CLI is configured
-  -- to use". Pinning IDs here only creates a standing maintenance tax.
+  -- Pass the model through verbatim; a blank one (non-Claude agents) means "whatever
+  -- the CLI is configured to use".
   if modelInput is "" then
     set modelArg to ""
   else
@@ -41,30 +53,25 @@ on run argv
   end if
   set cmd to "cd " & quoted form of outputDir & " && claude --dangerously-skip-permissions --allowedTools \"Bash,Read,Write\" " & modelArg & " \"/video-lens " & ytURL & "\""
 
-  if application "iTerm2" is running or (exists application "iTerm2") then
-    tell application "iTerm2"
-      activate
+  tell application "cmux"
+    activate
+    -- Cold start: the first window takes a moment to appear.
+    repeat 50 times
+      if (count of windows) > 0 then exit repeat
+      delay 0.2
+    end repeat
+    if (count of windows) = 0 then new window
 
-      if (count of windows) = 0 then
-        set newWindow to (create window with default profile)
-        tell current session of newWindow
-          write text cmd
-        end tell
-      else
-        tell current window
-          create tab with default profile
-          tell current session
-            write text cmd
-          end tell
-        end tell
-      end if
-
-    end tell
-  else
-    tell application "Terminal"
-      activate
-      do script cmd
-    end tell
-  end if
+    -- Always a fresh workspace: never type into a terminal that is already in use.
+    set ws to new tab
+    select tab ws
+    set term to focused terminal of ws
+    -- Let the shell come up. The workspace inherits the previous one's directory,
+    -- which is why cmd starts with a cd.
+    delay 0.5
+    -- input text pastes, and a pasted newline does not run the line; send Enter separately.
+    input text cmd to term
+    perform action "text:\\r" on term
+  end tell
 end run
 EOF

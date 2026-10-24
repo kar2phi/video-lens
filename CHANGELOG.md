@@ -55,6 +55,17 @@ phases P0–P5, and the small video-lens and gallery changes it needs.
   `record --extend` adds the source pulls a changed collect needs, and `label --review`
   walks through drafted labels.
 
+### Changed
+
+- The Raycast script runs in cmux instead of iTerm2/Terminal.app: it opens a fresh
+  workspace through cmux's AppleScript dictionary (the socket CLI refuses processes started
+  outside cmux by default) and always types into that new terminal, never an existing one.
+  It stays silent on success, so Raycast shows no stray `true` toast, and says so when cmux
+  is not installed.
+- A blank model argument now means `claude-haiku-5-5` instead of the CLI default; any model
+  typed in still passes through verbatim. `install-raycast` blanks the default again for the
+  non-Claude agents, whose CLIs do not know that ID.
+
 ## [5.4] — 2026-10-22
 
 Phase 1 of `concepts/025-skill-md-lean-and-robust-review.md`, small items only: three
