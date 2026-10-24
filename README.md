@@ -114,7 +114,7 @@ task install-skill-local AGENT=claude
 task install-raycast AGENT=claude
 ```
 
-Requires Raycast. The script opens a new iTerm2 tab (or Terminal.app if iTerm2 isn't installed), launches Claude with the required permissions, and runs the skill.
+Requires Raycast and [cmux](https://cmux.com). The script opens a new cmux workspace in `~/Downloads`, launches Claude (Haiku 5.5 unless you pick another model) with the required permissions, and runs the skill. The first run asks to let Raycast control cmux (macOS Automation permission).
 
 ---
 
@@ -181,7 +181,7 @@ served `~/Downloads/video-lens`.
 
 ### Via Raycast
 
-Invoke the **video-lens** command, paste a YouTube URL (or leave blank to use the clipboard), and choose a model (default: Sonnet). The report opens automatically in your browser.
+Invoke the **video-lens** command, paste a YouTube URL (or leave blank to use the clipboard), and choose a model (default: Haiku 5.5). The report opens automatically in your browser.
 
 Reports are saved to `~/Downloads/video-lens/reports/`.
 
