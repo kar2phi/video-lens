@@ -1659,18 +1659,44 @@ def test_outline_entries_are_keyboard_reachable():
     assert "ol.topics li:focus-visible" in tpl
 
 
-def test_raycast_accepts_mobile_youtube_and_does_not_pin_models():
+def test_raycast_accepts_mobile_youtube_and_defaults_to_haiku_5_5():
     """024-B8: m.youtube.com is what the iOS share sheet emits and preflight
-    already accepts it; the pinned model IDs were two generations stale."""
+    already accepts it. A blank model is Haiku 5.5; the stale pins stay gone."""
     src = (REPO_ROOT / "scripts" / "raycast-video-lens.sh").read_text(encoding="utf-8")
     assert "(www|m)" in src
     assert "claude-opus-4-6" not in src and "claude-sonnet-4-6" not in src
+    assert 'model="${2:-claude-haiku-5-5}"' in src
+    # Still passed through verbatim, and omitted when blank (non-Claude agents).
     assert 'set modelArg to ""' in src
+    assert 'quoted form of modelInput' in src
     # install-raycast inserts copilot's/cursor's `-p` by matching the space before
     # the quoted prompt — folding that space into modelArg silently drops the flag.
     assert ' ' + chr(92) + '"/video-lens ' in src
     taskfile = (REPO_ROOT / "Taskfile.yml").read_text(encoding="utf-8")
     assert "claude-opus-4.6" not in taskfile and "claude-haiku-4-5-20251001" not in taskfile
+    # install-raycast blanks the Claude-only default for every other agent, and the
+    # strings it rewrites must exist in the script.
+    assert '"${2:-claude-haiku-5-5}"' in taskfile and "${2:-claude-haiku-5-5}" in src
+    assert '"blank = claude-haiku-5-5"' in taskfile and "blank = claude-haiku-5-5" in src
+
+
+def test_raycast_runs_in_cmux():
+    """The launcher drives cmux through its AppleScript dictionary: the socket CLI
+    refuses processes started outside cmux (socketControlMode defaults to cmuxOnly)."""
+    src = (REPO_ROOT / "scripts" / "raycast-video-lens.sh").read_text(encoding="utf-8")
+    assert 'tell application "cmux"' in src
+    for old_terminal in ("iTerm", "Ghostty", 'application "Terminal"'):
+        assert old_terminal not in src
+    # A pasted newline does not run the line, so Enter is sent as a ghostty action.
+    assert 'input text cmd to term' in src
+    assert 'perform action "text:' + chr(92) * 2 + 'r" on term' in src
+    # Raycast toasts a silent script's last output line; osascript would print "true".
+    assert '"$model" >/dev/null <<' in src
+    # Never types into a terminal that is already in use.
+    assert "set ws to new tab" in src and "focused terminal of ws" in src
+    # install-raycast rewrites the description by exact match.
+    assert "opens Claude in cmux" in src
+    assert '"opens Claude in cmux"' in (REPO_ROOT / "Taskfile.yml").read_text(encoding="utf-8")
 
 
 def test_payload_dir_is_outside_the_served_tree():
