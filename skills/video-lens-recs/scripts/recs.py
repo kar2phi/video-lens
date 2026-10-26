@@ -432,6 +432,14 @@ def _remember_title(cfg, cid, title):
         cfg.setdefault("channel_titles", {})[cid] = title
 
 
+def _topic_channel(target: str) -> dict:
+    """resolve_channel for topic edits: a topic stores ids, so a name-only match is not enough."""
+    c = resolve_channel(target)
+    if not c["id"]:
+        raise CliError("CHANNEL_NOT_FOUND", f"{target!r} has no channel id; use its @handle or channel URL")
+    return c
+
+
 def cmd_topics_edit(args) -> int:
     cfg = store.load_config()
     op = args.op
@@ -444,7 +452,7 @@ def cmd_topics_edit(args) -> int:
                                    "keywords": args.keyword or [], "exclude_keywords": [],
                                    "report_tags": store.normalize_tags(args.tag or [])}
         for ch in args.channel or []:
-            c = resolve_channel(ch)
+            c = _topic_channel(ch)
             _remember_title(cfg, c["id"], c["title"])
             cfg["topics"][args.key]["channels"].append(c["id"])
         validate_topics({args.key: cfg["topics"][args.key]}, cfg)
@@ -480,9 +488,7 @@ def cmd_topics_edit(args) -> int:
     if op in ("add-channel", "remove-channel"):
         t = _topic(cfg, args.key)
         for target in args.values:
-            c = resolve_channel(target)
-            if not c["id"]:
-                raise CliError("CHANNEL_NOT_FOUND", f"{target!r} has no channel id")
+            c = _topic_channel(target)
             if op == "add-channel":
                 if c["id"] not in t["channels"]:
                     t["channels"].append(c["id"])
@@ -495,7 +501,7 @@ def cmd_topics_edit(args) -> int:
         store.save_config(cfg)
         return 0
     if op == "move-channel":
-        c = resolve_channel(args.channel)
+        c = _topic_channel(args.channel)
         _topic(cfg, args.key)
         for k, t in cfg["topics"].items():
             t["channels"] = [x for x in t.get("channels", []) if x != c["id"]]

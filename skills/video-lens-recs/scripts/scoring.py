@@ -417,6 +417,7 @@ def shortlist_by_topic(cands, size: int = 40, per_channel: int = 3, channel_caps
     taken: list = []
     for group in groups.values():
         taken = shortlist(group, share, quotas, per_channel, taken, channel_caps)
-    rest = [c for c in cands if c["videoId"] not in {t["videoId"] for t in taken}]
+    ids = {t["videoId"] for t in taken}
+    rest = [c for c in cands if c["videoId"] not in ids]
     taken = shortlist(rest, size - len(taken), {"own_min": 0}, per_channel, taken, channel_caps)
     return sorted(taken, key=lambda c: -c.get("prior", 0))

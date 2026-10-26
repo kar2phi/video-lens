@@ -87,6 +87,7 @@ def test_unknown_and_explicit_topics(world):
     ("last 3 days", 3), ("past 14 days", 14), ("lately", None), ("since my last run", "last"),
     ("two weeks", 14), ("the past 3 weeks", 21), ("past few weeks", 21), ("last 2 months", 60),
     ("a couple of days", 2), ("since yesterday", 2), ("a fortnight", 14),
+    ("last 24 hours", 1), ("the last 36 hours", 2), ("past 72 hours", 3), ("past 100 days", 60),
 ])
 def test_window_parsing(text, days):
     assert collect.parse_window(text) == days
@@ -459,6 +460,11 @@ def test_all_topics_searches_every_topic_and_sections_by_topic(world):
     chat = "\n".join(out)
     assert rc == 0, err
     assert "TOP PICKS" in chat and "\nNEWS\n" in chat and "\nAI & AGENTS\n" in chat
+    # "more like N" boosts the pick's own topic, not the run's pseudo-topic "all".
+    res = json.loads((run_dir / "result.json").read_text())
+    num = next(it["num"] for it in res["items"] if it["videoId"] == W.N_ONE)
+    code, out, err = run_cli("feedback", "boost", str(num))
+    assert code == 0 and out.startswith("BOOSTED: news keywords +="), err
 
 
 def test_history_depth_follows_the_window_and_the_waiting_picks():
@@ -665,6 +671,18 @@ def test_topic_edits_by_name_handle_and_number(world):
     code, _, err = run_cli("topics", "set", "cooking", "window_days", "9999")
     assert code == 1 and "TOPICS_INVALID" in err
     assert store.load_config()["topics"]["cooking"]["window_days"] == 14
+
+
+def test_topic_edits_need_a_channel_id(world):
+    run_dir, res = _rendered(world)
+    res["items"][0]["channelId"] = ""
+    store.write_json(run_dir / "result.json", res)
+    before = store.load_config()["topics"]
+    for args in (("move-channel", "1", "news"), ("add-channel", "news", "1"),
+                 ("add", "extra", "--label", "Extra", "--channel", "1")):
+        code, _, err = run_cli("topics", *args)
+        assert code == 1 and "CHANNEL_NOT_FOUND" in err, args
+    assert store.load_config()["topics"] == before
 
 
 def test_topics_propose_prints_evidence_and_a_proposal_path(world):

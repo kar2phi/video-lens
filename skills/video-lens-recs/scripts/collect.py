@@ -45,20 +45,20 @@ was were be been have has got going lately past couple few
 
 # ---------- request parsing ----------
 
-WINDOW_UNITS = {"day": 1, "week": 7, "month": 30}
+WINDOW_HOURS = {"hour": 1, "day": 24, "week": 7 * 24, "month": 30 * 24}
 WINDOW_NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "couple of": 2, "few": 3}
 
 
 def parse_window(text: str):
     """Window in days named by the request, or None. 'since my last run' → 'last'."""
     t = text.lower()
-    m = re.search(r"\b(\d{1,2}|one|two|three|four|couple of|few)\s+(day|week|month)s?\b", t)
+    m = re.search(r"\b(\d{1,3}|one|two|three|four|couple of|few)\s+(hour|day|week|month)s?\b", t)
     if m:
         n = int(m.group(1)) if m.group(1).isdigit() else WINDOW_NUMBERS[m.group(1)]
-        return max(1, min(60, n * WINDOW_UNITS[m.group(2)]))
+        return max(1, min(60, -(-n * WINDOW_HOURS[m.group(2)] // 24)))
     if re.search(r"\bsince (?:my |the )?last (?:run|time|check)\b", t):
         return "last"
-    if re.search(r"\b(today|last 24 hours)\b", t):
+    if re.search(r"\btoday\b", t):
         return 1
     if re.search(r"\byesterday\b", t):
         return 2
