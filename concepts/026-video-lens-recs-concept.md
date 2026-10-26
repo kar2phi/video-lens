@@ -1009,8 +1009,18 @@ qwen rated only 9 rows 2 or higher, so its page is shorter than before.
   weeks") and "yesterday".
 - On 2026-10-24 YouTube's RSS feeds returned 404 for every channel tried. The run still
   works from the listings, but dates are approximate and descriptions are missing. It now
-  prints a `WARN:` line instead of degrading silently. If the feeds stay down, drop RSS from
-  `collect` and take descriptions from somewhere else.
+  prints a `WARN:` line instead of degrading silently. The same morning YouTube also blocked
+  transcript requests from that machine, and by 2026-10-26 the feeds answered again (the
+  network canary passes 8/8), so it was most likely an IP block, not the feeds going away.
+
+**Review of 2026-10-26.**
+
+- After an all-topics run, "more like 2" stopped with `TOPIC_UNKNOWN`: it looked up the
+  run's topic, which is `all`. The run's result now stores each pick's own topic.
+- `topics move-channel` and `topics add --channel` stored an empty channel id when a list
+  number pointed at a row without one. They now refuse it, like `add-channel` did.
+- Request windows also parse hours ("last 48 hours" → 2 days), and "past 100 days" is capped
+  at 60 instead of ignored.
 
 **Still open.**
 

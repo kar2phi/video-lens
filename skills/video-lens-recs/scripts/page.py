@@ -577,6 +577,7 @@ def render(run_dir: pathlib.Path, do_serve: bool = True, advance: bool = False) 
               "items": [{"num": it["num"], "videoId": it["candidate"]["videoId"],
                          "url": video_url(it["candidate"]["videoId"]), "title": it["candidate"].get("title"),
                          "channel": it["candidate"].get("channel"), "channelId": it["candidate"].get("channelId"),
+                         "topic": it["candidate"].get("topic") or data["topic"],
                          "page": it["page"], "section": it["section"], "n": it["n"],
                          "relevance": it.get("relevance"), "reason": it["reason"]} for it in items]}
     store.write_json(run_dir / "result.json", result)
