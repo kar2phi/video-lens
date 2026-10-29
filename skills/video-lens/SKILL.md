@@ -115,26 +115,28 @@ Produce these four sections:
 
 **Takeaway** — The single most important thing to take away, in 1–3 sentences. Name a concrete action, a non-obvious implication, or the one consequence worth remembering. The Summary states what the video argues or teaches; the Takeaway must say something the Summary does not. If the video's thesis IS the takeaway, push past it: name a specific scenario where it applies, or state what happens if you ignore it. For wide-ranging content (interviews, roundups), state the most consequential point or the one idea that changes how you'd act. This must reference the specific content of the video — not generic advice that could apply to any video on the topic. Never restate what the Summary already says.
 
-**Key Points** — What does the video **give** you, and what does it **mean**? Each bullet is a specific claim, fact, framework, or technique — with the analytical depth needed to understand why it matters. Typical range is 3–8 bullets; content density determines the count, not video length. Each `<li>` must follow this pattern:
-```html
-<li><strong>Core claim, concept, or term</strong> — one sentence on why it matters or what the viewer should understand from it. Optionally include <em>the speaker's own phrasing</em> when it adds colour or precision.
-<p>2–4 sentence analytical paragraph: context, causality, connections to other ideas, implications, and the speaker's reasoning. Must add depth the headline cannot — do not merely expand the headline into a longer sentence.</p></li>
-```
-The paragraph is the default. Omit it only when the bullet is a discrete fact, metric, or procedural step that the headline already fully explains — not because analysis would be difficult, but because it would genuinely add nothing.
+**Key Points** — What does the video **give** you, and what does it **mean**? Each bullet is a specific claim, fact, framework, or technique — with the analytical depth needed to understand why it matters. Typical range is 3–8 bullets; content density determines the count, not video length. Each Key Point has three parts:
+
+- **point** — the core claim, concept, or term (a short headline).
+- **why** — one sentence on why it matters or what the viewer should understand from it. Optionally include *the speaker's own phrasing* when it adds colour or precision.
+- **detail** — a 2–4 sentence analytical paragraph: context, causality, connections to other ideas, implications, and the speaker's reasoning. It must add depth the headline cannot — do not merely expand the headline into a longer sentence.
+
+The detail is the default. Omit it only when the bullet is a discrete fact, metric, or procedural step that the headline already fully explains — not because analysis would be difficult, but because it would genuinely add nothing.
 
 Rules:
 - Include actual formulations, frameworks, and step-by-step procedures with enough detail to reproduce — `"I help [audience] achieve [benefit]"` is more useful than `"she presents a benefit-focused formula."` Concrete content, not abstractions.
 - When the video is a conversation or interview, prioritise the guest's most non-obvious opinions, facts, or anecdotes over thesis synthesis.
-- Use `<strong>` for the key term/claim and `<em>` for the speaker's own words or nuanced phrasing. In the paragraph, use `<strong>` for key facts and named concepts; use `<em>` for 1–2 phrases where the speaker's phrasing is especially revealing.
-- Each Key Point is self-contained — claim plus depth in a single entry. Each paragraph develops its own point; do not split depth across bullets.
+- In `why` and `detail`, use `**bold**` for key facts and named concepts and `*italic*` for 1–2 phrases where the speaker's phrasing is especially revealing. No HTML: text is shown as written.
+- Each Key Point is self-contained — claim plus depth in a single entry. Each detail develops its own point; do not split depth across bullets.
 - Each Key Point must add substance beyond the Summary and Takeaway. Prioritise insight over inventory — no padding.
 
-**Outline** — A list of the major topics/segments with their start times. Each entry has two parts:
+**Outline** — A list of the major topics/segments with their start times. Each entry has three parts:
 
-1. **Title** — a short, scannable label (3–8 words max, like a YouTube chapter title). This is always visible.
-2. **Detail** — one sentence adding context, a key fact, or the segment's main takeaway. This is hidden by default and revealed when the user clicks the entry.
+1. **t** — the segment's start, in seconds (`[12:34]` in the transcript is `754`).
+2. **title** — a short, scannable label (3–8 words max, like a YouTube chapter title). This is always visible.
+3. **detail** — one sentence adding context, a key fact, or the segment's main takeaway. This is hidden by default and revealed when the user clicks the entry.
 
-**If `YTDLP_CHAPTERS` was provided (2b) and is non-empty:** use the chapter data to anchor the Outline. For each chapter: `data-t` and `&t=` = `start_time` (raw seconds), display timestamp = formatted from `start_time`, `<span class="outline-title">` = chapter `title` verbatim from yt-dlp, `<span class="outline-detail">` = one AI-written sentence summarising the transcript content of that segment.
+**If `YTDLP_CHAPTERS` was provided (2b) and is non-empty:** use the chapter data to anchor the Outline. For each chapter: `t` = `start_time`, `title` = chapter `title` verbatim from yt-dlp, `detail` = one AI-written sentence summarising the transcript content of that segment.
 
 **Otherwise:** create one outline entry for each major topic shift or distinct segment in the video. Let the video's natural structure determine the number of entries (see Length adjustments below for typical ranges). Do not pad with minor sub-topics to hit a target count, and do not merge distinct topics to stay under a cap.
 
@@ -157,14 +159,14 @@ Scale Summary, Key Points paragraphs, and Outline entries to the video length: 2
 
 **CRITICAL: This is not a design task. Do not write your own HTML and do not read the template file.** You write a JSON payload; the renderer validates and sanitises it, derives the filename, composes the meta line, builds the gallery metadata block (you never construct that JSON), and saves the report under `~/Downloads/video-lens/reports/`.
 
-1. `Write` the payload as JSON to `PAYLOAD_PATH` — a new path in a private directory preflight made for this run; the file does not exist yet, so there is nothing to `Read` first. Never reuse a path from an earlier run. Use the `Write` tool, not a Bash heredoc: heredocs mangle the double quotes common in `<em>"…"</em>`, and one unescaped `"` breaks the JSON. Populate every field in that single `Write`. To change a field later, re-`Write` the whole file — never `Edit` it (its exact whitespace is not visible, so edits fail).
+1. `Write` the payload as JSON to `PAYLOAD_PATH` — a new path in a private directory preflight made for this run; the file does not exist yet, so there is nothing to `Read` first. Never reuse a path from an earlier run. Use the `Write` tool, not a Bash heredoc: heredocs mangle the double quotes common in quoted speech, and one unescaped `"` breaks the JSON. Populate every field in that single `Write`. To change a field later, re-`Write` the whole file — never `Edit` it (its exact whitespace is not visible, so edits fail).
 2. Render:
 
 ```bash
 python3 "SCRIPTS_DIR/render_report.py" --payload-file "PAYLOAD_PATH" --output-dir ~/Downloads/video-lens/reports/
 ```
 
-3. Read the `OUTPUT_PATH: /absolute/path.html` line from stdout and keep the path for Step 5.
+3. Read the `OUTPUT_PATH: /absolute/path.html` line from stdout and keep the path for Step 5. `RENDER_WARN:` lines beside it need no action.
 
 Payload fields (`python3 "SCRIPTS_DIR/render_report.py" --schema` prints the live required set):
 
@@ -175,8 +177,8 @@ Payload fields (`python3 "SCRIPTS_DIR/render_report.py" --schema` prints the liv
 | `VIDEO_URL` | The full YouTube URL; the renderer checks it matches `VIDEO_ID`. |
 | `SUMMARY` | Plain text — the Summary from Step 3. |
 | `TAKEAWAY` | Plain text — the Takeaway from Step 3. |
-| `KEY_POINTS` | **One HTML string, not a JSON array** — every Step 3 `<li>` concatenated, each a `<strong>` headline plus its `<p>` paragraph. |
-| `OUTLINE` | **One HTML string, not a JSON array** — one `<li>` per entry, concatenated: `<li><a class="ts" data-t="SECONDS" href="https://www.youtube.com/watch?v=VIDEO_ID&t=SECONDS" target="_blank" rel="noopener noreferrer">▶ M:SS</a> — <span class="outline-title">Short Title</span><span class="outline-detail">Detail sentence.</span></li>`. `data-t` and `&t=` are raw seconds; the displayed time uses the transcript's format (`M:SS` or `H:MM:SS`); every `href` carries the real video ID. |
+| `KEY_POINTS` | JSON array, one object per Step 3 Key Point: `{"point": "…", "why": "…", "detail": "…"}`. |
+| `OUTLINE` | JSON array, one object per entry: `{"t": 754, "title": "Short Title", "detail": "One sentence."}`. The renderer builds the links and the displayed times from `t`. |
 | `DESCRIPTION_SECTION` | When `YTDLP_DESC_HTML` is non-empty: `<details class="description-details"><summary>YouTube Description</summary><div class="video-description">YTDLP_DESC_HTML</div></details>`. Otherwise `""` — the key is still required. |
 | `TAGS` | JSON array of 3–5 lowercase tags from Step 3, e.g. `["ai", "hardware"]`. |
 | `CHANNEL`, `DURATION`, `PUBLISH_DATE`, `VIEWS` | Plain text from 2b's `YTDLP_*` values, else 2a's; blank if both are missing. The renderer joins them into the meta line. |
@@ -186,13 +188,9 @@ Payload fields (`python3 "SCRIPTS_DIR/render_report.py" --schema` prints the liv
 | `SLUG_HINT` *(optional)* | A short ascii slug for the filename when the title has no ascii letters (e.g. CJK titles): `"ai_safety_talk"`. |
 | `GENERATION_DATE` *(optional)* | `YYYY-MM-DD`; omit and the renderer uses today. |
 
-`SUMMARY`, `TAKEAWAY`, `VIDEO_TITLE`, and `META_LINE` are plain text — no HTML. `KEY_POINTS`, `OUTLINE`, and `DESCRIPTION_SECTION` are allowlist-sanitised: emit only the structures shown above — no `<script>`, `<style>`, `<iframe>`, comments, inline event handlers, non-HTTP URLs, or outline links to a different video.
+All text is plain text, shown as written — no HTML; Key Points take `**bold**` and `*italic*`. Only `DESCRIPTION_SECTION` holds HTML: the wrapper above around `YTDLP_DESC_HTML`.
 
-**If the renderer rejects the payload**, fix the field it names, re-`Write` the whole payload, and retry once:
-
-- `ERROR:RENDER_DISALLOWED_HTML` — usually an angle-bracket placeholder like `<branch-name>` that the sanitiser read as a tag. Rephrase without angle brackets ("git push origin followed by the branch name"). If a real tag triggered it (`<script>`, `<iframe>`, …), simplify the field to the allowlist.
-- `ERROR:RENDER_PAYLOAD_INVALID` — missing or empty keys, most often `TAKEAWAY`. The message lists every problem plus the live schema.
-- `ERROR:RENDER_INVALID_TYPE key=<KEY> expected string, got list` — `KEY_POINTS`, `OUTLINE`, or `DESCRIPTION_SECTION` was written as an array. Join the blocks into one string: `"KEY_POINTS": "<li>…</li><li>…</li>"`.
+**If the renderer rejects the payload**, its `ERROR:` line names the field and the fix: re-`Write` the whole payload with that fix and retry once.
 
 ### 5. Serve and open
 
@@ -242,7 +240,7 @@ Scripts emit structured error codes with the prefix `ERROR:` followed by a typed
 | `ERROR:WHISPER_UNSUPPORTED_PLATFORM`, `ERROR:WHISPER_MISSING`, `ERROR:FFMPEG_MISSING`, `ERROR:TRANSCRIBE_FAILED` | Report the code and message (include the install hint when present). Stop. |
 | `ERROR:AUDIO_DOWNLOAD_FAILED` | Report the code and message. When the message carries the outdated-yt-dlp hint, surface `brew upgrade yt-dlp` and offer to retry. Otherwise offer the `--audio-file` escape hatch (see `references/whisper-fallback.md`) before stopping. |
 | `ERROR:YTDLP_*` | Non-fatal — print a one-line note and proceed with 2a metadata and no description context. For `YTDLP_MISSING`, suggest `brew install yt-dlp` or `pip install yt-dlp`. |
-| `ERROR:RENDER_*`, `ERROR:SERVE_*` | Report the code and message. Stop. Do NOT emit the success line. (For the render rejections listed in Step 4, retry once first.) |
+| `ERROR:RENDER_*`, `ERROR:SERVE_*` | Report the code and message. Stop. Do NOT emit the success line. (A rejected payload gets one fixed retry first, as Step 4 says.) |
 | `LANG_WARN:` line (not an `ERROR:`) | Fall back to the auto-selected transcript; add the `⚠ Requested language not available` suffix to `META_LINE`. |
 | Metadata extraction fails (title/channel/views empty, no `ERROR:` emitted) | Proceed with the transcript; leave missing fields out of `META_LINE`. |
 

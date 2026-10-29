@@ -170,12 +170,13 @@ def test_sanitise_payload_rejects_disallowed_tag_in_key_points():
     assert "key=KEY_POINTS" in detail
 
 
-def test_sanitise_payload_rejects_list_valued_key_points():
+def test_sanitise_payload_rejects_list_valued_plain_text_keys():
+    # 025-R1: KEY_POINTS and OUTLINE take arrays now (tests/test_render_arrays.py).
     detail = assert_render_validation(
         "RENDER_INVALID_TYPE",
-        sample_render_payload(KEY_POINTS=["<li>a</li>", "<li>b</li>"]),
+        sample_render_payload(DESCRIPTION_SECTION=["<p>a</p>"]),
     )
-    assert "key=KEY_POINTS" in detail
+    assert "key=DESCRIPTION_SECTION" in detail
     assert "got list" in detail
 
 
@@ -786,6 +787,11 @@ def test_preflight_invalid_input():
     ("pt-BR", ("pt-br", "")),
     ("in es", ("es", "")),
     ("de subtitles", ("de", "")),
+    # 027-B1: "en" is filler ("resumen en español"), but among filler alone it is English.
+    ("en", ("en", "")),
+    ("en subtitles", ("en", "")),
+    ("in en", ("en", "")),
+    ("with en captions", ("en", "")),
     # Unknown codes pass through; fetch_transcript.py warns about them.
     ("nl", ("nl", "")),
 ])
@@ -802,6 +808,16 @@ def test_preflight_parses_language_requests(inp, expected):
     ("polish the takeaway", ("", "polish the takeaway")),
     # A language plus more: the code, and the request verbatim.
     ("in Spanish,  focus on pricing", ("es", "in Spanish, focus on pricing")),
+    ("Spanish, focus on pricing", ("es", "Spanish, focus on pricing")),
+    ("focus on pricing, German please", ("de", "focus on pricing, German please")),
+    ("focus on pricing with French subtitles", ("fr", "focus on pricing with French subtitles")),
+    # Code-shaped filler words other than "en" never count as a language.
+    ("resumen en video", ("", "resumen en video")),
+    # 027-B2: a language name inside the topic is not a transcript language.
+    ("focus on the German economy", ("", "focus on the German economy")),
+    ("explain the thai food part", ("", "explain the thai food part")),
+    ("explain it in plain English", ("", "explain it in plain English")),
+    ("the German economy part, in French", ("fr", "the German economy part, in French")),
 ])
 def test_preflight_carries_other_requests_as_extra(inp, expected):
     assert parse_request(inp) == expected
@@ -1335,6 +1351,16 @@ def test_renderer_replace_rejects_another_videos_report(tmp_path):
     r = _render_cli(["--replace", str(original)], payload)
     assert r.returncode == 1
     assert "ERROR:RENDER_REPLACE_MISMATCH" in r.stderr
+    assert original.read_text(encoding="utf-8") == before
+
+
+def test_renderer_replace_rejects_a_malformed_generation_date(tmp_path):
+    """027-B3: --replace checks a supplied GENERATION_DATE like --output-dir does."""
+    original = _first_render(tmp_path)
+    before = original.read_text(encoding="utf-8")
+    r = _render_cli(["--replace", str(original)], new_shape_payload(GENERATION_DATE="17 May 2026"))
+    assert r.returncode == 1
+    assert "bad_format_keys=['GENERATION_DATE']" in r.stderr
     assert original.read_text(encoding="utf-8") == before
 
 

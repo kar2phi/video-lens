@@ -12,6 +12,12 @@ the payload contains double quotes — shells/heredocs mangle them). Required ke
     VIDEO_ID, VIDEO_TITLE, VIDEO_URL, SUMMARY,
     KEY_POINTS, TAKEAWAY, OUTLINE, DESCRIPTION_SECTION
 
+KEY_POINTS and OUTLINE are JSON arrays of objects (025-R1):
+    KEY_POINTS: [{"point": "…", "why": "…", "detail": "…"}]   **bold**, *italic*, `code`
+    OUTLINE:    [{"t": 754, "title": "…", "detail": "…"}]     t in seconds (or "12:34")
+The renderer escapes their text and builds the same HTML a model used to write by
+hand, links and timestamps included. An HTML string (the older contract) still works.
+
 Renderer builds VIDEO_LENS_META from agent-authored content. Optional fields:
     META_LINE (auto-composed from CHANNEL/DURATION/PUBLISH_DATE/VIEWS if omitted),
     TAGS (list), CHANNEL, CHANNEL_ID, DURATION, PUBLISH_DATE, VIEWS, GENERATION_DATE,
@@ -52,6 +58,7 @@ def _schema_help() -> str:
     return (
         "EXPECTED_KEYS=" + ",".join(sorted(EXPECTED_KEYS))
         + " REQUIRED_NONEMPTY=" + ",".join(REQUIRED_NONEMPTY)
+        + ' KEY_POINTS=[{"point","why","detail"}] OUTLINE=[{"t" (seconds),"title","detail"}]'
         + " GENERATION_DATE optional (YYYY-MM-DD; defaults to today with --output-dir)"
     )
 
@@ -468,6 +475,222 @@ def _serialize_meta(meta: dict) -> str:
     return json.dumps(meta, ensure_ascii=True).replace("</", "<\\/")
 
 
+ITEM_FIELDS = {"KEY_POINTS": ("point", "why", "detail"), "OUTLINE": ("t", "title", "detail")}
+CODE_SPAN_RE = re.compile(r"`([^`\n]+)`")
+BOLD_RE = re.compile(r"\*\*(?=\S)(.+?)(?<=\S)\*\*")
+ITALIC_RE = re.compile(r"\*(?=\S)(.+?)(?<=\S)\*")
+CLOCK_RE = re.compile(r"(?:(\d+):)?(\d{1,2}):(\d{2})")
+# Inline tags a model used to the HTML-string contract may still type; read as their markers.
+OLD_INLINE_TAGS = {"strong": "**", "b": "**", "em": "*", "i": "*", "code": "`"}
+OLD_INLINE_TAG_RE = re.compile(r"<(strong|b|em|i|code)>(.*?)</\1>", re.I | re.S)
+
+
+def _as_markers(text: str) -> str:
+    return OLD_INLINE_TAG_RE.sub(lambda m: f"{OLD_INLINE_TAGS[m.group(1).lower()]}{m.group(2)}"
+                                           f"{OLD_INLINE_TAGS[m.group(1).lower()]}", text)
+
+
+def _inline_html(text: str, bold: bool = True) -> str:
+    """Escape text, then turn **bold**, *italic* and `code` into tags; nothing else
+    becomes markup. bold=False drops the ** markers (for a headline that is bold already)."""
+    out = []
+    for i, part in enumerate(CODE_SPAN_RE.split(_as_markers(text))):
+        escaped = html_lib.escape(part, quote=False)
+        if i % 2:
+            out.append(f"<code>{escaped}</code>")
+            continue
+        escaped = BOLD_RE.sub(r"<strong>\1</strong>" if bold else r"\1", escaped)
+        out.append(ITALIC_RE.sub(r"<em>\1</em>", escaped))
+    return "".join(out)
+
+
+def _plain_html(text: str) -> str:
+    """Escape text and drop inline markers: outline spans allow no inline tags."""
+    text = ITALIC_RE.sub(r"\1", BOLD_RE.sub(r"\1", CODE_SPAN_RE.sub(r"\1", _as_markers(text))))
+    return html_lib.escape(text, quote=False)
+
+
+def _clock(seconds: int) -> str:
+    """The transcript's own timestamp format: M:SS, or H:MM:SS from one hour on."""
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+def _item_error(key: str, detail: str) -> RenderValidationError:
+    shape = ", ".join(ITEM_FIELDS[key])
+    return RenderValidationError(
+        "RENDER_INVALID_ITEM",
+        f"{detail}. Each {key} item is an object with {shape}; fix that item, re-Write the payload and retry.",
+    )
+
+
+def _item_text(key: str, i: int, item: dict, field: str, required: bool = False) -> str:
+    value = item.get(field, "")
+    if value is None:
+        value = ""
+    if not isinstance(value, str):
+        raise _item_error(key, f"{key}[{i}].{field} must be a string, got {type(value).__name__}")
+    if required and not value.strip():
+        raise _item_error(key, f'{key}[{i}] needs a non-empty "{field}"')
+    return value.strip()
+
+
+def _item_seconds(i: int, value) -> int:
+    """Outline start time: seconds as a number, a digit string, or an M:SS / H:MM:SS clock."""
+    seconds = None
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+        seconds = int(value)
+    elif isinstance(value, str):
+        text = value.strip().strip("[]▶ ")
+        clock = CLOCK_RE.fullmatch(text)
+        if text.isdigit():
+            seconds = int(text)
+        elif clock:
+            h, m, s = clock.groups()
+            seconds = int(h or 0) * 3600 + int(m) * 60 + int(s)
+    if seconds is None or seconds >= 10 ** 6:
+        raise _item_error("OUTLINE", f"OUTLINE[{i}].t must be the start in seconds, e.g. 754, got {value!r}")
+    return seconds
+
+
+def _key_point_html(i: int, item: dict) -> str:
+    point = _item_text("KEY_POINTS", i, item, "point", required=True)
+    why = _item_text("KEY_POINTS", i, item, "why")
+    detail = _item_text("KEY_POINTS", i, item, "detail")
+    li = f"<li><strong>{_inline_html(point, bold=False)}</strong>"
+    if why:
+        li += f" — {_inline_html(why)}"
+    if detail:
+        li += f"<p>{_inline_html(detail)}</p>"
+    return li + "</li>"
+
+
+def _outline_html(i: int, item: dict, video_id: str) -> str:
+    if "t" not in item:
+        raise _item_error("OUTLINE", f"OUTLINE[{i}].t is missing")
+    t = _item_seconds(i, item["t"])
+    title = _item_text("OUTLINE", i, item, "title", required=True)
+    detail = _item_text("OUTLINE", i, item, "detail")
+    li = (f'<li><a class="ts" data-t="{t}" href="{_canonical_video_url(video_id)}&amp;t={t}" '
+          f'target="_blank" rel="noopener noreferrer">▶ {_clock(t)}</a> — '
+          f'<span class="outline-title">{_plain_html(title)}</span>')
+    if detail:
+        li += f'<span class="outline-detail">{_plain_html(detail)}</span>'
+    return li + "</li>"
+
+
+def items_to_html(key: str, items: list, video_id: str) -> str:
+    """025-R1: build the KEY_POINTS or OUTLINE HTML string from a JSON array.
+
+    Objects become exactly the markup a model writes by hand, which then goes
+    through the same sanitiser. A list of HTML strings (the old contract, written
+    as an array) is joined.
+    """
+    if not items:
+        raise RenderValidationError("RENDER_PAYLOAD_INVALID", f"empty_keys=['{key}']")
+    if all(isinstance(item, str) and item.lstrip().lower().startswith("<li") for item in items):
+        return "".join(items)
+    if any(isinstance(item, dict) for item in items) and any(isinstance(item, str) for item in items):
+        raise _item_error(key, f"{key} mixes strings and objects")
+    parts = []
+    for i, item in enumerate(items):
+        if not isinstance(item, dict):
+            raise _item_error(key, f"{key}[{i}] is {type(item).__name__}, not an object")
+        unknown = sorted(set(item) - set(ITEM_FIELDS[key]))
+        if unknown:
+            raise _item_error(key, f"{key}[{i}] has unknown key {unknown[0]!r}")
+        parts.append(_key_point_html(i, item) if key == "KEY_POINTS" else _outline_html(i, item, video_id))
+    return "".join(parts)
+
+
+LINT_MARKER = ".render-lint"   # in the payload's per-run directory: the lint has stopped once
+DURATION_RE = re.compile(r"(?:(\d+)h\s*)?(\d+)\s*m(?:in)?")
+
+
+class _TopLevelItems(HTMLParser):
+    """For each top-level <li>: whether it holds a <p> (a Key Point's detail)."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.depth = 0
+        self.has_p: list[bool] = []
+
+    def handle_starttag(self, tag, _attrs):
+        if tag == "li":
+            self.depth += 1
+            if self.depth == 1:
+                self.has_p.append(False)
+        elif tag == "p" and self.depth >= 1:
+            self.has_p[-1] = True
+
+    def handle_endtag(self, tag):
+        if tag == "li" and self.depth:
+            self.depth -= 1
+
+
+def _video_seconds_limit(duration: str) -> int | None:
+    """First second past the video's end, from DURATION ("12 min", "1h 36m": floored to
+    the minute by the fetchers, so the video can run to the end of that minute)."""
+    text = duration.strip()
+    clock = CLOCK_RE.fullmatch(text)
+    if clock:
+        h, m, s = clock.groups()
+        return int(h or 0) * 3600 + int(m) * 60 + int(s) + 1
+    match = DURATION_RE.fullmatch(text)
+    if match:
+        return (int(match.group(1) or 0) * 60 + int(match.group(2)) + 1) * 60
+    return None
+
+
+def _trigram_overlap(a: str, b: str) -> float:
+    """Share of a's word trigrams that also occur in b (1.0 = a restates b)."""
+    def trigrams(text):
+        words = re.findall(r"\w+", text.lower())
+        return {tuple(words[i:i + 3]) for i in range(len(words) - 2)}
+    ta = trigrams(a)
+    return len(ta & trigrams(b)) / len(ta) if ta else 0.0
+
+
+def lint_payload(data: dict, clean: dict) -> list[str]:
+    """025-R5: deterministic quality checks on a payload that already passed the
+    sanitiser. Each problem names its fix. Works on the clean HTML, so the older
+    HTML-string payloads are checked the same way as arrays."""
+    problems = []
+    scan = _TopLevelItems()
+    scan.feed(clean["KEY_POINTS"])
+    scan.close()
+    n = len(scan.has_p)
+    if not 3 <= n <= 8:
+        problems.append(f"KEY_POINTS has {n} item{'' if n == 1 else 's'}; write 3–8")
+    with_detail = sum(scan.has_p)
+    if n and with_detail * 2 < n:
+        problems.append(f"detail on {with_detail} of {n} Key Points; give most of them "
+                        "the 2–4 sentence analytical paragraph")
+
+    times = [int(t) for t in re.findall(r'data-t="(\d+)"', clean["OUTLINE"])]
+    out_of_order = [f"OUTLINE[{i}].t is {t}, after {prev}" for i, (prev, t) in enumerate(zip(times, times[1:]), 1)
+                    if t <= prev]
+    if out_of_order:
+        problems.append("; ".join(out_of_order[:3]) + "; start times must increase")
+    limit = _video_seconds_limit(str(data.get("DURATION", "")))
+    beyond = [f"OUTLINE[{i}].t is {t}" for i, t in enumerate(times) if limit is not None and t >= limit]
+    if beyond:
+        problems.append("; ".join(beyond[:3]) + f", beyond the video's {str(data['DURATION']).strip()}; "
+                        "take start times from the transcript's [M:SS] stamps")
+
+    tags = data.get("TAGS")
+    tag_count = len(_normalize_tags(tags)) if isinstance(tags, list) else 0
+    if not 3 <= tag_count <= 5:
+        problems.append(f"TAGS has {tag_count}; use 3–5")
+
+    overlap = _trigram_overlap(str(data.get("TAKEAWAY", "")), str(data.get("SUMMARY", "")))
+    if overlap > 0.5:
+        problems.append(f"TAKEAWAY repeats the SUMMARY ({overlap:.0%} of its phrases); "
+                        "say something the Summary does not")
+    return problems
+
+
 def sanitise_html(key: str, value: str, video_id: str) -> str:
     parser = AllowlistSanitiser(key, video_id)
     parser.feed(value)
@@ -486,6 +709,9 @@ def sanitise_payload(data: dict, output_path: str = "") -> dict:
         raise RenderValidationError("RENDER_INVALID_VIDEO_URL", f"invalid video url: {video_url!r}")
 
     data = {**data, "META_LINE": _maybe_compose_meta_line(data)}
+    for key in ITEM_FIELDS:
+        if isinstance(data.get(key), list):
+            data[key] = items_to_html(key, data[key], video_id)
 
     clean = {}
     clean["VIDEO_ID"] = video_id
@@ -494,9 +720,11 @@ def sanitise_payload(data: dict, output_path: str = "") -> dict:
     for key in (*PLAINTEXT_KEYS, *HTML_KEYS):
         value = data.get(key, "")
         if not isinstance(value, str):
+            kind = "an HTML string" if key in HTML_KEYS else "plain text, one string"
             raise RenderValidationError(
                 "RENDER_INVALID_TYPE",
-                f"key={key} expected string, got {type(value).__name__}",
+                f"key={key} expected string, got {type(value).__name__}. {key} is {kind}; "
+                "fix it, re-Write the payload and retry.",
             )
 
     for key in PLAINTEXT_KEYS:
@@ -506,9 +734,15 @@ def sanitise_payload(data: dict, output_path: str = "") -> dict:
         try:
             clean[key] = sanitise_html(key, data.get(key, ""), video_id)
         except _Disallowed as e:
+            if key in ITEM_FIELDS:
+                fix = (f"Write {key} as an array of objects ({', '.join(ITEM_FIELDS[key])}): their text "
+                       "is never read as HTML. In a string, text in angle brackets like <branch-name> "
+                       "is read as a tag; rephrase it without < >.")
+            else:
+                fix = 'Put YTDLP_DESC_HTML inside the wrapper unchanged, or set DESCRIPTION_SECTION to "".'
             raise RenderValidationError(
                 "RENDER_DISALLOWED_HTML",
-                f"key={key} reason={e}",
+                f"key={key} reason={e}. {fix} Re-Write the payload and retry.",
             ) from e
 
     meta = _build_meta_dict(data, clean["KEY_POINTS"], output_path)
@@ -669,19 +903,34 @@ def main():
     if args.path is None and args.output_dir is None and args.replace is None:
         parser.error("one of path, --output-dir or --replace is required")
 
+    # SKILL.md allows one fixed retry, so the lint (025-R5) may stop a run only while
+    # nothing else has: any rejection leaves a marker in the per-run payload directory,
+    # and with the marker present the lint only warns. Only the skill's own form of the
+    # call (--payload-file with --output-dir or --replace) is ever stopped by it.
+    lint_marker = None
+    if args.payload_file and args.path is None:
+        lint_marker = pathlib.Path(args.payload_file).expanduser().parent / LINT_MARKER
+
+    def reject(message: str):
+        if lint_marker is not None:
+            try:
+                lint_marker.touch()
+            except OSError:
+                pass
+        print(message, file=sys.stderr)
+        sys.exit(1)
+
     if args.payload_file:
         try:
             raw = pathlib.Path(args.payload_file).expanduser().read_text(encoding="utf-8")
         except OSError as e:
-            print(f"ERROR:RENDER_PAYLOAD_FILE_UNREADABLE {e}", file=sys.stderr)
-            sys.exit(1)
+            reject(f"ERROR:RENDER_PAYLOAD_FILE_UNREADABLE {e}")
     else:
         raw = sys.stdin.read()
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
-        print(f"ERROR:RENDER_INVALID_JSON {e}", file=sys.stderr)
-        sys.exit(1)
+        reject(f"ERROR:RENDER_INVALID_JSON {e}")
 
     problems: list[str] = []
 
@@ -693,22 +942,18 @@ def main():
     if empty:
         problems.append(f"empty_keys={empty}")
 
-    if args.output_dir is not None:
-        gen_date = str(data.get("GENERATION_DATE", "")).strip()
-        if not gen_date:
-            # Default to today rather than rejecting: the filename's HHMMSS already
-            # comes from datetime.now(), so deriving the date from the same clock is
-            # both simpler and more correct when a run crosses midnight.
-            data["GENERATION_DATE"] = date.today().isoformat()
-        elif not re.fullmatch(r"\d{4}-\d{2}-\d{2}", gen_date):
-            problems.append(f"bad_format_keys=['GENERATION_DATE'] (got {gen_date!r}, expected YYYY-MM-DD)")
+    gen_date = str(data.get("GENERATION_DATE", "")).strip()
+    if args.output_dir is not None and not gen_date:
+        # Default to today rather than rejecting: the filename's HHMMSS already
+        # comes from datetime.now(), so deriving the date from the same clock is
+        # both simpler and more correct when a run crosses midnight. --replace
+        # takes the report's own date instead (_prepare_replace).
+        data["GENERATION_DATE"] = date.today().isoformat()
+    elif args.path is None and gen_date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", gen_date):
+        problems.append(f"bad_format_keys=['GENERATION_DATE'] (got {gen_date!r}, expected YYYY-MM-DD)")
 
     if problems:
-        print(
-            "ERROR:RENDER_PAYLOAD_INVALID " + " ".join(problems) + " " + _schema_help(),
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        reject("ERROR:RENDER_PAYLOAD_INVALID " + " ".join(problems) + " " + _schema_help())
 
     if args.output_dir is not None:
         target = str(pathlib.Path(args.output_dir).expanduser() / _derived_filename(data))
@@ -721,16 +966,27 @@ def main():
         if args.replace is not None:
             _prepare_replace(data, target)
         output_path = validate_output_path(target)
-        result = render_from_payload(data, str(output_path))
+        clean = sanitise_payload(data, str(output_path))
+        lint = lint_payload(data, clean) if args.path is None else []
+        if lint and lint_marker is not None and not lint_marker.exists() and lint_marker.parent.is_dir():
+            numbered = " ".join(f"({i}) {p}." for i, p in enumerate(lint, 1))
+            raise RenderValidationError(
+                "RENDER_LINT",
+                f"{len(lint)} problem{'' if len(lint) == 1 else 's'}: {numbered} Fix "
+                f"{'it' if len(lint) == 1 else 'them'}, re-Write the payload and render again; "
+                "the next render saves the report and only warns.",
+            )
+        for problem in lint:
+            print(f"RENDER_WARN: {problem}", file=sys.stderr)
+        result = _render_clean(clean, str(output_path))
+        if lint_marker is not None:
+            lint_marker.unlink(missing_ok=True)
     except RenderValidationError as e:
-        print(f"ERROR:{e.code} {e.detail}", file=sys.stderr)
-        sys.exit(1)
+        reject(f"ERROR:{e.code} {e.detail}")
     except FileNotFoundError as e:
-        print(f"ERROR:RENDER_TEMPLATE_NOT_FOUND {e}", file=sys.stderr)
-        sys.exit(1)
+        reject(f"ERROR:RENDER_TEMPLATE_NOT_FOUND {e}")
     except ValueError as e:
-        print(f"ERROR:{e}", file=sys.stderr)
-        sys.exit(1)
+        reject(f"ERROR:{e}")
 
     print(f"OUTPUT_PATH: {result}")
 
