@@ -11,9 +11,11 @@ URL_OR_ID may be:
   ("dQw4w9WgXcQ es", "https://youtu.be/… in Spanish, focus on pricing")
 
 The request is read for a transcript language: a language name in English or in
-the language itself ("Spanish", "español"), or a code ("es", "pt-BR") given
-alone or with filler words ("in es", "de subtitles"). Words other than the
-language and filler make the whole request an EXTRA_REQUEST.
+the language itself ("Spanish", "español") next to a cue ("in Spanish", "German
+subtitles") or alone in its clause, or a code ("es", "pt-BR") given alone or with
+filler words ("in es", "de subtitles"). A name inside the topic ("the German
+economy") is not a language request. Words other than the language and filler
+make the whole request an EXTRA_REQUEST.
 
 Stdout on success (lines that apply only):
     VIDEO_ID: <11 chars>
@@ -95,6 +97,14 @@ REQUEST_FILLER = {
     "transcript", "track", "version", "audio",
     "en", "auf", "im", "mit", "untertitel", "sous-titres", "con", "subtítulos",
 }
+# A language name next to one of these asks for that language ("in German",
+# "German subtitles"); elsewhere it may be part of the topic ("the German economy").
+LANGUAGE_CUES = {
+    "in", "into", "auf", "en", "im", "language", "lang", "subtitles", "subtitle", "subs",
+    "captions", "caption", "cc", "transcript", "track", "version", "audio",
+    "untertitel", "sous-titres", "subtítulos",
+}
+CLAUSE_SPLIT_RE = re.compile(r"[,;:.!?()/]+")
 REQUEST_WORD_RE = re.compile(r"[^\W_]+(?:-[^\W_]+)*")
 LANG_CODE_RE = re.compile(r"^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$")
 YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com"}
@@ -133,12 +143,30 @@ def extract_video_id(raw: str) -> tuple[str, str | None]:
     return "", "INVALID_INPUT"
 
 
+def _requested_language_name(text: str) -> str | None:
+    """The first language name that asks for a language: one next to a cue word
+    ("in German", "German subtitles"), or alone with filler in its clause
+    ("Spanish, focus on pricing"). Inside a topic ("the German economy") it does not."""
+    for clause in CLAUSE_SPLIT_RE.split(text):
+        words = REQUEST_WORD_RE.findall(clause)
+        for i, word in enumerate(words):
+            if word not in LANGUAGE_MAP:
+                continue
+            neighbours = words[max(i - 1, 0):i] + words[i + 1:i + 2]
+            others = words[:i] + words[i + 1:]
+            if any(n in LANGUAGE_CUES for n in neighbours) or all(o in REQUEST_FILLER for o in others):
+                return word
+    return None
+
+
 def parse_request(raw: str) -> tuple[str, str]:
     """Split the user's request into (language code, extra request).
 
-    A language name counts anywhere in the request. A code counts only when it
-    stands alone or among filler words: inside a sentence, two-letter words are
-    too often ordinary words ("de" in "resumen de la charla", "it" in "focus on it").
+    A language name counts next to a language cue or alone in its clause (see
+    _requested_language_name). A code counts only when it stands alone or among
+    filler words: inside a sentence, two-letter words are too often ordinary words
+    ("de" in "resumen de la charla", "it" in "focus on it"). "en" is filler, for
+    "resumen en español", unless the request holds nothing but filler ("en subtitles").
     Unknown codes pass through; fetch_transcript.py emits LANG_WARN: for them.
 
     The extra request is the whole request, verbatim, whenever it holds words
@@ -149,7 +177,7 @@ def parse_request(raw: str) -> tuple[str, str]:
     if not words:
         return "", ""
 
-    lang_word = next((w for w in words if w in LANGUAGE_MAP), None)
+    lang_word = _requested_language_name(text.lower())
     if lang_word is not None:
         lang_code = LANGUAGE_MAP[lang_word]
     elif len(words) == 1 and LANG_CODE_RE.fullmatch(words[0]):
@@ -158,6 +186,8 @@ def parse_request(raw: str) -> tuple[str, str]:
         content = [w for w in words if w not in REQUEST_FILLER]
         if len(content) == 1 and LANG_CODE_RE.fullmatch(content[0]):
             lang_word = lang_code = content[0]
+        elif not content and "en" in words:
+            lang_word = lang_code = "en"
         else:
             lang_code = ""
 

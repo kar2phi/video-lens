@@ -28,19 +28,19 @@ search away. New items from the 5.4 review are `027-B*` and `027-E*`.
 
 | ID | Item | Status | Effort | Depends on |
 |---|---|---|---|---|
-| **027-B1** | `en` with a filler word sets no language | Ready | XS | — |
-| **027-B2** | A language name inside a focus request becomes the transcript language | Ready | S | — |
-| 027-B3 | Two minor edges: `--replace` date format, `zh-Hans` ↔ `zh-Hant` | Ready | XS | — |
-| **027-E1** | Eval fixtures for a focus request and a revision | Ready | S | — |
-| **025-R1** | `KEY_POINTS` / `OUTLINE` as JSON arrays | Ready | M | E1 |
-| **025-R5** | Payload lint with one retry (024-N4) | Ready | M | R1; R2 or a marker |
+| **027-B1** | `en` with a filler word sets no language | Done | XS | — |
+| **027-B2** | A language name inside a focus request becomes the transcript language | Done (a) | S | — |
+| 027-B3 | Two minor edges: `--replace` date format, `zh-Hans` ↔ `zh-Hant` | Done | XS | — |
+| **027-E1** | Eval fixtures for a focus request and a revision | Built; baseline not run | S | — |
+| **025-R1** | `KEY_POINTS` / `OUTLINE` as JSON arrays | Built; A/B pending | M | E1 |
+| **025-R5** | Payload lint with one retry (024-N4) | Built (marker); A/B pending | M | R1; R2 or a marker |
 | 025-R3 | One fetch call instead of two | Ready | S–M | — |
 | 025-R4 | Index rebuild and serve in one call | Ready | S | — |
 | 025-R2 | Run directory: scripts hand data to the renderer | Ready | M | — |
 | 024-N1 | Transcript sidecar | Ready | S after R2 | R2 |
 | 024-U6 | `<html lang>` and provenance in meta (023-F2/F3) | Ready | S after R2 | R2 |
 | 024-U1 | Gallery groups re-runs of one video | Ready | M | U3 (model names) |
-| 025-§4.3 | Render errors that carry their own fix | Ready | S | — |
+| 025-§4.3 | Render errors that carry their own fix | Done, with R1 | S | — |
 | 025-S3c | First Step 3 compression pass | Decide | M | E1, R1, R2 |
 | 024-H2 | Env vars switch off the output-path clamp | Decide | M | — |
 | 024-H3 | Scoped permissions for the Raycast launcher | Decide | M | — |
@@ -55,6 +55,30 @@ search away. New items from the 5.4 review are `027-B*` and `027-E*`.
 | 026 | `video-lens-recs`, a third skill | Separate track | L | its own spec |
 
 A suggested order is at the end (§6).
+
+**Progress, 2026-10-24.** B1–B3, E1, R1, R5 and §4.3 are built, tests first, on branch
+`kar2phi/backlog-027` (CHANGELOG `[Unreleased]`). Choices made on the way:
+
+- **B2:** option (a). A name also counts alone in its clause, so `Spanish, focus on
+  pricing` keeps `es`; `explain it in plain English` no longer sets `en`.
+- **B3 `zh-Hans`:** neither of the two options. Excluding the script match would fall
+  back to the original track, often English, which is worse than the other script. A
+  same-script or script-less track wins; another script is used with a `LANG_WARN:`.
+- **R1:** the renderer builds the HTML string from the items and sends it through the
+  existing sanitiser, so security stays in one place and the output is byte-identical.
+  Lenient where a retry would be wasted: `t` as `"12:34"`, a list of `<li>` strings,
+  `<strong>`/`<em>` typed inside item text. Strict, with the fix in the message, on unknown
+  item keys such as `paragraph`.
+- **R5:** a marker file (`.render-lint`) in the per-run payload directory, not R2. Any
+  rejection sets it, not just the lint's, because SKILL.md allows one retry: a run
+  rejected for bad JSON must not then be stopped again by the lint. A successful render
+  clears it, so a revision gets its own single stop.
+- **E1:** `focus` reuses the `lang-request` video and transcript, which makes
+  `lang-request` its no-focus control (`focus_kp_share` on both). `revision` resumes the
+  same agent session for the second turn.
+
+Not yet done: the E1 baseline and the R1 + R5 A/B on Claude and qwen. YouTube blocked
+this IP's transcript requests all session, and the eval cannot fetch its inputs.
 
 ---
 
@@ -394,10 +418,9 @@ nice-to-have.
 ## 6. Separate track: `video-lens-recs`
 
 `concepts/026-video-lens-recs-concept.md` is the approved spec for a third skill that
-recommends YouTube videos by topic. It is kept on the local branch `kar2phi/video-recs`
-and is not pushed. Implementation starts at its phase P0. Its P5 proposes one
-video-lens change, a `channelId` in the meta block plus a backfill, which should be
-coordinated with R2 if both are in flight.
+recommends YouTube videos by topic. It was built (phases P0–P5) and merged in PR #10 on
+2026-10-29; its open owner decisions are in 026 §17. Its P5 video-lens change, a
+`channelId` in the meta block plus a backfill, shipped with it, so R2 builds on top of it.
 
 ---
 

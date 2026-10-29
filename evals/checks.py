@@ -147,7 +147,14 @@ def length_band(duration_s):
 
 # ---------- metrics ----------
 
-def report_metrics(rep: dict, duration_s=None, chapters=None, existing_tags=None) -> dict:
+def focus_hits(rep: dict, pattern: str) -> dict:
+    """Where a focus pattern (a regex over the focus's own words) shows up in a report."""
+    rx = re.compile(pattern, re.I)
+    return {"summary": bool(rx.search(rep["summary"])), "takeaway": bool(rx.search(rep["takeaway"])),
+            "key_points": [bool(rx.search(k["text"])) for k in rep["key_points"]]}
+
+
+def report_metrics(rep: dict, duration_s=None, chapters=None, existing_tags=None, focus=None) -> dict:
     kps, outline = rep["key_points"], rep["outline"]
     tags = (rep["meta"] or {}).get("tags") or []
     times = [o["t"] for o in outline]
@@ -186,6 +193,9 @@ def report_metrics(rep: dict, duration_s=None, chapters=None, existing_tags=None
     if existing_tags is not None and tags:
         known = set(existing_tags)
         m["tags_reused_share"] = round(sum(t in known for t in tags) / len(tags), 2)
+    if focus:
+        hits = focus_hits(rep, focus)["key_points"]
+        m["focus_kp_share"] = round(sum(hits) / len(hits), 2) if hits else 0.0
     return m
 
 
@@ -267,6 +277,15 @@ def load_trace(lines, agent: str) -> dict:
     return trace
 
 
+def merge_traces(first: dict, second: dict) -> dict:
+    """One trace for a two-turn case: calls in order, the last turn's answer, costs summed."""
+    costs = [t["cost_usd"] for t in (first, second) if t["cost_usd"] is not None]
+    return {"calls": first["calls"] + second["calls"], "final": second["final"] or first["final"],
+            "model": first["model"] or second["model"],
+            "permission_denials": first["permission_denials"] + second["permission_denials"],
+            "cost_usd": round(sum(costs), 6) if costs else None, "turns": first["turns"] + second["turns"]}
+
+
 def trace_metrics(trace: dict) -> dict:
     calls = trace["calls"]
     renders = [c for c in calls if c["name"] == "bash" and "render_report.py" in c["target"]
@@ -275,6 +294,8 @@ def trace_metrics(trace: dict) -> dict:
         "tool_calls": len(calls),
         "bash_calls": sum(c["name"] == "bash" for c in calls),
         "render_attempts": len(renders),
+        "lint_stops": sum("ERROR:RENDER_LINT" in c["output"] for c in renders),
+        "lint_warnings": sum(c["output"].count("RENDER_WARN:") for c in renders),
         "turns": trace["turns"],
         "cost_usd": trace["cost_usd"],
         "final_has_url": bool(re.search(r"http://localhost:\d+/reports/\S+\.html", trace["final"])),
@@ -312,6 +333,9 @@ def gates(fixture: dict, trace, report, report_count: int, chapters=None) -> dic
     g["report_written"] = report_count > 0
     if trace is not None:
         g["html_report_seen"] = served
+        if fixture.get("request"):
+            g["extra_request_seen"] = any("EXTRA_REQUEST:" in c["output"]
+                                          for c in bash if "preflight.py" in c["target"])
         renders = [c for c in bash if "render_report.py" in c["target"] and "--schema" not in c["target"]]
         accepted = [i for i, c in enumerate(renders) if "OUTPUT_PATH:" in c["output"]]
         g["render_ok_within_retry"] = bool(accepted) and accepted[0] <= 1
@@ -329,7 +353,45 @@ def gates(fixture: dict, trace, report, report_count: int, chapters=None) -> dic
         g["lang_warn_flagged"] = "⚠" in report["meta_line"]
     if expect.get("chapters") and chapters:
         g["chapters_anchored"] = report_metrics(report, chapters=chapters)["chapter_t_match"] >= 0.8
+    if expect.get("focus"):
+        # SKILL.md Step 3: more room for the focus, the same sections, the rest still covered.
+        hits = focus_hits(report, expect["focus"])
+        g["focus_reflected"] = (hits["summary"] or hits["takeaway"]) and any(hits["key_points"])
+        g["focus_rest_covered"] = len(hits["key_points"]) >= 3 and not all(hits["key_points"])
     return g
+
+
+# Shell commands that rewrite a file in place; a revision must re-render instead.
+IN_PLACE_EDIT_RE = re.compile(r"\bsed\b[^|;&]*\s-i|\bperl\b[^|;&]*\s-\w*i|>\s*\S*\.html|\btee\b|write_text|\.write\(")
+
+
+def revision_gates(before, before_name, after, final_names, turn2) -> dict:
+    """Gates for a revision turn (025 S8): `before` is the first turn's report, `after` the
+    report once the revision is done, `final_names` every report file of the video by then."""
+    if before is None:
+        return {"revision_ran": False}
+    renders = [c for c in turn2["calls"] if c["name"] == "bash" and "render_report.py" in c["target"]]
+    edits = [c for c in turn2["calls"] if ".html" in c["target"] and (
+        c["name"] in ("write", "edit") or c["name"] == "bash" and IN_PLACE_EDIT_RE.search(c["target"])
+        and not re.search(r"render_report\.py|serve_report\.sh|build_index\.py", c["target"]))]
+    date_before = (before["meta"] or {}).get("generationDate")
+    return {
+        "revision_ran": True,
+        "revision_one_file": len(final_names) == 1,
+        "revision_same_file": list(final_names) == [before_name],
+        "revision_date_kept": after is not None and bool(date_before)
+                              and (after["meta"] or {}).get("generationDate") == date_before,
+        "revision_takeaway_changed": after is not None and bool(after["takeaway"])
+                                     and after["takeaway"] != before["takeaway"],
+        "revision_used_replace": any("--replace" in c["target"] for c in renders),
+        "revision_no_html_edit": not edits,
+    }
+
+
+def revision_metrics(before, after) -> dict:
+    if before is None or after is None:
+        return {}
+    return {"revision_summary_kept": after["summary"] == before["summary"]}
 
 
 # ---------- library CLI ----------
