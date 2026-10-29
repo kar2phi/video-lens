@@ -13,6 +13,12 @@ it was reconstructed from.
 The new **video-lens-recs** skill (0.1), built from `concepts/026-video-lens-recs-concept.md`
 phases P0–P5, and the small video-lens and gallery changes it needs.
 
+Also items from `concepts/027-open-backlog.md`: the three 5.4 review bugs (B1–B3), the eval
+fixtures for a focus and a revision (E1), and the two qwen quality levers, structured Key
+Points and Outline (025-R1) and payload lint (025-R5), with self-explaining render errors
+(025-§4.3). Script changes landed tests first (fast suite: 243 passed). The SKILL.md part
+of R1 still needs the A/B gate on Claude and qwen before release.
+
 ### Added
 
 - `skills/video-lens-recs/`: recommends recent videos on a topic from your subscribed
@@ -55,6 +61,21 @@ phases P0–P5, and the small video-lens and gallery changes it needs.
   `record --extend` adds the source pulls a changed collect needs, and `label --review`
   walks through drafted labels.
 
+- Payload lint (025-R5 / 024-N4). On the skill's render call, the renderer checks: 3–8 Key
+  Points, a `detail` on most of them, outline times that increase and stay within the
+  video's duration, 3–5 tags, and a Takeaway that does not repeat the Summary. The first
+  failure stops with `ERROR:RENDER_LINT`, numbering every fix, and writes nothing. Any
+  rejection leaves a marker in the run's payload directory, so the next render of that run
+  only prints `RENDER_WARN:` lines and saves the report: within SKILL.md's one retry, a run
+  can never get stuck.
+- Eval fixtures `focus` (a language plus a focus, with `lang-request` as its no-focus
+  control) and `revision` (a second turn, "Tighten the takeaway…", in the same session) in
+  the slim set (027-E1). New gates: `extra_request_seen`, `focus_reflected`,
+  `focus_rest_covered`, and `revision_*` (one file, same file, date kept, takeaway changed,
+  `--replace` used, no hand edit of the HTML). New metrics: `focus_kp_share`,
+  `revision_summary_kept`, `lint_stops`, `lint_warnings`. `run_eval.py` runs a follow-up turn
+  with `claude --resume` or `pi --session-dir … --continue`.
+
 ### Changed
 
 - The Raycast script prefers cmux, then iTerm2, then Terminal.app. In cmux it opens a fresh
@@ -67,6 +88,33 @@ phases P0–P5, and the small video-lens and gallery changes it needs.
 - A blank model argument now means `claude-haiku-5-5` instead of the CLI default; any model
   typed in still passes through verbatim. `install-raycast` blanks the default again for the
   non-Claude agents, whose CLIs do not know that ID.
+
+- `KEY_POINTS` and `OUTLINE` are JSON arrays (025-R1):
+  `[{"point", "why", "detail"}]` and `[{"t", "title", "detail"}]`. The renderer escapes the
+  text, converts `**bold**`, `*italic*` and `` `code` ``, and builds the links, `data-t` and
+  the displayed times from `t`, which may also be `"12:34"`. The HTML is byte-identical to
+  the hand-written form, so the template, the Markdown export, `build_index` and the gallery
+  are unchanged. HTML strings still work, and a list of `<li>` strings, the most common
+  rejection under the old contract, is now joined instead of rejected. SKILL.md Step 3
+  describes the fields instead of HTML, and Step 4 loses its two longest rows.
+- Render errors carry their own fix (025-§4.3): `RENDER_DISALLOWED_HTML`,
+  `RENDER_INVALID_TYPE` and the new `RENDER_INVALID_ITEM` (naming the item, e.g.
+  `KEY_POINTS[2] has unknown key 'paragraph'`) say what to change. SKILL.md's list of
+  rejection causes is one line now.
+
+### Fixed
+
+- `en` next to a filler word set no language (027-B1): `en subtitles`, `in en` and
+  `with en captions` now give `LANG_CODE: en`. `resumen en español` still gives `es`.
+- A language name inside a focus became the transcript language (027-B2): `focus on the
+  German economy` set `de`. A name now counts next to a language cue (`in`, `auf`, `en`,
+  `subtitles`, `captions`, `transcript`, …) or alone in its clause (`Spanish, focus on
+  pricing`), so the topic stays in `EXTRA_REQUEST:` and the language stays unset.
+- `render_report.py --replace` now checks a supplied `GENERATION_DATE` is `YYYY-MM-DD`, as
+  `--output-dir` does (027-B3).
+- A `zh-Hans` request could take a `zh-Hant` track silently (027-B3). A track in the same
+  script, or with none (`zh`), is preferred; another script is still used when nothing
+  closer exists, with a `LANG_WARN:`.
 
 ## [5.4] — 2026-10-22
 

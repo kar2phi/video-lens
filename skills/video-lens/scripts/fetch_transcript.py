@@ -109,19 +109,29 @@ def _is_dub(t):
     return urllib.parse.parse_qs(query).get("variant") == ["timing-optimized"]
 
 
+def _script_subtag(code):
+    """The script subtag of a lowercased code (zh-hans → hans), or ''."""
+    return next((p for p in code.split("-")[1:] if len(p) == 4 and p.isalpha()), "")
+
+
 def pick_transcript(tlist, lang_pref):
     """Return (transcript, LANG_WARN line or None). Originals rank before auto-dubs; a
-    requested language matches exactly first, then by primary subtag (de ↔ de-DE)."""
+    requested language matches exactly first, then by primary subtag (de ↔ de-DE).
+    A track in another script (zh-Hans ↔ zh-Hant) is used only when nothing closer
+    exists, and with a warning."""
     tracks = sorted(tlist, key=_is_dub)   # stable: keeps manual-before-generated order
     if not lang_pref:
         return tracks[0], None
     want = lang_pref.lower()
+    script = _script_subtag(want)
+    related = [t for t in tracks if t.language_code.lower().split("-")[0] == want.split("-")[0]]
     for same in (lambda code: code == want,
-                 lambda code: code.split("-")[0] == want.split("-")[0]):
-        for t in tracks:
+                 lambda code: not script or _script_subtag(code) in ("", script)):
+        for t in related:
             if same(t.language_code.lower()):
                 return t, None
-    return tracks[0], f'LANG_WARN: Requested language "{lang_pref}" not available; using {tracks[0].language_code}'
+    fallback = related[0] if related else tracks[0]
+    return fallback, f'LANG_WARN: Requested language "{lang_pref}" not available; using {fallback.language_code}'
 
 
 def main():

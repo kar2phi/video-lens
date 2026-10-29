@@ -78,6 +78,21 @@ def test_an_unavailable_language_warns_and_falls_back_to_the_original():
     assert warn == 'LANG_WARN: Requested language "ja" not available; using de'
 
 
+def test_a_script_subtag_match_prefers_a_track_without_another_script():
+    """027-B3: zh-Hans and zh-Hant are one language in two scripts."""
+    assert pick([Track("zh-Hant"), Track("zh")], "zh-Hans") == ("zh", True, None)
+
+
+def test_another_script_is_still_used_but_warns():
+    code, _, warn = pick([Track("en"), Track("zh-Hant")], "zh-Hans")
+    assert code == "zh-Hant"
+    assert warn == 'LANG_WARN: Requested language "zh-Hans" not available; using zh-Hant'
+
+
+def test_a_request_without_a_script_matches_any_script_silently():
+    assert pick([Track("en"), Track("zh-Hant")], "zh") == ("zh-Hant", True, None)
+
+
 def test_tracks_without_a_url_are_treated_as_originals():
     t = Track("en")
     del t._url

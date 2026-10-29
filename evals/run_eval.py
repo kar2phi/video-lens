@@ -36,6 +36,7 @@ import tarfile
 import tempfile
 import threading
 import time
+import uuid
 from datetime import datetime
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -124,43 +125,39 @@ def ground_truth(video: str, use_cache: bool) -> dict:
 
 
 def agent_command(agent, skill_dir: pathlib.Path, work: pathlib.Path, prompt_args: str,
-                  model, extra) -> list:
+                  model, extra, session=None, followup=None) -> list:
+    """The agent CLI call for one turn. `session` (a claude session id, or a pi session
+    directory) keeps a conversation for a `followup` turn, which resumes it."""
     if agent == "claude":
         skills = work / ".claude" / "skills"
-        skills.mkdir(parents=True)
-        (skills / "video-lens").symlink_to(skill_dir)
+        if followup is None:
+            skills.mkdir(parents=True, exist_ok=True)
+            (skills / "video-lens").symlink_to(skill_dir)
         # --setting-sources project: only the project skill above loads, never ~/.claude/skills.
         cmd = ["claude", "-p", "--output-format", "stream-json", "--verbose",
                "--setting-sources", "project", "--dangerously-skip-permissions",
                "--allowedTools", "Bash,Read,Write"]
-        prompt = ["--", f"/video-lens {prompt_args}"]
+        if session:
+            cmd += ["--resume" if followup is not None else "--session-id", session]
+        prompt = ["--", followup if followup is not None else f"/video-lens {prompt_args}"]
     else:
-        cmd = ["pi", "-p", "--mode", "json", "--no-session", "--no-skills",
-               "--no-context-files", "--skill", str(skill_dir)]
-        prompt = [f"/skill:video-lens {prompt_args}"]
+        cmd = ["pi", "-p", "--mode", "json"]
+        if session:
+            cmd += ["--session-dir", session] + (["--continue"] if followup is not None else [])
+        else:
+            cmd += ["--no-session"]
+        cmd += ["--no-skills", "--no-context-files", "--skill", str(skill_dir)]
+        prompt = [followup if followup is not None else f"/skill:video-lens {prompt_args}"]
     if model:
         cmd += ["--model", model]
     return cmd + extra + prompt
 
 
-def run_case(fixture, run_idx, args, skill, out: pathlib.Path) -> dict:
-    case = out / f"{fixture['name']}-{run_idx}"
-    case.mkdir(parents=True)
-    # cwd outside any git repo: inside this one, Claude Code attaches the repo's CLAUDE.md
-    # and auto-memory to the session, which no real user run would have.
-    work = pathlib.Path(tempfile.mkdtemp(prefix=f"video-lens-eval-{fixture['name']}-"))
-    url = f"https://www.youtube.com/watch?v={fixture['video']}"
-    prompt_args = f"{url} {fixture.get('lang', '')}".strip()
-    cmd = agent_command(args.agent, pathlib.Path(skill["path"]), work, prompt_args,
-                        args.model, shlex.split(args.agent_args or ""))
-    (case / "command.txt").write_text(shlex.join(cmd) + "\n", encoding="utf-8")
-
-    truth = ground_truth(fixture["video"], use_cache=not args.live)
-    started = time.time()
+def run_agent(cmd, work: pathlib.Path, case: pathlib.Path, trace_name: str, args):
+    """Run one agent turn; the trace goes to case/trace_name. Returns (returncode, timed_out)."""
     timed_out = threading.Event()
-    trace_path = case / "trace.jsonl"
-    with open(trace_path, "w", encoding="utf-8") as trace_file, \
-            open(case / "stderr.txt", "w", encoding="utf-8") as err_file:
+    with open(case / trace_name, "w", encoding="utf-8") as trace_file, \
+            open(case / "stderr.txt", "a", encoding="utf-8") as err_file:
         proc = subprocess.Popen(cmd, cwd=work, stdout=subprocess.PIPE, stderr=err_file, text=True,
                                 env={**os.environ, "NO_BROWSER": "1", replay.LOG_ENV: str(case / "replay.jsonl")})
         watchdog = threading.Timer(args.timeout, lambda: (timed_out.set(), proc.kill()))
@@ -170,21 +167,58 @@ def run_case(fixture, run_idx, args, skill, out: pathlib.Path) -> dict:
                 trace_file.write(line)
         proc.wait()
         watchdog.cancel()
+    return proc.returncode, timed_out.is_set()
+
+
+def new_reports(video: str, since: float) -> list:
+    """Reports of `video` in the live library written or rewritten since `since`, oldest first."""
+    return sorted((p for p in (LIBRARY / "reports").glob(f"*video-lens_{video}_*.html")
+                   if p.stat().st_mtime >= since - 1), key=lambda p: p.stat().st_mtime)
+
+
+def run_case(fixture, run_idx, args, skill, out: pathlib.Path) -> dict:
+    case = out / f"{fixture['name']}-{run_idx}"
+    case.mkdir(parents=True)
+    # cwd outside any git repo: inside this one, Claude Code attaches the repo's CLAUDE.md
+    # and auto-memory to the session, which no real user run would have.
+    work = pathlib.Path(tempfile.mkdtemp(prefix=f"video-lens-eval-{fixture['name']}-"))
+    url = f"https://www.youtube.com/watch?v={fixture['video']}"
+    # `request` is what the user typed after the URL; `lang` alone is the short form of it.
+    prompt_args = f"{url} {fixture.get('request') or fixture.get('lang', '')}".strip()
+    followup = fixture.get("followup")
+    session = None
+    if followup:   # a revision: a second turn in the same conversation
+        session = str(uuid.uuid4()) if args.agent == "claude" else str(work / ".pi-sessions")
+    agent = (args.agent, pathlib.Path(skill["path"]), work, prompt_args, args.model,
+             shlex.split(args.agent_args or ""))
+    commands = [agent_command(*agent, session=session)]
+
+    truth = ground_truth(fixture["video"], use_cache=not args.live)
+    started = time.time()
+    returncode, timed_out = run_agent(commands[0], work, case, "trace.jsonl", args)
+    first_report = None
+    if followup and returncode == 0 and not timed_out and new_reports(fixture["video"], started):
+        # Keep the first turn's report in the library: the revision must --replace it there.
+        first_report = new_reports(fixture["video"], started)[-1]
+        shutil.copy(first_report, case / f"turn1-{first_report.name}")
+        commands.append(agent_command(*agent, session=session, followup=followup))
+        returncode, timed_out = run_agent(commands[1], work, case, "trace-2.jsonl", args)
+    (case / "command.txt").write_text("".join(shlex.join(c) + "\n" for c in commands), encoding="utf-8")
     wall = round(time.time() - started, 1)
     shutil.rmtree(work, ignore_errors=True)
 
     # Move what this run wrote out of the live library.
-    reports = sorted(
-        (p for p in (LIBRARY / "reports").glob(f"*video-lens_{fixture['video']}_*.html")
-         if p.stat().st_mtime >= started - 1),
-        key=lambda p: p.stat().st_mtime)
     moved = []
-    for p in reports:
+    for p in new_reports(fixture["video"], started):
         dest = case / p.name
         shutil.move(str(p), dest)
         moved.append(dest)
 
-    trace = checks.load_trace(trace_path.read_text(encoding="utf-8").splitlines(), args.agent)
+    trace = checks.load_trace((case / "trace.jsonl").read_text(encoding="utf-8").splitlines(), args.agent)
+    turn2 = None
+    if (case / "trace-2.jsonl").exists():
+        turn2 = checks.load_trace((case / "trace-2.jsonl").read_text(encoding="utf-8").splitlines(), args.agent)
+        trace = checks.merge_traces(trace, turn2)
     report = checks.parse_report(moved[-1].read_text(encoding="utf-8")) if moved else None
     replay_log = case / "replay.jsonl"
     fetches = [json.loads(l) for l in replay_log.read_text(encoding="utf-8").splitlines()] if replay_log.exists() else []
@@ -193,14 +227,23 @@ def run_case(fixture, run_idx, args, skill, out: pathlib.Path) -> dict:
     existing_tags = [t.strip() for t in existing_tags.group(1).split(",")] if existing_tags else None
 
     gates = checks.gates(fixture, trace, report, len(moved), chapters=truth["chapters"])
-    gates["finished"] = not timed_out.is_set() and proc.returncode == 0
     metrics = {"wall_s": wall, **checks.trace_metrics(trace)}
+    if followup:
+        before = None
+        if first_report is not None:
+            before = checks.parse_report((case / f"turn1-{first_report.name}").read_text(encoding="utf-8"))
+        gates.update(checks.revision_gates(before, first_report and first_report.name, report,
+                                           [p.name for p in moved], turn2 or {"calls": []}))
+        metrics.update(checks.revision_metrics(before, report))
+    gates["finished"] = not timed_out and returncode == 0
     if report:
-        metrics.update(checks.report_metrics(report, truth["duration"], truth["chapters"], existing_tags))
+        focus = fixture["expect"].get("focus") or fixture["expect"].get("focus_control")
+        metrics.update(checks.report_metrics(report, truth["duration"], truth["chapters"], existing_tags,
+                                             focus=focus))
     result = {
         "fixture": fixture["name"], "video": fixture["video"], "run": run_idx,
-        "agent": args.agent, "model": trace["model"] or args.model or "", "exit_code": proc.returncode,
-        "timed_out": timed_out.is_set(), "reports": [p.name for p in moved],
+        "agent": args.agent, "model": trace["model"] or args.model or "", "exit_code": returncode,
+        "timed_out": timed_out, "reports": [p.name for p in moved],
         "blocked": any(BLOCKED_RE.search(c["output"]) for c in trace["calls"]
                        if "fetch_transcript.py" in c["target"]),
         "inputs": {"replayed": sum(f["replayed"] for f in fetches),
@@ -306,7 +349,8 @@ def _mean(values):
 
 COMPARE_METRICS = ("kp_count", "kp_paragraph_share", "outline_count", "ts_mismatches",
                    "chapter_title_match", "summary_in_band", "takeaway_overlap", "tags_reused_share",
-                   "render_attempts", "tool_calls", "wall_s", "cost_usd")
+                   "focus_kp_share", "revision_summary_kept",
+                   "render_attempts", "lint_stops", "lint_warnings", "tool_calls", "wall_s", "cost_usd")
 
 
 def compare(path_a, path_b) -> int:

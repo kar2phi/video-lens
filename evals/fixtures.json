@@ -1,5 +1,5 @@
 {
-  "_doc": "Real YouTube fixtures. sets: fetch = network tier (tests/test_real_videos.py, no LLM); slim = default agent eval; full = slim plus the expensive cases. expect.lang is the transcript language the fetcher must pick and the report must be written in. known_bug marks a fetch expectation that fails today (strict xfail, so a fix flips it to a failure to un-mark).",
+  "_doc": "Real YouTube fixtures. request is what the user types after the URL (default: lang); followup is a second turn in the same conversation. sets: fetch = network tier (tests/test_real_videos.py, no LLM); slim = default agent eval; full = slim plus the expensive cases. expect.lang is the transcript language the fetcher must pick and the report must be written in. known_bug marks a fetch expectation that fails today (strict xfail, so a fix flips it to a failure to un-mark).",
   "fixtures": [
     {
       "name": "smoke",
@@ -19,9 +19,26 @@
       "name": "lang-request",
       "video": "HQcABjEQq7E",
       "lang": "de",
-      "why": "German video whose default track is a manual English one; the requested de track must win. 8 German chapters.",
+      "why": "German video whose default track is a manual English one; the requested de track must win. 8 German chapters. The control for focus: same transcript, no focus.",
       "sets": ["fetch", "slim", "full"],
-      "expect": {"lang": "de", "chapters": 8}
+      "expect": {"lang": "de", "chapters": 8, "focus_control": "akku|reichweite|batter|\\bwh\\b|kilometer|\\bkm\\b"}
+    },
+    {
+      "name": "focus",
+      "video": "HQcABjEQq7E",
+      "lang": "de",
+      "request": "in German, focus on the battery and range",
+      "why": "A language plus a focus (EXTRA_REQUEST): battery and range get more room than in lang-request, and the other chapters stay covered. expect.focus is a regex over the focus's words in the report language.",
+      "sets": ["slim", "full"],
+      "expect": {"lang": "de", "chapters": 8, "focus": "akku|reichweite|batter|\\bwh\\b|kilometer|\\bkm\\b"}
+    },
+    {
+      "name": "revision",
+      "video": "bjdBVZa66oU",
+      "followup": "Tighten the takeaway to one short sentence.",
+      "why": "A second turn in the same conversation: the revision re-renders with --replace, so one file, the same generation date, a new takeaway, and no edit of the HTML.",
+      "sets": ["slim", "full"],
+      "expect": {"lang": "en", "chapters": 5}
     },
     {
       "name": "lang-warn",
