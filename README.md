@@ -114,7 +114,7 @@ task install-skill-local AGENT=claude
 task install-raycast AGENT=claude
 ```
 
-Requires Raycast and [cmux](https://cmux.com). The script opens a new cmux workspace in `~/Downloads`, launches Claude (Haiku 5.5 unless you pick another model) with the required permissions, and runs the skill. The first run asks to let Raycast control cmux (macOS Automation permission).
+Requires Raycast. The script opens a new terminal in `~/Downloads` (a [cmux](https://cmux.com) workspace if cmux is installed, else an iTerm2 tab, else a Terminal.app window), launches Claude (Haiku 5.5 unless you pick another model) with the required permissions, and runs the skill. The first run asks to let Raycast control that terminal (macOS Automation permission).
 
 ---
 

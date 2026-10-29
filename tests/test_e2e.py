@@ -1680,23 +1680,33 @@ def test_raycast_accepts_mobile_youtube_and_defaults_to_haiku_5_5():
     assert '"blank = claude-haiku-5-5"' in taskfile and "blank = claude-haiku-5-5" in src
 
 
-def test_raycast_runs_in_cmux():
+def test_raycast_prefers_cmux_then_iterm_then_terminal():
     """The launcher drives cmux through its AppleScript dictionary: the socket CLI
-    refuses processes started outside cmux (socketControlMode defaults to cmuxOnly)."""
+    refuses processes started outside cmux (socketControlMode defaults to cmuxOnly).
+    Without cmux it falls back to iTerm2, then Terminal.app."""
     src = (REPO_ROOT / "scripts" / "raycast-video-lens.sh").read_text(encoding="utf-8")
-    assert 'tell application "cmux"' in src
-    for old_terminal in ("iTerm", "Ghostty", 'application "Terminal"'):
-        assert old_terminal not in src
+    assert src.index("open -Ra cmux") < src.index("open -Ra iTerm")
+    # One AppleScript snippet per terminal: `tell application "cmux"` does not compile
+    # without cmux, so no terminal's tell block may sit in the shared run handler.
+    for launcher, app in (("cmux", "cmux"), ("iterm", "iTerm"), ("terminal_app", "Terminal")):
+        body = src.split(launcher + "_launcher() {", 1)[1].split("\n}\n", 1)[0]
+        assert 'tell application "{}"'.format(app) in body
+        assert "on openSession(cmd)" in body
+    assert src.count("\n  tell application") == 3
+    # "iTerm2" does not resolve as an AppleScript application name on every install.
+    assert 'application "iTerm2"' not in src
+    assert '"${terminal}_launcher"' in src
     # A pasted newline does not run the line, so Enter is sent as a ghostty action.
     assert 'input text cmd to term' in src
     assert 'perform action "text:' + chr(92) * 2 + 'r" on term' in src
     # Raycast toasts a silent script's last output line; osascript would print "true".
-    assert '"$model" >/dev/null <<' in src
+    assert '"$model" >/dev/null' in src
     # Never types into a terminal that is already in use.
     assert "set ws to new tab" in src and "focused terminal of ws" in src
+    assert "create tab with default profile" in src and "do script cmd" in src
     # install-raycast rewrites the description by exact match.
-    assert "opens Claude in cmux" in src
-    assert '"opens Claude in cmux"' in (REPO_ROOT / "Taskfile.yml").read_text(encoding="utf-8")
+    assert "opens Claude in a terminal" in src
+    assert '"opens Claude in a terminal"' in (REPO_ROOT / "Taskfile.yml").read_text(encoding="utf-8")
 
 
 def test_payload_dir_is_outside_the_served_tree():
