@@ -224,6 +224,7 @@ When that line was seen, your final message is exactly: one short success line (
 
 - **The user asks for a change** ("tighten the takeaway", "key point 3 is wrong"): re-`Write` the whole payload with the change to the same `PAYLOAD_PATH`, then render with `--replace "OUTPUT_PATH"` in place of `--output-dir …`, so the revision overwrites the report instead of adding a second file, and rerun Steps 5–6. Never edit the rendered HTML — that bypasses the sanitiser. A re-run with another model is not a revision: it gets a new report.
 - **The user asks about the video** ("what did they say about X?"): answer from the transcript already in context and cite its `[M:SS]` timestamps. Do not re-run the pipeline.
+- **The user asks for a public link to share the report** (opt-in; never offer or run it otherwise): say the page will be public on deed.page, a third-party host, then run `python3 "SCRIPTS_DIR/publish_report.py" "OUTPUT_PATH"` and reply with the `PUBLIC_URL:` line. To update that link after a revision, add `--slug` with the `PUBLIC_SLUG:` value. On `ERROR:PUBLISH_*`, report the message verbatim and do not retry.
 
 ---
 
@@ -246,6 +247,6 @@ Scripts emit structured error codes with the prefix `ERROR:` followed by a typed
 
 ## Bundled scripts
 
-Six local scripts ship in `./scripts/`: `preflight.py`, `fetch_transcript.py`, `fetch_metadata.py`, `transcribe_local.py`, `render_report.py`, `serve_report.sh`, plus `references/whisper-fallback.md`. No remote code is fetched at runtime. Network calls during a run: YouTube transcript and metadata fetches. When the local-transcription fallback runs: audio download from YouTube via yt-dlp, and a one-time Whisper model download (~1.5 GB for medium) from Hugging Face. Network calls when the user views the report in their browser: the YouTube iframe API and Google Fonts CSS.
+Seven local scripts ship in `./scripts/`: `preflight.py`, `fetch_transcript.py`, `fetch_metadata.py`, `transcribe_local.py`, `render_report.py`, `serve_report.sh`, `publish_report.py`, plus `references/whisper-fallback.md`. No remote code is fetched at runtime. Network calls during a run: YouTube transcript and metadata fetches. When the local-transcription fallback runs: audio download from YouTube via yt-dlp, and a one-time Whisper model download (~1.5 GB for medium) from Hugging Face. Only when the user asks for a public link: one upload of that report to deed.page via `publish_report.py`. Network calls when the user views the report in their browser: the YouTube iframe API and Google Fonts CSS.
 
 YouTube URL to summarise:
