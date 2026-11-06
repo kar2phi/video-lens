@@ -70,3 +70,7 @@ task eval AGENT=claude    # real agent runs, validated (AGENT=pi MODEL=qwen3.6:2
 Judge SKILL.md changes with `task eval` on both arms (`REF=HEAD` vs working tree) and `task eval-compare`, on Claude *and* qwen. For `skills/video-lens-recs/SKILL.md` the same with `task eval-recs` / `task eval-recs-compare`.
 
 The repo is public: recs fixtures, labels and examples built from a real library or topic config never get committed (they go in `evals/recs_fixtures/`, gitignored); docs and tests use made-up channels and topics.
+
+## Working notes
+
+Concepts, plans, audits and session logs live in the private sibling repo `~/repos/video-lens-notes`, not here (`concepts/` and `docs/log/` are gitignored). New concept docs go there, numbered after the last one. Public text (code comments, CHANGELOG, commit messages, PR bodies) doesn't link to those notes.

@@ -10,10 +10,10 @@ it was reconstructed from.
 
 ## [Unreleased]
 
-The new **video-lens-recs** skill (0.1), built from `concepts/026-video-lens-recs-concept.md`
+The new **video-lens-recs** skill (0.1), built from its design concept,
 phases P0–P5, and the small video-lens and gallery changes it needs.
 
-Also items from `concepts/027-open-backlog.md`: the three 5.4 review bugs (B1–B3), the eval
+Also items from the open backlog: the three 5.4 review bugs (B1–B3), the eval
 fixtures for a focus and a revision (E1), and the two qwen quality levers, structured Key
 Points and Outline (025-R1) and payload lint (025-R5), with self-explaining render errors
 (025-§4.3). Script changes landed tests first (fast suite: 243 passed). The SKILL.md part
@@ -118,11 +118,11 @@ of R1 still needs the A/B gate on Claude and qwen before release.
 
 ## [5.4] — 2026-10-22
 
-Phase 1 of `concepts/025-skill-md-lean-and-robust-review.md`, small items only: three
+Phase 1 of the SKILL.md lean-and-robust review, small items only: three
 fetcher bugs found by the real-video suite, and S1, S5/R6, S8 and S9. Every script change
 landed with tests first (fast suite: 190 passed; real-video suite: 10 passed, including the
 two former xfails). The 5.2 → 5.3 A/B regression gate was run by the owner and reported
-passing. What is still open is collected in `concepts/027-open-backlog.md`.
+passing. What is still open is tracked in the backlog.
 
 ### Fixed
 
@@ -164,7 +164,7 @@ passing. What is still open is collected in `concepts/027-open-backlog.md`.
 
 ## [5.3] — 2026-10-16
 
-Phase 0 of `concepts/025-skill-md-lean-and-robust-review.md`: a text-only SKILL.md rewrite
+Phase 0 of the SKILL.md lean-and-robust review: a text-only SKILL.md rewrite
 with no payload-contract change, plus two `serve_report.sh` fixes and one template fix.
 SKILL.md goes from 33.1 KB to 25.9 KB (−22 %), and the Step 3 content guidance is untouched
 apart from the two rule fixes below.
@@ -239,7 +239,7 @@ apart from the two rule fixes below.
 
 ## [5.2] — 2026-08-22
 
-_video-lens-gallery 2.1._ Findings from `concepts/024-comprehensive-skill-assessment.md`.
+_video-lens-gallery 2.1._ Findings from a comprehensive skill assessment.
 
 ### Fixed
 

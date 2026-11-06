@@ -285,7 +285,7 @@ class AllowlistSanitiser(HTMLParser):
 class _LIFirstStrongCollector(HTMLParser):
     """Collect text inside the first <strong> child of each top-level <li>.
 
-    Per CH1 in concepts/017: a regex over all <strong> over-counts because
+    A regex over all <strong> would over-count because
     KEY_POINTS uses <strong> for inline emphasis inside paragraph text too.
     Only the headline (first <strong> of each <li>) becomes a keyword.
     """

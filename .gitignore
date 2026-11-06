@@ -7,3 +7,5 @@ __pycache__/
 evals/results/
 evals/cache/
 evals/recs_fixtures/
+concepts/
+docs/log/
