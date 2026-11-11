@@ -38,7 +38,6 @@ ID_RE = re.compile(r"^[A-Za-z0-9_-]{22}$")
 VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 CHANNEL_ID_RE = re.compile(r"^UC[A-Za-z0-9_-]{22}$")
 LANG_RE = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$")
-TAG_RE = re.compile(r"^[a-z0-9][a-z0-9 +#.-]{0,29}$")
 MODEL_RE = re.compile(r"^[A-Za-z0-9._:/ -]*$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 NOTES = {"lang-fallback", "local-transcript"}
@@ -54,6 +53,17 @@ KEY_ORDER = ["v", "videoId", "title", "channel", "channelId", "duration", "durat
              "lang", "tags", "summary", "takeaway", "keyPoints", "outline", "model", "notes", "created"]
 KP_FIELDS = {"point": (1, 600), "why": (0, 1500), "detail": (0, 4000)}
 OL_FIELDS = {"title": (1, 300), "detail": (0, 1500)}
+
+
+def share_tag_ok(tag: str) -> bool:
+    """Share tag pattern (033 §5.1, O7), the Python form of the Worker's
+    /^[\\p{Ll}\\p{Lo}\\p{Lm}\\p{Nd}][\\p{Ll}\\p{Lo}\\p{Lm}\\p{Nd}\\p{Mn}\\p{Mc} +#.-]{0,29}$/u."""
+    if not isinstance(tag, str) or not 1 <= len(tag) <= 30:
+        return False
+    first = {"Ll", "Lo", "Lm", "Nd"}
+    rest = first | {"Mn", "Mc"}
+    return unicodedata.category(tag[0]) in first and all(
+        c in " +#.-" or unicodedata.category(c) in rest for c in tag[1:])
 
 
 class SchemaError(Exception):
@@ -106,9 +116,9 @@ def validate_payload(p):
         raise SchemaError("durationS")
     out["durationS"] = duration_s
     tags = p.get("tags", [])
-    if not isinstance(tags, list) or len(tags) > 5 or not all(isinstance(t, str) and TAG_RE.fullmatch(t) for t in tags):
+    if not isinstance(tags, list) or len(tags) > 5 or not all(isinstance(t, str) and share_tag_ok(unicodedata.normalize("NFC", t)) for t in tags):
         raise SchemaError("tags")
-    out["tags"] = list(tags)
+    out["tags"] = [unicodedata.normalize("NFC", t) for t in tags]
     notes = p.get("notes", [])
     if not isinstance(notes, list) or len(notes) > 2 or len(set(notes)) != len(notes) or not set(notes) <= NOTES:
         raise SchemaError("notes")

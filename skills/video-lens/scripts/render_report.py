@@ -41,6 +41,7 @@ import pathlib
 import re
 import sys
 import time
+import unicodedata
 from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, urlparse
@@ -483,11 +484,20 @@ def _serialize_meta(meta: dict) -> str:
 
 # Share payload v1 (033 §5). The Worker is the only full validator; the renderer only
 # keeps the optional fields in shape so a valid report never fails on them.
-SHARE_TAG_RE = re.compile(r"^[a-z0-9][a-z0-9 +#.-]{0,29}$")
 SHARE_LANG_RE = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$")
 SHARE_MODEL_RE = re.compile(r"^[A-Za-z0-9._:/ -]{0,80}$")
 SHARE_NOTES = (("Requested language not available", "lang-fallback"),
                ("transcribed locally", "local-transcript"))
+
+def share_tag_ok(tag: str) -> bool:
+    """Share tag pattern (033 §5.1, O7), the Python form of the Worker's
+    /^[\\p{Ll}\\p{Lo}\\p{Lm}\\p{Nd}][\\p{Ll}\\p{Lo}\\p{Lm}\\p{Nd}\\p{Mn}\\p{Mc} +#.-]{0,29}$/u."""
+    if not isinstance(tag, str) or not 1 <= len(tag) <= 30:
+        return False
+    first = {"Ll", "Lo", "Lm", "Nd"}
+    rest = first | {"Mn", "Mc"}
+    return unicodedata.category(tag[0]) in first and all(
+        c in " +#.-" or unicodedata.category(c) in rest for c in tag[1:])
 
 
 def _share_items(data: dict) -> dict | None:
@@ -522,7 +532,7 @@ def _build_share_data(data: dict, meta: dict, items: dict) -> dict:
         "durationS": duration_s,
         "published": meta["publishDate"].strip(),
         "lang": lang,
-        "tags": [tag for tag in meta["tags"] if SHARE_TAG_RE.fullmatch(tag)][:5],
+        "tags": [tag for tag in (unicodedata.normalize("NFC", t) for t in meta["tags"]) if share_tag_ok(tag)][:5],
         "summary": str(data.get("SUMMARY", "")).strip(),
         "takeaway": str(data.get("TAKEAWAY", "")).strip(),
         "keyPoints": [

@@ -103,9 +103,9 @@ def test_bad_sidecar_values_are_left_out(tmp_path, no_sidecar, sidecar):
 
 
 def test_tags_outside_the_share_pattern_are_dropped(tmp_path):
-    tags = ["künstliche intelligenz", "ai", "x" * 31, "a", "b", "c", "d", "e"]
+    tags = ["künstliche intelligenz", "人工知能", "x" * 31, "+ai", "a", "b", "c", "d"]
     data = block(render(tmp_path, golden_payload(TAGS=tags)))
-    assert data["tags"] == ["ai", "a", "b", "c", "d"]
+    assert data["tags"] == ["künstliche intelligenz", "人工知能", "a", "b", "c"]
 
 
 def test_odd_model_name_is_left_out(tmp_path):
