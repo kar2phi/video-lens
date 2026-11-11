@@ -18,7 +18,9 @@ KEY_POINTS and OUTLINE are JSON arrays of objects (025-R1):
 The renderer escapes their text and builds the same HTML a model used to write by
 hand, links and timestamps included. An HTML string (the older contract) still works.
 
-Renderer builds VIDEO_LENS_META from agent-authored content. Optional fields:
+Renderer builds VIDEO_LENS_META from agent-authored content. When KEY_POINTS and
+OUTLINE are arrays it also writes VIDEO_LENS_DATA, the share payload v1 (033 §5.2), which
+share_report.py uploads; the agent's payload contract is unchanged. Optional fields:
     META_LINE (auto-composed from CHANNEL/DURATION/PUBLISH_DATE/VIEWS if omitted),
     TAGS (list), CHANNEL, CHANNEL_ID, DURATION, PUBLISH_DATE, VIEWS, GENERATION_DATE,
     GENERATION_DURATION_SECONDS, GENERATION_START_EPOCH, AGENT_MODEL,
@@ -399,20 +401,24 @@ def _normalize_tags(tags: list) -> list:
     return out
 
 
+def _sidecar(video_id: str) -> dict:
+    """fetch_metadata.py's sidecar for this video, or {}. Never fails the render."""
+    if not VIDEO_ID_RE.fullmatch(video_id):
+        return {}
+    try:
+        sidecar = json.loads((METADATA_DIR / f"{video_id}.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return sidecar if isinstance(sidecar, dict) else {}
+
+
 def _channel_id(raw_payload: dict) -> str:
     """CHANNEL_ID from the payload, else from fetch_metadata.py's sidecar; '' if neither
     is a valid UC… id. Never fails the render."""
     value = str(raw_payload.get("CHANNEL_ID", "")).strip()
     if CHANNEL_ID_RE.fullmatch(value):
         return value
-    video_id = str(raw_payload.get("VIDEO_ID", ""))
-    if not VIDEO_ID_RE.fullmatch(video_id):
-        return ""
-    try:
-        sidecar = json.loads((METADATA_DIR / f"{video_id}.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return ""
-    value = str(sidecar.get("channelId", "")) if isinstance(sidecar, dict) else ""
+    value = str(_sidecar(str(raw_payload.get("VIDEO_ID", ""))).get("channelId", ""))
     return value if CHANNEL_ID_RE.fullmatch(value) else ""
 
 
@@ -473,6 +479,74 @@ def _build_meta_dict(raw_payload: dict, clean_key_points: str, output_path: str)
 
 def _serialize_meta(meta: dict) -> str:
     return json.dumps(meta, ensure_ascii=True).replace("</", "<\\/")
+
+
+# Share payload v1 (033 §5). The Worker is the only full validator; the renderer only
+# keeps the optional fields in shape so a valid report never fails on them.
+SHARE_TAG_RE = re.compile(r"^[a-z0-9][a-z0-9 +#.-]{0,29}$")
+SHARE_LANG_RE = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$")
+SHARE_MODEL_RE = re.compile(r"^[A-Za-z0-9._:/ -]{0,80}$")
+SHARE_NOTES = (("Requested language not available", "lang-fallback"),
+               ("transcribed locally", "local-transcript"))
+
+
+def _share_items(data: dict) -> dict | None:
+    """The KEY_POINTS and OUTLINE arrays when both are arrays of objects, else None:
+    an HTML string (the older contract) leaves the data block out."""
+    items = {key: data.get(key) for key in ITEM_FIELDS}
+    if all(isinstance(v, list) and v and all(isinstance(i, dict) for i in v) for v in items.values()):
+        return items
+    return None
+
+
+def _build_share_data(data: dict, meta: dict, items: dict) -> dict:
+    """Payload v1 from the same values the meta block uses (033 §5.2)."""
+    sidecar = _sidecar(meta["videoId"])
+    meta_line = str(data.get("META_LINE", ""))
+    notes = [note for marker, note in SHARE_NOTES if marker in meta_line]
+    duration_s = sidecar.get("durationS")
+    if isinstance(duration_s, bool) or not isinstance(duration_s, int) or not 0 <= duration_s <= 86400:
+        duration_s = None
+    lang = str(sidecar.get("lang", ""))
+    if "lang-fallback" in notes or not SHARE_LANG_RE.fullmatch(lang):
+        lang = ""   # the summary follows the transcript, which then is not the audio's language
+    model = meta["agentModel"]
+    created = meta["generationDate"]
+    return {
+        "v": 1,
+        "videoId": meta["videoId"],
+        "title": meta["title"].strip(),
+        "channel": meta["channel"].strip(),
+        "channelId": meta.get("channelId", ""),
+        "duration": meta["duration"].strip(),
+        "durationS": duration_s,
+        "published": meta["publishDate"].strip(),
+        "lang": lang,
+        "tags": [tag for tag in meta["tags"] if SHARE_TAG_RE.fullmatch(tag)][:5],
+        "summary": str(data.get("SUMMARY", "")).strip(),
+        "takeaway": str(data.get("TAKEAWAY", "")).strip(),
+        "keyPoints": [
+            {field: _as_markers(_item_text("KEY_POINTS", i, item, field)) for field in ITEM_FIELDS["KEY_POINTS"]}
+            for i, item in enumerate(items["KEY_POINTS"])
+        ],
+        "outline": [
+            {"t": _item_seconds(i, item["t"]),
+             "title": _item_text("OUTLINE", i, item, "title"),
+             "detail": _item_text("OUTLINE", i, item, "detail")}
+            for i, item in enumerate(items["OUTLINE"])
+        ],
+        "model": model if SHARE_MODEL_RE.fullmatch(model) else "",
+        "notes": notes,
+        "created": created if re.fullmatch(r"\d{4}-\d{2}-\d{2}", created) else "",
+    }
+
+
+def _serialize_share_data(share: dict | None) -> str:
+    """The data block appended after the meta block, or "" (the report is then not shareable)."""
+    if share is None:
+        return ""
+    return ('\n  <script type="application/json" id="video-lens-data">'
+            + _serialize_meta(share) + "</script>")
 
 
 ITEM_FIELDS = {"KEY_POINTS": ("point", "why", "detail"), "OUTLINE": ("t", "title", "detail")}
@@ -709,6 +783,7 @@ def sanitise_payload(data: dict, output_path: str = "") -> dict:
         raise RenderValidationError("RENDER_INVALID_VIDEO_URL", f"invalid video url: {video_url!r}")
 
     data = {**data, "META_LINE": _maybe_compose_meta_line(data)}
+    share_items = _share_items(data)
     for key in ITEM_FIELDS:
         if isinstance(data.get(key), list):
             data[key] = items_to_html(key, data[key], video_id)
@@ -747,6 +822,8 @@ def sanitise_payload(data: dict, output_path: str = "") -> dict:
 
     meta = _build_meta_dict(data, clean["KEY_POINTS"], output_path)
     clean["VIDEO_LENS_META"] = _serialize_meta(meta)
+    clean["VIDEO_LENS_DATA"] = _serialize_share_data(
+        _build_share_data(data, meta, share_items) if share_items else None)
 
     return clean
 
@@ -777,6 +854,7 @@ def _render_clean(data: dict, output_path: str, template_path: pathlib.Path | No
         template_path = find_template()
 
     html = template_path.read_text(encoding="utf-8")
+    data = {"VIDEO_LENS_DATA": "", **data}   # pre-built clean dicts from older callers
 
     # Collect the template's own placeholders *before* substituting: agent content
     # may legitimately quote a `{{TOKEN}}` (videos about Jinja, Handlebars, GitHub

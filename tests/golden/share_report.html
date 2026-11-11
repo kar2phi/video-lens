@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What are skills? &amp; &lt;why&gt; "quotes"</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23c0392b'/><text x='16' y='21' font-family='sans-serif' font-size='13' font-weight='700' fill='%23ffd700' text-anchor='middle' letter-spacing='-0.5'>VL</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --left-bg: #f0f0ee;
+      --left-text: #1a1a1a;
+      --left-heading: #999;
+      --left-meta: #555;
+      --left-link: #c0392b;
+      --left-border: #ddd;
+      --video-bg: #d8d8d6;
+      --right-bg: #f9f9f7;
+      --right-text: #1a1a1a;
+      --right-border: #e0e0e0;
+      --panel-divider: #ccc;
+      --ts-active-bg: #ffeaea;
+      --strong-color: #1a1a1a;
+      --toggle-bg: #ddd;
+      --toggle-text: #444;
+    }
+
+    [data-theme="dark"] {
+      --left-bg: #14110f;
+      --left-text: #f0ede8;
+      --left-heading: #6a6460;
+      --left-meta: #8a8480;
+      --left-link: #e05a4a;
+      --left-border: #2a2520;
+      --video-bg: #000;
+      --right-bg: #1c1916;
+      --right-text: #d0cdc8;
+      --right-border: #2c2925;
+      --panel-divider: #2a2520;
+      --ts-active-bg: #3a1a1a;
+      --strong-color: #f0ede8;
+      --toggle-bg: #2a2520;
+      --toggle-text: #c0bdb8;
+    }
+
+    body {
+      background: var(--right-bg);
+      color: var(--right-text);
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 16px;
+      line-height: 1.75;
+      min-height: 100vh;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .left,
+    .right {
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: var(--left-w, 45%) 6px 1fr;
+      grid-template-rows: 1fr;
+      min-height: 100vh;
+    }
+
+    /* Smooth transition only when snapping to a preset (not during drag) */
+    .layout.snapping {
+      transition: grid-template-columns 0.2s ease;
+    }
+
+    /* Resizer */
+    #resizer {
+      grid-column: 2;
+      grid-row: 1;
+      cursor: col-resize;
+      background: var(--panel-divider);
+      width: 6px;
+      position: relative;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    #resizer:hover,
+    #resizer.dragging {
+      background: var(--left-link);
+    }
+
+    #resizer::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px;
+      height: 32px;
+      border-radius: 1px;
+      background: var(--panel-divider);
+      opacity: 0.5;
+    }
+
+    #resizer:hover::after,
+    #resizer.dragging::after {
+      opacity: 1;
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    /* Left col: sticky video + outline */
+    .left {
+      grid-column: 1;
+      grid-row: 1;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--left-bg);
+      color: var(--left-text);
+      overflow: hidden;
+    }
+
+    .video-wrap {
+      position: relative;
+      width: 100%;
+      /* Cap height so the video never overflows the panel; YouTube letterboxes when height-constrained */
+      padding-top: min(56.25%, calc(100vh - 220px));
+      flex-shrink: 0;
+      background: var(--video-bg);
+    }
+
+    .video-wrap iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    #yt-overlay {
+      position: absolute;
+      inset: 0;
+      cursor: pointer;
+      z-index: 2;
+    }
+
+    .video-meta {
+      padding: 0.9rem 1.2rem;
+      overflow-y: visible;
+      flex-shrink: 0;
+    }
+
+    .left-scroll {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .outline-section {
+      padding: 0.9rem 1.2rem 1.2rem;
+      border-top: 1px solid var(--left-border);
+      flex: 1;
+    }
+
+    .outline-section h2 {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--left-heading);
+      margin-bottom: 0.9rem;
+    }
+
+    .video-meta h1 {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--left-text);
+      line-height: 1.4;
+      margin-bottom: 0.35rem;
+    }
+
+    .video-meta .meta-line {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.75rem;
+      color: var(--left-meta);
+    }
+
+    /* Separator belongs to the facts, not the link: no facts, no dangling "·". */
+    .video-meta .meta-line .meta-facts:not(:empty)::after {
+      content: " · ";
+    }
+
+    .video-meta .meta-line a {
+      color: var(--left-link);
+      text-decoration: none;
+    }
+
+    /* Right col: scrollable content */
+    .right {
+      grid-column: 3;
+      grid-row: 1;
+      overflow-y: auto;
+      height: 100vh;
+      padding: 0 2rem 70vh;
+      background: var(--right-bg);
+      color: var(--right-text);
+    }
+
+    section {
+      scroll-margin-top: 3.5rem;
+      padding-bottom: 1.8rem;
+      margin-bottom: 1.8rem;
+      border-bottom: 1px solid var(--right-border);
+    }
+
+    section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    h2 {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--left-heading);
+      margin-bottom: 0.9rem;
+    }
+
+    p {
+      margin-bottom: 0.9rem;
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    ul {
+      padding-left: 1.3rem;
+    }
+
+    ul li {
+      margin-bottom: 0.5rem;
+    }
+
+    #key-points li {
+      margin-bottom: 1.1rem;
+    }
+
+    #key-points li:last-child {
+      margin-bottom: 0;
+    }
+
+    #key-points li,
+    #takeaway li {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      line-height: 1.65;
+    }
+
+    #key-points li p {
+      margin-top: 0.45rem;
+      margin-bottom: 0;
+      font-size: 0.93rem;
+      line-height: 1.75;
+      color: var(--right-text);
+      opacity: 0.82;
+    }
+
+    strong {
+      color: var(--strong-color);
+    }
+
+    /* Topics / Outline list */
+    ol.topics {
+      list-style: none;
+      padding: 0;
+      display: grid;
+      grid-template-columns: max-content auto 1fr;
+      column-gap: 0.4rem;
+    }
+
+    ol.topics li {
+      position: relative;
+      display: grid;
+      grid-template-columns: subgrid;
+      grid-column: 1 / -1;
+      align-items: baseline;
+      margin-bottom: 0;
+      font-size: 0.92rem;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      color: var(--left-text);
+      line-height: 1.5;
+      padding-left: 1rem;
+      padding-block: 0.3rem;
+      cursor: pointer;
+      transition: background-color 0.15s;
+    }
+
+    .outline-title {
+      grid-column: 3;
+    }
+
+    ol.topics li.expanded .outline-title,
+    ol.topics li.active .outline-title {
+      font-weight: 600;
+    }
+
+    .outline-detail {
+      display: block;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: max-height 0.18s ease, opacity 0.18s ease;
+      grid-column: 3;
+      font-size: 0.84rem;
+      line-height: 1.45;
+      color: var(--left-meta);
+      padding-bottom: 0.15rem;
+    }
+
+    ol.topics li.expanded .outline-detail,
+    ol.topics li.active .outline-detail {
+      max-height: 150px;
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    ol.topics li:focus-visible {
+      outline: 2px solid var(--left-link);
+      outline-offset: 2px;
+    }
+
+    ol.topics li:hover {
+      background-color: color-mix(in srgb, var(--left-link) 6%, transparent);
+    }
+
+    [data-theme="dark"] ol.topics li:hover {
+      background-color: color-mix(in srgb, var(--left-link) 12%, transparent);
+    }
+
+    a.ts {
+      color: var(--left-link);
+      text-decoration: none;
+      font-variant-numeric: tabular-nums;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.82rem;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    a.ts:hover {
+      text-decoration: underline;
+    }
+
+    ol.topics li.active {
+      border-left-color: transparent;
+      box-shadow: inset 2px 0 0 0 var(--left-link);
+      transition: box-shadow 0.5s ease;
+    }
+
+    ol.topics li.active a.ts {
+      color: var(--left-link);
+    }
+
+    /* Icon buttons (help + theme) — live inside section-nav */
+    .nav-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-shrink: 0;
+    }
+
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(0, 0, 0, 0.13);
+      background: transparent;
+      color: #666;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.88rem;
+      font-weight: 500;
+      flex-shrink: 0;
+      transition: opacity 0.15s, border-color 0.15s;
+    }
+
+    .icon-btn:hover {
+      opacity: 0.65;
+    }
+
+    [data-theme="dark"] .icon-btn {
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #c0bdb8;
+    }
+
+    /* Help modal */
+    #help-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.38);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+    }
+
+    #help-overlay.open {
+      display: flex;
+    }
+
+    #help-modal {
+      background: var(--right-bg);
+      color: var(--right-text);
+      border: 1px solid var(--right-border);
+      border-radius: 12px;
+      padding: 1.75rem 2rem 1.5rem;
+      max-width: 400px;
+      width: calc(100% - 3rem);
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+      font-family: 'DM Sans', system-ui, sans-serif;
+      position: relative;
+      max-height: calc(100vh - 4rem);
+      overflow-y: auto;
+    }
+
+    #help-modal h3 {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--left-heading);
+      margin-bottom: 0.6rem;
+      margin-top: 1.2rem;
+    }
+
+    #help-modal h3:first-child {
+      margin-top: 0;
+    }
+
+    #help-modal p {
+      font-size: 0.88rem;
+      line-height: 1.65;
+      color: var(--right-text);
+      margin-bottom: 0;
+      font-family: 'DM Sans', system-ui, sans-serif;
+    }
+
+    #help-modal a {
+      color: var(--left-link);
+      text-decoration: none;
+    }
+
+    #help-modal a:hover {
+      text-decoration: underline;
+    }
+
+    .help-shortcuts {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.45rem 1rem;
+      font-size: 0.85rem;
+    }
+
+    /* Info modal — reuses help-modal visual language */
+    #info-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.38);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+    }
+
+    #info-overlay.open {
+      display: flex;
+    }
+
+    #info-modal {
+      background: var(--right-bg);
+      color: var(--right-text);
+      border: 1px solid var(--right-border);
+      border-radius: 12px;
+      padding: 1.75rem 2rem 1.5rem;
+      max-width: 380px;
+      width: calc(100% - 3rem);
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+      font-family: 'DM Sans', system-ui, sans-serif;
+      position: relative;
+      max-height: calc(100vh - 4rem);
+      overflow-y: auto;
+    }
+
+    #info-modal h3 {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--left-heading);
+      margin: 0 0 0.75rem;
+    }
+
+    #info-modal dl {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.5rem 1rem;
+      margin: 0;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    #info-modal dt {
+      color: var(--left-heading);
+      font-weight: 500;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding-top: 0.1rem;
+    }
+
+    #info-modal dd {
+      margin: 0;
+      color: var(--right-text);
+      font-variant-numeric: tabular-nums;
+      word-break: break-word;
+    }
+
+    #info-close {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.75rem;
+      background: transparent;
+      border: 0;
+      font-size: 1.4rem;
+      line-height: 1;
+      color: var(--right-text);
+      cursor: pointer;
+      padding: 0.25rem 0.5rem;
+      opacity: 0.6;
+    }
+
+    #info-close:hover {
+      opacity: 1;
+    }
+
+    .help-key {
+      font-family: 'DM Mono', 'SF Mono', 'Menlo', monospace;
+      background: var(--toggle-bg);
+      color: var(--left-text);
+      border-radius: 4px;
+      padding: 0.15rem 0.5rem;
+      font-size: 0.78rem;
+      white-space: nowrap;
+      align-self: center;
+      text-align: center;
+    }
+
+    .help-desc {
+      color: var(--left-meta);
+      align-self: center;
+      font-size: 0.85rem;
+    }
+
+    #help-close {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--left-meta);
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.5;
+      transition: opacity 0.15s;
+    }
+
+    #help-close:hover {
+      opacity: 1;
+    }
+
+    .ctrl-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 1.2rem;
+      border-top: 1px solid var(--left-border);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .ctrl-bar button {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid var(--left-border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--left-text);
+      cursor: pointer;
+      line-height: 1;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .ctrl-bar button:hover {
+      opacity: 0.75;
+    }
+
+    #play-pause-btn {
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      color: #111;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      flex-shrink: 0;
+    }
+
+    #play-pause-btn:hover {
+      opacity: 0.75;
+    }
+
+    #time-display {
+      font-family: 'DM Mono', 'Fira Code', ui-monospace, monospace;
+      font-size: 0.72rem;
+      font-variant-numeric: tabular-nums;
+      opacity: 0.65;
+      white-space: nowrap;
+      color: var(--left-text);
+      padding: 0 0.2rem;
+      flex-shrink: 0;
+    }
+
+    [data-theme="dark"] #play-pause-btn {
+      background: var(--left-border);
+      border-color: var(--left-border);
+      color: var(--left-text);
+    }
+
+    /* Speed button segmented control */
+    .speed-group {
+      display: flex;
+      border: 1px solid var(--left-border);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .speed-group .speed-btn {
+      border: none;
+      border-right: 1px solid var(--left-border);
+      border-radius: 0;
+      padding: 0.55rem 0.5rem;
+    }
+
+    .speed-group .speed-btn:last-child {
+      border-right: none;
+    }
+
+    .speed-group .speed-btn.active {
+      background: var(--left-link);
+      color: #fff;
+      border-color: var(--left-link);
+    }
+
+    .speed-group .speed-btn:hover:not(.active) {
+      opacity: 0.75;
+    }
+
+    /* Split button segmented control */
+    .split-group {
+      display: flex;
+      border: 1px solid var(--left-border);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .split-group .split-btn {
+      border: none;
+      border-right: 1px solid var(--left-border);
+      border-radius: 0;
+      padding: 0.55rem 0.6rem;
+    }
+
+    .split-group .split-btn:last-child {
+      border-right: none;
+    }
+
+    .split-group .split-btn:hover {
+      opacity: 0.75;
+    }
+
+    /* Seek button segmented control */
+    .seek-group {
+      display: flex;
+      border: 1px solid var(--left-border);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .seek-group button {
+      border: none;
+      border-right: 1px solid var(--left-border);
+      border-radius: 0;
+      padding: 0.55rem 0.6rem;
+    }
+
+    .seek-group button:last-child {
+      border-right: none;
+    }
+
+    .ctrl-bar-icon-btn {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--left-border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--left-text);
+      cursor: pointer;
+      line-height: 1;
+      opacity: 0.55;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
+    }
+
+    .ctrl-bar-icon-btn:hover {
+      opacity: 0.85;
+    }
+
+    .ctrl-bar-icon-btn.active {
+      background: var(--left-link);
+      color: #fff;
+      border-color: var(--left-link);
+      opacity: 1;
+    }
+
+    .ctrl-bar.yt-native .seek-group,
+    .ctrl-bar.yt-native #play-pause-btn,
+    .ctrl-bar.yt-native #time-display,
+    .ctrl-bar.yt-native .speed-group {
+      display: none;
+    }
+
+    .ctrl-bar.yt-native .ctrl-divider:not(:last-of-type) {
+      display: none;
+    }
+
+    #controls-toggle-btn {
+      margin-left: auto;
+    }
+
+    .ctrl-divider {
+      width: 1px;
+      height: 1rem;
+      background: var(--left-border);
+      flex-shrink: 0;
+      margin: 0 0.1rem;
+    }
+
+    /* Custom scrollbars */
+    .left-scroll::-webkit-scrollbar,
+    .right::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .left-scroll::-webkit-scrollbar-track,
+    .right::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .left-scroll::-webkit-scrollbar-thumb,
+    .right::-webkit-scrollbar-thumb {
+      background: var(--left-border);
+      border-radius: 3px;
+    }
+
+    /* Progress bar */
+    #progress-track {
+      height: 3px;
+      background: var(--left-border);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: height 0.15s ease;
+    }
+
+    #progress-track:hover {
+      height: 5px;
+    }
+
+    #progress-fill {
+      height: 100%;
+      background: var(--left-link);
+      width: 0%;
+      transition: width 0.8s linear;
+      pointer-events: none;
+    }
+
+    /* Now playing border pulse */
+    @keyframes border-breathe {
+
+      0%,
+      100% {
+        border-left-color: transparent;
+        box-shadow: inset 2px 0 0 0 var(--left-link);
+      }
+
+      50% {
+        border-left-color: transparent;
+        box-shadow: inset 4px 0 0 0 var(--left-link);
+      }
+    }
+
+    body.is-playing ol.topics li.active {
+      animation: border-breathe 2.5s ease-in-out infinite;
+    }
+
+    /* Section nav */
+    .section-nav {
+      position: sticky;
+      top: 0;
+      margin: 0 -2rem 1.5rem;
+      padding: 0.6rem 1.25rem 0.6rem 2.5rem;
+      background: var(--right-bg);
+      border-bottom: 1px solid var(--right-border);
+      display: flex;
+      gap: 1.2rem;
+      z-index: 10;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: background-color 0.2s ease;
+    }
+
+    .section-nav a {
+      color: var(--left-meta);
+      text-decoration: none;
+      padding-bottom: 1px;
+      border-bottom: 3px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .section-nav a.active {
+      color: var(--left-link);
+      border-bottom-color: var(--left-link);
+    }
+
+    .section-nav a:hover {
+      color: var(--right-text);
+    }
+
+    .video-description {
+      white-space: pre-wrap;
+      font-size: 0.88rem;
+      line-height: 1.65;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      color: var(--left-meta);
+    }
+
+    .video-description a {
+      color: var(--left-link);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .video-description a:hover {
+      opacity: 0.8;
+    }
+
+    /* ── Section info button + tooltip ── */
+    .section-info {
+      position: relative;
+      background: none;
+      border: none;
+      cursor: help;
+      color: var(--left-meta);
+      font-size: 0.65rem;
+      padding: 0 0.2rem;
+      vertical-align: middle;
+      line-height: 1;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+
+    .section-info:hover,
+    .section-info:focus {
+      opacity: 1;
+      outline: none;
+    }
+
+    .right section:hover .section-info {
+      opacity: 0.85;
+    }
+
+    .section-info::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: 0;
+      left: calc(100% + 6px);
+      bottom: auto;
+      transform: none;
+      background: var(--left-text);
+      color: var(--left-bg);
+      font-size: 0.72rem;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-weight: 400;
+      letter-spacing: 0;
+      text-transform: none;
+      white-space: normal;
+      width: 200px;
+      padding: 5px 9px;
+      border-radius: 5px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 100;
+    }
+
+    .section-info:hover::after,
+    .section-info:focus::after {
+      opacity: 1;
+    }
+
+    /* ── YouTube Description subsection (inside Summary) ── */
+    .description-details {
+      margin-top: 1.4rem;
+      padding-top: 0;
+    }
+
+    .description-details>summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: var(--left-link);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      user-select: none;
+      margin-bottom: 0;
+    }
+
+    .description-details>summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .description-details>summary::before {
+      content: '';
+      display: inline-block;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 4px 0 4px 6px;
+      border-color: transparent transparent transparent var(--left-link);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    .description-details[open]>summary::before {
+      transform: rotate(90deg);
+    }
+
+    .description-details>summary:hover {
+      color: var(--left-text);
+    }
+
+    .description-details>summary:hover::before {
+      border-color: transparent transparent transparent var(--left-text);
+    }
+
+    .description-details .video-description {
+      margin-top: 0.8rem;
+    }
+
+    /* Mobile: single column */
+    @media (max-width: 800px) {
+      .layout {
+        display: block;
+      }
+
+      .left {
+        position: static;
+        height: auto;
+      }
+
+      #resizer {
+        display: none;
+      }
+
+      .right {
+        height: auto;
+        overflow-y: visible;
+        border-top: 1px solid var(--panel-divider);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+
+  <!-- Help modal -->
+  <div id="help-overlay" role="dialog" aria-modal="true" aria-label="Help">
+    <div id="help-modal">
+      <button id="help-close" aria-label="Close">×</button>
+      <div style="text-align:center;margin-bottom:16px">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="40" height="40" style="border-radius:50%"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg>
+      </div>
+      <h3>About</h3>
+      <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player.</p>
+      <p>video-lens gallery lets you browse and search your saved reports. Click any card or row to open the full report.</p>
+      <p><a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a></p>
+      <h3>Shortcuts</h3>
+      <div class="help-shortcuts">
+        <span class="help-key">k / Space</span><span class="help-desc">play / pause</span>
+        <span class="help-key">j / ←</span><span class="help-desc">seek back 5 s</span>
+        <span class="help-key">l / →</span><span class="help-desc">seek forward 5 s</span>
+        <span class="help-key">, / &lt;</span><span class="help-desc">slower speed</span>
+        <span class="help-key">. / &gt;</span><span class="help-desc">faster speed</span>
+        <span class="help-key">c</span><span class="help-desc">captions on/off</span>
+        <span class="help-key">f</span><span class="help-desc">fullscreen</span>
+        <span class="help-key">1</span><span class="help-desc">small layout (30%)</span>
+        <span class="help-key">2</span><span class="help-desc">medium layout (45%)</span>
+        <span class="help-key">3</span><span class="help-desc">large layout</span>
+        <span class="help-key">Esc</span><span class="help-desc">close help</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generation info modal -->
+  <div id="info-overlay" role="dialog" aria-modal="true" aria-label="Generation info">
+    <div id="info-modal">
+      <button id="info-close" aria-label="Close">×</button>
+      <h3>Generation info</h3>
+      <dl>
+        <dt>Model</dt><dd id="info-model">—</dd>
+        <dt>Generated</dt><dd id="info-generated">—</dd>
+        <dt>Duration</dt><dd id="info-duration">—</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <!-- Left: sticky video + outline -->
+    <div class="left">
+      <div class="video-wrap">
+        <iframe id="yt-player" src="https://www.youtube.com/embed/bjdBVZa66oU?enablejsapi=1&rel=0&controls=0&iv_load_policy=3"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen>
+        </iframe>
+        <div id="yt-overlay" aria-hidden="true"></div>
+      </div>
+      <div id="progress-track">
+        <div id="progress-fill"></div>
+      </div>
+      <div class="ctrl-bar">
+        <button id="play-pause-btn" title="Play / pause [k / Space]"><svg width="10" height="12" viewBox="0 0 10 12"
+            fill="currentColor">
+            <polygon points="0,0 10,6 0,12" />
+          </svg></button>
+        <span id="time-display">–:–– / –:––</span>
+        <div class="ctrl-divider"></div>
+        <div class="seek-group">
+          <button id="seek-back" title="Seek back 5 s [j / ←]">← -5s</button>
+          <button id="seek-fwd" title="Seek forward 5 s [l / →]">+5s →</button>
+        </div>
+        <div class="ctrl-divider"></div>
+        <div class="speed-group">
+          <button class="speed-btn active" data-speed="1" title="1× speed [, / .]">1×</button>
+          <button class="speed-btn" data-speed="1.25" title="1.25× speed [, / .]">1.25×</button>
+          <button class="speed-btn" data-speed="1.5" title="1.5× speed [, / .]">1.5×</button>
+          <button class="speed-btn" data-speed="1.75" title="1.75× speed [, / .]">1.75×</button>
+          <button class="speed-btn" data-speed="2" title="2× speed [, / .]">2×</button>
+        </div>
+        <button id="controls-toggle-btn" class="ctrl-bar-icon-btn" title="Toggle YouTube controls [YT]">YT</button>
+      </div>
+      <div class="video-meta">
+        <h1>What are skills? &amp; &lt;why&gt; "quotes"</h1>
+        <p class="meta-line"><span class="meta-facts">Anthropic · 12 min · Oct 16 2026 · 1.2K views · 🎙 transcribed locally</span><a href="https://www.youtube.com/watch?v=bjdBVZa66oU" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a></p>
+      </div>
+      <div class="left-scroll">
+        <div class="outline-section">
+          <h2>Outline</h2>
+          <ol class="topics">
+            <li><a class="ts" data-t="0" href="https://www.youtube.com/watch?v=bjdBVZa66oU&amp;t=0" target="_blank" rel="noopener noreferrer">▶ 0:00</a> — <span class="outline-title">Intro</span><span class="outline-detail">Why skills exist.</span></li><li><a class="ts" data-t="65" href="https://www.youtube.com/watch?v=bjdBVZa66oU&amp;t=65" target="_blank" rel="noopener noreferrer">▶ 1:05</a> — <span class="outline-title">Disclosure model</span></li><li><a class="ts" data-t="600" href="https://www.youtube.com/watch?v=bjdBVZa66oU&amp;t=600" target="_blank" rel="noopener noreferrer">▶ 10:00</a> — <span class="outline-title">Wrap-up</span></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <div id="resizer" title="Drag to resize · double-click to reset"></div>
+
+    <!-- Right: scrollable summary -->
+    <div class="right">
+
+      <nav class="section-nav">
+        <a href="#summary" class="active">Summary</a>
+        <a href="#takeaway">Takeaway</a>
+        <a href="#key-points">Key Points</a>
+        <div class="nav-actions">
+          <button id="md-export-btn" class="icon-btn" aria-label="Export as Markdown" title="Export as Markdown">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </button>
+          <button id="info-btn" class="icon-btn" aria-label="Generation info" title="Generation info">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+          </button>
+          <button id="help-btn" class="icon-btn" aria-label="Help" title="Help">?</button>
+          <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme" title="Toggle theme">
+            <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+          </button>
+        </div>
+      </nav>
+
+      <section id="summary">
+        <h2>Summary</h2>
+        <p>Skills load **on demand**.
+
+A second paragraph with `code` and &lt;/script&gt; text.</p>
+        
+      </section>
+
+      <section id="takeaway">
+        <h2>Takeaway</h2>
+        <p>Keep the *context* small.</p>
+      </section>
+
+      <section id="key-points">
+        <h2>Key Points</h2>
+        <ul>
+          <li><strong>Progressive disclosure</strong> — Only names load up front.<p>Bodies load <em>on demand</em>, so <strong>context stays small</strong>; see <code>SKILL.md</code>.</p></li><li><strong>Scripts</strong> — Deterministic steps.</li><li><strong>A &amp; B &lt;tags&gt;</strong> — Quotes "stay".<p>2 * 3 * 4 is not italic.</p></li>
+        </ul>
+      </section>
+
+    </div>
+  </div>
+
+  <script type="application/json" id="video-lens-meta">{"videoId": "bjdBVZa66oU", "title": "What are skills? & <why> \"quotes\"", "channel": "Anthropic", "duration": "12 min", "publishDate": "Oct 16 2026", "generationDate": "2026-11-11", "summary": "Skills load **on demand**.\n\nA second paragraph with `code` and <\/script> text.", "tags": ["ai", "agent skills", "claude code"], "keywords": ["Progressive disclosure", "Scripts", "A & B <tags>"], "filename": "r.html", "agentModel": "claude-opus-5-5", "generatedAt": "X", "durationSeconds": 42, "channelId": "UCaaaaaaaaaaaaaaaaaaaaaa"}</script>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    var VIDEO_ID = "bjdBVZa66oU";
+
+    // file:// fallback – YouTube embeds require HTTP; overlay instructions on the left panel
+    (function () {
+      if (window.location.protocol !== 'file:') return;
+      if (window.self !== window.top) return;  // suppress when loaded in iframe
+
+      var rawPath = window.location.pathname;
+      var dir = decodeURIComponent(rawPath.replace(/\/[^/]+$/, ''));
+      var parts = rawPath.split('/');
+      var file = parts[parts.length - 1];
+      var parent = parts[parts.length - 2];
+      var urlPath = (parent === 'reports') ? 'reports/' + file : file;
+      var localUrl = 'http://localhost:8765/' + urlPath;
+      var serveDir = (parent === 'reports') ? dir.replace(/\/reports$/, '') : dir;
+      var cmd = 'python3 -m http.server 8765 --directory "' + serveDir.replace(/"/g, '\\"') + '"';
+
+      function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+      var notice = document.createElement('div');
+      notice.id = 'fl-notice';
+      notice.setAttribute('style',
+        'position:absolute;inset:0;z-index:100;' +
+        'background:var(--left-bg);color:var(--left-text);' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow-y:auto;' +
+        'padding:2rem 1.5rem;' +
+        'font-family:"DM Sans",system-ui,sans-serif;'
+      );
+
+      notice.innerHTML =
+        '<div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:22px;margin:auto 0;">' +
+
+        // ── Header: icon + title + description ──────────────────────────────────
+        '<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;">' +
+        '<div style="width:46px;height:46px;background:var(--video-bg);border:1px solid var(--left-border);border-radius:10px;display:flex;align-items:center;justify-content:center;">' +
+        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55">' +
+        '<rect x="2" y="2" width="20" height="20" rx="5"/>' +
+        '<polygon points="10,7.5 17,12 10,16.5" fill="currentColor" stroke="none"/>' +
+        '</svg>' +
+        '</div>' +
+        '<div>' +
+        '<p style="font-size:15px;font-weight:600;color:var(--left-text);margin:0 0 6px;line-height:1.3;">Serve to enable video playback</p>' +
+        '<p style="font-size:12px;color:var(--left-meta);line-height:1.65;max-width:290px;margin:0 auto;">' +
+        'YouTube blocks embeds opened via\u00a0' +
+        '<code style="font-size:10.5px;background:var(--left-border);padding:1px 5px;border-radius:3px;font-family:monospace">file://</code>' +
+        '.\u00a0Start a local HTTP server to enable playback.' +
+        '</p>' +
+        '</div>' +
+        '</div>' +
+
+        // ── Step 1: Start server ─────────────────────────────────────────────────
+        '<div style="display:flex;flex-direction:column;gap:8px;">' +
+        '<p style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--left-heading);margin:0;">' +
+        '\u2460\u00a0Start server' +
+        '</p>' +
+        '<div style="background:var(--video-bg);border:1px solid var(--left-border);border-radius:8px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;">' +
+        '<code id="fl-cmd" style="flex:1;font-size:11px;font-family:\'SF Mono\',\'Fira Code\',\'Menlo\',monospace;line-height:1.65;word-break:break-all;user-select:all;color:var(--left-text);">' + esc(cmd) + '</code>' +
+        '<button id="fl-copy" style="flex-shrink:0;margin-top:2px;padding:5px 11px;font-size:11px;font-family:inherit;font-weight:500;background:var(--toggle-bg);color:var(--toggle-text);border:none;border-radius:5px;cursor:pointer;white-space:nowrap;">Copy</button>' +
+        '</div>' +
+        '</div>' +
+
+        // ── Step 2: Open report ──────────────────────────────────────────────────
+        '<div style="display:flex;flex-direction:column;gap:8px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;">' +
+        '<p style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--left-heading);margin:0;">' +
+        '\u2461\u00a0Open report' +
+        '</p>' +
+        '<div style="font-size:10.5px;color:var(--left-meta);display:flex;align-items:center;gap:4px;">' +
+        '<span id="fl-dot" style="font-size:8px;line-height:1">\u25cf</span>' +
+        '<span id="fl-stxt">Checking\u2026</span>' +
+        '</div>' +
+        '</div>' +
+        '<a id="fl-open" href="' + esc(localUrl) + '" style="display:flex;align-items:center;justify-content:center;padding:11px 16px;background:var(--left-link);color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:500;opacity:0.3;pointer-events:none;transition:opacity 0.25s ease;">' +
+        'Open localhost:8765 \u2197' +
+        '</a>' +
+        '<div id="fl-cd" style="text-align:center;font-size:11px;color:var(--left-meta);min-height:18px;display:flex;align-items:center;justify-content:center;gap:8px;"></div>' +
+        '</div>' +
+
+        '</div>';
+
+      document.querySelector('.video-wrap').appendChild(notice);
+
+      // ── Copy to clipboard ────────────────────────────────────────────────────
+      var copyBtn = document.getElementById('fl-copy');
+      copyBtn.addEventListener('click', function () {
+        function onCopied() {
+          copyBtn.textContent = 'Copied \u2713';
+          copyBtn.style.background = 'rgba(39,174,96,0.15)';
+          copyBtn.style.color = '#27ae60';
+          setTimeout(function () {
+            copyBtn.textContent = 'Copy';
+            copyBtn.style.background = 'var(--toggle-bg)';
+            copyBtn.style.color = 'var(--toggle-text)';
+          }, 2000);
+        }
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(cmd).then(onCopied);
+        } else {
+          var r = document.createRange();
+          r.selectNode(document.getElementById('fl-cmd'));
+          window.getSelection().removeAllRanges();
+          window.getSelection().addRange(r);
+          try { document.execCommand('copy'); } catch (e) { }
+          onCopied();
+        }
+      });
+
+      // ── Localhost server detection ───────────────────────────────────────────
+      var dotEl = document.getElementById('fl-dot');
+      var stxtEl = document.getElementById('fl-stxt');
+      var openBtn = document.getElementById('fl-open');
+      var cdEl = document.getElementById('fl-cd');
+      var serverUp = false, cdTimer = null, pollTimer = null;
+
+      function enableOpen() {
+        openBtn.style.opacity = '1';
+        openBtn.style.pointerEvents = 'auto';
+      }
+
+      function setStatus(up) {
+        dotEl.style.color = up ? '#27ae60' : 'var(--left-meta)';
+        stxtEl.textContent = up ? 'Running \u2713' : 'Not running';
+      }
+
+      function startCountdown() {
+        if (cdTimer) return;
+        var s = 5;
+        function tick() {
+          if (s <= 0) { clearInterval(cdTimer); window.location.href = localUrl; return; }
+          cdEl.innerHTML =
+            'Opening in ' + s + 's\u2026\u00a0' +
+            '<button id="fl-stay" style="background:none;border:none;font:inherit;font-size:11px;color:var(--left-link);cursor:pointer;padding:0;text-decoration:underline;">Stay</button>';
+          document.getElementById('fl-stay').addEventListener('click', cancelCd);
+          s--;
+        }
+        tick();
+        cdTimer = setInterval(tick, 1000);
+      }
+
+      function cancelCd() {
+        if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
+        cdEl.innerHTML = '';
+      }
+
+      function checkServer() {
+        fetch('http://localhost:8765/', { mode: 'no-cors', cache: 'no-store' })
+          .then(function () {
+            if (serverUp) return;
+            serverUp = true;
+            clearInterval(pollTimer);
+            setStatus(true);
+            enableOpen();
+            startCountdown();
+          })
+          .catch(function () {
+            if (!serverUp) setStatus(false);
+          });
+      }
+
+      checkServer();
+      pollTimer = setInterval(checkServer, 2000);
+    })();
+
+    // Theme toggle
+    (function () {
+      var html = document.documentElement;
+      var btn = document.getElementById('theme-toggle');
+      var icon = document.getElementById('theme-icon');
+
+      var sunPath = '<circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.87" y2="5.87"/><line x1="18.13" y1="18.13" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.87" y2="18.13"/><line x1="18.13" y1="5.87" x2="19.78" y2="4.22"/>';
+      var moonPath = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+
+      function applyTheme(dark) {
+        if (dark) {
+          html.setAttribute('data-theme', 'dark');
+          icon.innerHTML = sunPath;
+        } else {
+          html.removeAttribute('data-theme');
+          icon.innerHTML = moonPath;
+        }
+      }
+
+      // Fall back to the OS preference on a first visit, as the gallery does —
+      // otherwise a dark-mode user gets a white report beside a dark gallery.
+      var saved = localStorage.getItem('theme');
+      applyTheme(saved
+        ? saved === 'dark'
+        : window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+      btn.addEventListener('click', function () {
+        var isDark = html.getAttribute('data-theme') === 'dark';
+        var next = !isDark;
+        localStorage.setItem('theme', next ? 'dark' : 'light');
+        applyTheme(next);
+      });
+    })();
+
+    // Help modal
+    (function () {
+      var overlay = document.getElementById('help-overlay');
+      var helpBtn = document.getElementById('help-btn');
+      var closeBtn = document.getElementById('help-close');
+
+      function openHelp() { overlay.classList.add('open'); }
+      function closeHelp() { overlay.classList.remove('open'); }
+
+      helpBtn.addEventListener('click', openHelp);
+      closeBtn.addEventListener('click', closeHelp);
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeHelp();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeHelp();
+      });
+    })();
+
+    // Shared meta (parsed once; reused by info modal and markdown export)
+    var VL_META = (function () {
+      try {
+        var raw = document.getElementById('video-lens-meta').textContent;
+        return JSON.parse(raw) || {};
+      } catch (e) { return {}; }
+    })();
+
+    function formatDurationSeconds(s) {
+      if (typeof s !== 'number' || !isFinite(s) || s < 0) return null;
+      s = Math.round(s);
+      var h = Math.floor(s / 3600);
+      var m = Math.floor((s % 3600) / 60);
+      var sec = s % 60;
+      if (h > 0) return h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(sec).padStart(2, '0') + 's';
+      if (m > 0) return m + 'm ' + String(sec).padStart(2, '0') + 's';
+      return sec + 's';
+    }
+
+    function formatGeneratedAtLocal(iso) {
+      if (!iso) return null;
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return null;
+      try {
+        return d.toLocaleString(undefined, {
+          year: 'numeric', month: 'short', day: '2-digit',
+          hour: '2-digit', minute: '2-digit'
+        });
+      } catch (e) { return iso; }
+    }
+
+    // Info modal
+    (function () {
+      var overlay = document.getElementById('info-overlay');
+      var infoBtn = document.getElementById('info-btn');
+      var closeBtn = document.getElementById('info-close');
+
+      var model = VL_META.agentModel || VL_META.modelName || null;
+      var generated = formatGeneratedAtLocal(VL_META.generatedAt);
+      var duration = formatDurationSeconds(VL_META.durationSeconds);
+
+      if (model) document.getElementById('info-model').textContent = model;
+      if (generated) document.getElementById('info-generated').textContent = generated;
+      if (duration) document.getElementById('info-duration').textContent = duration;
+
+      function openInfo() { overlay.classList.add('open'); }
+      function closeInfo() { overlay.classList.remove('open'); }
+
+      infoBtn.addEventListener('click', openInfo);
+      closeBtn.addEventListener('click', closeInfo);
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeInfo();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeInfo();
+      });
+    })();
+
+    // YT IFrame API
+    var ytPlayer;
+    var pendingSeek = null;
+    var ytControlsVisible = false;
+    var ccEnabled = false;
+
+    function toggleFullscreen() {
+      var el = document.querySelector('.video-wrap');
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } else {
+        (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+      }
+    }
+
+    function syncFullscreenBtn() {
+      var active = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      // In fullscreen give YouTube native controls; restore custom overlay when exiting
+      if (!ytControlsVisible) {
+        document.getElementById('yt-overlay').style.display = active ? 'none' : '';
+      }
+    }
+    document.addEventListener('fullscreenchange', syncFullscreenBtn);
+    document.addEventListener('webkitfullscreenchange', syncFullscreenBtn);
+
+    function buildIframeSrc() {
+      return 'https://www.youtube.com/embed/bjdBVZa66oU?enablejsapi=1&rel=0&controls='
+        + (ytControlsVisible ? '1' : '0')
+        + (ccEnabled ? '&cc_load_policy=1' : '');
+    }
+
+    function rebuildIframe(savedTime) {
+      var oldIframe = document.getElementById('yt-player');
+      var wrap = oldIframe.parentNode;
+      var savedAllow = oldIframe.allow;
+      if (ytPlayer && ytPlayer.destroy) ytPlayer.destroy();
+      var newIframe = document.createElement('iframe');
+      newIframe.id = 'yt-player';
+      newIframe.allow = savedAllow;
+      newIframe.allowFullscreen = true;
+      newIframe.src = buildIframeSrc();
+      wrap.appendChild(newIframe);
+      pendingSeek = savedTime;
+      ytPlayer = new YT.Player('yt-player', {
+        events: {
+          onReady: onPlayerReady,
+          onStateChange: onPlayerStateChange,
+          onError: onPlayerError
+        }
+      });
+    }
+
+    function toggleCaptions() {
+      if (!ytPlayer) return;
+      var savedTime = (ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : 0;
+      ccEnabled = !ccEnabled;
+      rebuildIframe(savedTime);
+    }
+
+    function onPlayerReady(e) {
+      if (pendingSeek !== null) {
+        e.target.seekTo(pendingSeek, true);
+        e.target.playVideo();
+        pendingSeek = null;
+      }
+    }
+
+    function onPlayerStateChange(e) {
+      document.getElementById('play-pause-btn').innerHTML = e.data === 1
+        ? '<svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor"><rect x="0" y="0" width="3.5" height="12" rx="1"/><rect x="7.5" y="0" width="3.5" height="12" rx="1"/></svg>'
+        : '<svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor"><polygon points="0,0 10,6 0,12"/></svg>';
+      document.body.classList.toggle('is-playing', e.data === 1);
+    }
+
+      function onPlayerError(e) {
+        if (e.data !== 101 && e.data !== 150) return;  // only handle embed-disabled
+        var wrap = document.querySelector('.video-wrap');
+        wrap.innerHTML =
+          '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+          'padding:24px;text-align:center;background:var(--video-bg);color:var(--left-text);gap:14px;">' +
+          '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">' +
+          '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+          '<strong style="font-size:15px;opacity:0.8">Embedding disabled by video owner</strong>' +
+          '<span style="font-size:12px;opacity:0.55;max-width:280px">This video cannot be played here. Watch it directly on YouTube.</span>' +
+          '<a href="https://www.youtube.com/watch?v=bjdBVZa66oU" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:10px 20px;border-radius:6px;' +
+          'background:var(--left-link);color:#fff;font-size:13px;font-weight:600;text-decoration:none;">Watch on YouTube</a>' +
+          '</div>';
+        // Hide controls since they're useless without a player
+        document.getElementById('progress-track').style.display = 'none';
+        document.querySelector('.ctrl-bar').style.display = 'none';
+      }
+
+      function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('yt-player', {
+          events: {
+            onReady: onPlayerReady,
+            onStateChange: onPlayerStateChange,
+            onError: onPlayerError
+          }
+        });
+      }
+
+      // Controls toggle
+      document.getElementById('controls-toggle-btn').addEventListener('click', function () {
+        var savedTime = (ytPlayer && ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : 0;
+        ytControlsVisible = !ytControlsVisible;
+        document.querySelector('.ctrl-bar').classList.toggle('yt-native', ytControlsVisible);
+        document.getElementById('controls-toggle-btn').classList.toggle('active', ytControlsVisible);
+        document.getElementById('yt-overlay').style.display = ytControlsVisible ? 'none' : '';
+        rebuildIframe(savedTime);
+      });
+
+      // Timestamp links — seek via API instead of reloading src
+      var links = document.querySelectorAll('a.ts');
+      var topicItems = Array.from(links).map(function (a) {
+        return { a: a, li: a.closest('li'), t: parseInt(a.getAttribute('data-t'), 10) };
+      });
+
+      function setActiveItem(li) {
+        topicItems.forEach(function (item) { item.li.classList.remove('active'); });
+        if (li) {
+          li.classList.add('active');
+          li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }
+
+      function seekToTimestamp(t, li) {
+        if (ytPlayer && ytPlayer.seekTo) {
+          ytPlayer.seekTo(t, true);
+          ytPlayer.playVideo();
+        } else {
+          pendingSeek = t;
+        }
+        setActiveItem(li);
+        document.querySelector('.left').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
+      links.forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          seekToTimestamp(parseInt(this.getAttribute('data-t'), 10), this.closest('li'));
+        });
+      });
+
+      function setExpanded(li, on) {
+        li.classList.toggle('expanded', on);
+        if (li.hasAttribute('aria-expanded')) {
+          li.setAttribute('aria-expanded', on ? 'true' : 'false');
+        }
+      }
+
+      function activateTopic(item) {
+        if (item.li.querySelector('.outline-detail')) {
+          var wasExpanded = item.li.classList.contains('expanded');
+          // Accordion: collapse all manually-expanded items
+          document.querySelectorAll('ol.topics li.expanded').forEach(function (li) {
+            setExpanded(li, false);
+          });
+          // Toggle this one (if it was already expanded, it stays collapsed)
+          if (!wasExpanded) setExpanded(item.li, true);
+        } else {
+          seekToTimestamp(item.t, item.li);
+        }
+      }
+
+      topicItems.forEach(function (item) {
+        // Disclosure semantics are added here rather than in the payload so the
+        // renderer's attribute allowlist does not have to admit them.
+        if (item.li.querySelector('.outline-detail')) {
+          item.li.setAttribute('role', 'button');
+          item.li.setAttribute('tabindex', '0');
+          item.li.setAttribute('aria-expanded', 'false');
+        }
+        item.li.addEventListener('click', function (e) {
+          if (e.target.closest('a.ts')) return; // timestamp click seeks via link handler
+          activateTopic(item);
+        });
+        item.li.addEventListener('keydown', function (e) {
+          if (e.target.closest('a.ts')) return; // let the timestamp link keep Enter
+          if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+          e.preventDefault();  // Space would otherwise scroll the page
+          activateTopic(item);
+        });
+      });
+
+      // Auto-sync outline with video position
+      setInterval(function () {
+        if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+        var cur = ytPlayer.getCurrentTime();
+        var active = null;
+        topicItems.forEach(function (item) {
+          if (item.t <= cur) active = item.li;
+        });
+        // Only update if it changed
+        var current = document.querySelector('ol.topics li.active');
+        if (active !== current) setActiveItem(active);
+        var dur = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
+        if (dur > 0) {
+          document.getElementById('progress-fill').style.width = (cur / dur * 100) + '%';
+        }
+      }, 1000);
+
+      // Speed buttons
+      var speedBtns = document.querySelectorAll('.speed-btn');
+      speedBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var rate = parseFloat(this.getAttribute('data-speed'));
+          if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(rate);
+          speedBtns.forEach(function (b) { b.classList.remove('active'); });
+          this.classList.add('active');
+        });
+      });
+
+
+      document.getElementById('play-pause-btn').addEventListener('click', function () {
+        if (!ytPlayer || !ytPlayer.getPlayerState) return;
+        ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+      });
+
+      // Overlay intercepts clicks on the video area so the iframe never steals keyboard focus
+      document.getElementById('yt-overlay').addEventListener('click', function () {
+        if (!ytPlayer || !ytPlayer.getPlayerState) return;
+        ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+        document.body.focus();
+      });
+
+      // Seek ±5s
+      document.getElementById('seek-back').addEventListener('click', function () {
+        if (ytPlayer && ytPlayer.getCurrentTime)
+          ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
+      });
+      document.getElementById('seek-fwd').addEventListener('click', function () {
+        if (ytPlayer && ytPlayer.getCurrentTime)
+          ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
+      });
+
+      // Live time display
+      function formatTime(s) {
+        s = Math.floor(s || 0);
+        var h = Math.floor(s / 3600);
+        var m = Math.floor((s % 3600) / 60);
+        var sec = s % 60;
+        if (h > 0)
+          return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+        return m + ':' + String(sec).padStart(2, '0');
+      }
+      setInterval(function () {
+        if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+        var cur = ytPlayer.getCurrentTime();
+        var dur = ytPlayer.getDuration();
+        var el = document.getElementById('time-display');
+        if (el) el.textContent = formatTime(cur) + ' / ' + (dur > 0 ? formatTime(dur) : '–:––');
+      }, 500);
+
+      (function () {
+        var track = document.getElementById('progress-track');
+        var fill = document.getElementById('progress-fill');
+        var dragging = false;
+        var dragRect;
+
+        function seekByEvent(e) {
+          if (!ytPlayer || !ytPlayer.getDuration) return;
+          var pct = Math.min(1, Math.max(0, (e.clientX - dragRect.left) / dragRect.width));
+          ytPlayer.seekTo(ytPlayer.getDuration() * pct, true);
+          ytPlayer.playVideo();
+        }
+
+        track.addEventListener('mousedown', function (e) {
+          dragging = true;
+          dragRect = track.getBoundingClientRect();
+          fill.style.transition = 'none';
+          seekByEvent(e);
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+
+        function onMove(e) {
+          if (!dragging) return;
+          seekByEvent(e);
+        }
+
+        function onUp() {
+          dragging = false;
+          fill.style.transition = '';
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        }
+      })();
+
+      (function () {
+        var navLinks = document.querySelectorAll('.section-nav a');
+        var clicking = false;
+        var clickTimer = null;
+        navLinks.forEach(function (a) {
+          a.addEventListener('click', function () {
+            navLinks.forEach(function (l) { l.classList.remove('active'); });
+            this.classList.add('active');
+            clicking = true;
+            clearTimeout(clickTimer);
+            clickTimer = setTimeout(function () { clicking = false; }, 1000);
+          });
+        });
+        var rightEl = document.querySelector('.right');
+        var sections = Array.from(document.querySelectorAll('.right section'));
+        var hasScrolled = false;
+        rightEl.addEventListener('scroll', function () { hasScrolled = true; }, { once: true });
+        var io = new IntersectionObserver(function (entries) {
+          if (!hasScrolled || clicking) return;
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              var id = entry.target.id;
+              navLinks.forEach(function (a) {
+                a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+              });
+            }
+          });
+        }, { root: rightEl, threshold: 0, rootMargin: '0px 0px -75% 0px' });
+        sections.forEach(function (s) { io.observe(s); });
+      })();
+
+      var SECTION_TOOLTIPS = {
+        'summary': 'A short overview of the video\'s core argument and conclusion.',
+        'takeaway': 'The one thing to take away — going further than the summary.',
+        'key-points': 'Key concepts and insights — each with analytical depth added.'
+      };
+
+      // Open all links in the YouTube description in a new tab
+      document.querySelectorAll('.video-description a').forEach(function (a) {
+        a.setAttribute('target', '_blank');
+        a.setAttribute('rel', 'noopener noreferrer');
+      });
+
+      document.querySelectorAll('.right section').forEach(function (sec) {
+        var h2 = sec.querySelector('h2');
+        if (!h2) return;
+
+        // Info button
+        var infoTooltip = SECTION_TOOLTIPS[sec.id];
+        if (infoTooltip) {
+          var infoBtn = document.createElement('button');
+          infoBtn.className = 'section-info';
+          infoBtn.textContent = 'ⓘ';
+          infoBtn.setAttribute('data-tooltip', infoTooltip);
+          infoBtn.setAttribute('aria-label', infoTooltip);
+          h2.appendChild(infoBtn);
+        }
+      });
+
+      // Walk a node to Markdown so the <strong>/<em>/<code> structure the skill
+      // is asked to produce survives the export instead of flattening to prose.
+      function mdInline(node) {
+        if (!node) return '';
+        return Array.from(node.childNodes).map(function (n) {
+          if (n.nodeType === 3) return n.textContent;
+          if (n.nodeType !== 1) return '';
+          var inner = mdInline(n);
+          switch (n.tagName) {
+            case 'STRONG': case 'B': return '**' + inner.trim() + '**';
+            case 'EM': case 'I':     return '*' + inner.trim() + '*';
+            case 'CODE':             return '`' + inner.trim() + '`';
+            case 'BR':               return '\n';
+            default:                 return inner;
+          }
+        }).join('').replace(/[ \t]+/g, ' ').trim();
+      }
+
+      document.getElementById('md-export-btn').addEventListener('click', function () {
+        // Title
+        var title = document.querySelector('h1').innerText;
+
+        // Meta line — strip the "Open on YouTube ↗" link text, keep the rest
+        var metaEl = document.querySelector('.meta-line');
+        var factsEl = metaEl.querySelector('.meta-facts');
+        var metaText = (factsEl ? factsEl.textContent : '').trim();
+        var videoUrl = metaEl.querySelector('a') ? metaEl.querySelector('a').href : '';
+
+        // Summary
+        var summary = mdInline(document.querySelector('#summary p'));
+
+        // Description (optional — only present when yt-dlp was used)
+        var descEl = document.querySelector('.description-details .video-description');
+        var description = descEl ? descEl.innerText.trim() : '';
+
+        // Key Points
+        var keyPoints = Array.from(document.querySelectorAll('#key-points li'))
+          .map(function (li) {
+            var detail = li.querySelector('p');
+            var headlineSrc = document.createElement('span');
+            Array.from(li.childNodes)
+              .filter(function (n) { return n.nodeType === 3 || (n.nodeType === 1 && n.tagName !== 'P'); })
+              .forEach(function (n) { headlineSrc.appendChild(n.cloneNode(true)); });
+            var line = '- ' + mdInline(headlineSrc);
+            if (detail) line += '\n  ' + mdInline(detail);
+            return line;
+          }).join('\n');
+
+        // Takeaway
+        var takeaway = mdInline(document.querySelector('#takeaway p'));
+
+        // Outline — each li has data-t (seconds), .outline-title and optional .outline-detail
+        var outline = Array.from(document.querySelectorAll('.topics li')).map(function (li) {
+          var tsEl = li.querySelector('a.ts');
+          var t = (tsEl ? tsEl.getAttribute('data-t') : null) || '0';
+          var tsText = tsEl ? tsEl.innerText : '0:00';
+          var titleEl = li.querySelector('.outline-title');
+          var detailEl = li.querySelector('.outline-detail');
+          var topicText = titleEl ? mdInline(titleEl) : li.innerText.replace(tsText, '').trim();
+          var detail = mdInline(detailEl);
+          var url = 'https://www.youtube.com/watch?v=' + VIDEO_ID + '&t=' + t;
+          var line = '- [' + tsText + '](' + url + ') ' + topicText;
+          if (detail) line += ' — ' + detail;
+          return line;
+        }).join('\n');
+
+        // Generation footer — model, timestamp, duration (any/all may be missing)
+        var genParts = [];
+        if (VL_META.generatedAt) {
+          var genStr = formatGeneratedAtLocal(VL_META.generatedAt);
+          if (genStr) genParts.push('Generated ' + genStr);
+        }
+        var modelStr = VL_META.agentModel || VL_META.modelName;
+        if (modelStr) genParts.push('with ' + modelStr);
+        var durStr = formatDurationSeconds(VL_META.durationSeconds);
+        if (durStr) genParts.push('in ' + durStr);
+        var genFooter = genParts.length
+          ? ['', '---', '', '*' + genParts.join(' · ') + ' · [video-lens](https://github.com/kar2phi/video-lens)*']
+          : [];
+
+        var md = [
+          '# ' + title,
+          '',
+          metaText,
+          videoUrl ? '[Watch on YouTube](' + videoUrl + ')' : '',
+          '',
+          '> Generated by the [video-lens](https://github.com/kar2phi/video-lens) Claude skill.',
+          '',
+          '---',
+          '',
+          '## Outline',
+          '',
+          outline,
+          '',
+          '## Summary',
+          '',
+          summary,
+          '',
+          '## Takeaway',
+          '',
+          takeaway,
+          '',
+          '## Key Points',
+          '',
+          keyPoints,
+        ].concat(description ? ['', '## YouTube Description', '', description] : [])
+         .concat(genFooter)
+         .join('\n');
+
+        // Trigger download
+        var blob = new Blob([md], { type: 'text/markdown' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = window.location.pathname.split('/').pop().replace(/\.html$/, '.md');
+        // Anchor must be in the document, and the URL must outlive the click —
+        // revoking synchronously cancels the download outside Chrome.
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 0);
+      });
+
+      function cycleSpeed(dir) {
+        var speeds = [1, 1.25, 1.5, 1.75, 2];
+        var active = document.querySelector('.speed-btn.active');
+        if (!active) return;
+        var idx = speeds.indexOf(parseFloat(active.getAttribute('data-speed')));
+        var next = speeds[Math.max(0, Math.min(speeds.length - 1, idx + dir))];
+        if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(next);
+        speedBtns.forEach(function (b) { b.classList.remove('active'); });
+        document.querySelector('.speed-btn[data-speed="' + next + '"]').classList.add('active');
+      }
+
+      document.addEventListener('keydown', function (e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (e.key === ' ' || e.key === 'k') {
+          e.preventDefault();
+          if (ytPlayer && ytPlayer.getPlayerState) {
+            ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+          }
+        } else if (e.key === 'j' || e.key === 'ArrowLeft') {
+          if (ytPlayer && ytPlayer.getCurrentTime)
+            ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
+        } else if (e.key === 'l' || e.key === 'ArrowRight') {
+          if (ytPlayer && ytPlayer.getCurrentTime)
+            ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
+        } else if (e.key === 'c') {
+          toggleCaptions();
+        } else if (e.key === 'f') {
+          e.preventDefault();
+          toggleFullscreen();
+        } else if (e.key === '<' || e.key === ',') {
+          cycleSpeed(-1);
+        } else if (e.key === '>' || e.key === '.') {
+          cycleSpeed(1);
+        } else if (e.key === '1') {
+          applySplit(30);
+        } else if (e.key === '2') {
+          applySplit(45);
+        } else if (e.key === '3') {
+          applySplit(maxVideoSplit());
+        }
+      });
+
+      // Draggable resizer + split presets
+      var resizer = document.getElementById('resizer');
+      var layout = document.querySelector('.layout');
+      var SPLIT_KEY = 'video-lens:split';
+      var DEFAULT_SPLIT = 45;
+
+      // Restore saved split on load
+      (function () {
+        var saved = localStorage.getItem(SPLIT_KEY);
+        if (saved) document.documentElement.style.setProperty('--left-w', saved + '%');
+      })();
+
+      resizer.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        resizer.classList.add('dragging');
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('mouseup', stopDrag);
+      });
+      resizer.addEventListener('dblclick', function () {
+        document.documentElement.style.setProperty('--left-w', DEFAULT_SPLIT + '%');
+        localStorage.removeItem(SPLIT_KEY);
+      });
+
+      function onDrag(e) {
+        var pct = (e.clientX / window.innerWidth) * 100;
+        pct = Math.min(Math.max(pct, 20), maxVideoSplit());
+        document.documentElement.style.setProperty('--left-w', pct + '%');
+      }
+
+      function stopDrag() {
+        resizer.classList.remove('dragging');
+        document.removeEventListener('mousemove', onDrag);
+        document.removeEventListener('mouseup', stopDrag);
+        var cur = document.documentElement.style.getPropertyValue('--left-w');
+        if (cur) localStorage.setItem(SPLIT_KEY, parseFloat(cur).toFixed(1));
+      }
+
+      // Split preset buttons
+      // L is dynamic: the exact panel % where the video fills height without letterboxing
+      function maxVideoSplit() {
+        var maxH = window.innerHeight - 220; // matches the calc(100vh - 220px) cap in CSS
+        var maxW = maxH * 16 / 9;
+        return Math.min(80, Math.max(20, (maxW / window.innerWidth) * 100));
+      }
+
+      function applySplit(pct) {
+        layout.classList.add('snapping');
+        document.documentElement.style.setProperty('--left-w', pct + '%');
+        localStorage.setItem(SPLIT_KEY, pct.toFixed(1));
+        setTimeout(function () { layout.classList.remove('snapping'); }, 250);
+      }
+    </script>
+</body>
+
+</html>

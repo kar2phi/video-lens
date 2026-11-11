@@ -33,6 +33,7 @@ def clean(**overrides):
     out = sanitise_payload(payload(**overrides), "/r/x.html")
     out["VIDEO_LENS_META"] = json.loads(out["VIDEO_LENS_META"].replace("<\\/", "</"))
     out["VIDEO_LENS_META"].pop("generatedAt")
+    out.pop("VIDEO_LENS_DATA")   # only array input carries it (test_share_data_block.py)
     return out
 
 

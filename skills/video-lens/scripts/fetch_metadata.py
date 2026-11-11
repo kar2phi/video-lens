@@ -5,7 +5,8 @@ Usage: python3 fetch_metadata.py VIDEO_ID
 
 Besides the YTDLP_* lines it leaves a small sidecar, $XDG_CACHE_HOME/video-lens/metadata/
 <VIDEO_ID>.json, from which render_report.py takes the channel id for the gallery meta
-block, so the agent never has to copy it (026 §9.1; the R2 run directory will absorb this).
+block, and the duration in seconds and the language for the share data block, so the agent
+never has to copy them (026 §9.1; the R2 run directory will absorb this).
 """
 import argparse
 import html
@@ -97,6 +98,8 @@ def write_sidecar(video_id, data):
             "videoId": video_id,
             "channelId": data.get("channel_id") or "",
             "channel": data.get("channel") or "",
+            "durationS": int(data["duration"]) if isinstance(data.get("duration"), (int, float)) else None,
+            "lang": _detect_language(data),
             "fetchedAt": int(time.time()),
         }), encoding="utf-8")
     except OSError:

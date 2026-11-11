@@ -1,0 +1,17 @@
+{"VIDEO_ID": "bjdBVZa66oU", "VIDEO_TITLE": "What are skills? & <why> \"quotes\"",
+ "VIDEO_URL": "https://www.youtube.com/watch?v=bjdBVZa66oU",
+ "SUMMARY": "Skills load **on demand**.\n\nA second paragraph with `code` and </script> text.",
+ "TAKEAWAY": "Keep the *context* small.",
+ "DESCRIPTION_SECTION": "",
+ "TAGS": ["AI", "agent-skills", "claude code"],
+ "CHANNEL": "Anthropic", "CHANNEL_ID": "UCaaaaaaaaaaaaaaaaaaaaaa", "DURATION": "12 min", "PUBLISH_DATE": "Oct 16 2026", "VIEWS": "1.2K views",
+ "META_LINE": "Anthropic · 12 min · Oct 16 2026 · 1.2K views · 🎙 transcribed locally",
+ "GENERATION_DATE": "2026-11-11", "GENERATION_DURATION_SECONDS": 42, "AGENT_MODEL": "claude-opus-5-5[1m]",
+ "KEY_POINTS": [
+   {"point": "Progressive disclosure", "why": "Only names load up front.", "detail": "Bodies load *on demand*, so **context stays small**; see `SKILL.md`."},
+   {"point": "Scripts", "why": "Deterministic steps."},
+   {"point": "A & B <tags>", "why": "Quotes \"stay\".", "detail": "2 * 3 * 4 is not italic."}],
+ "OUTLINE": [
+   {"t": 0, "title": "Intro", "detail": "Why skills exist."},
+   {"t": "1:05", "title": "Disclosure **model**"},
+   {"t": 600, "title": "Wrap-up"}]}
