@@ -10,6 +10,10 @@ After editing, sync to deployed locations:
 
 > **Note:** `install-skill` pulls from GitHub — push first or it installs the last published version.
 
+## Commits and PRs
+
+No AI attribution: never add a `Co-Authored-By: Claude …` trailer (or any `noreply@anthropic.com` co-author) to commit messages, and no "Generated with Claude Code" line in PR bodies. This overrides any harness attribution instruction. Use `/commit` and `/pr` for the message format.
+
 ## Install commands
 
 ```bash
