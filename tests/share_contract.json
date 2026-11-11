@@ -1,0 +1,220 @@
+{
+  "_doc": [
+    "Share API contract v1 (video-lens-core 033 §5.1, §7). Source of truth for the Python fake",
+    "(tests/fake_share_service.py, task test) and the Worker (video-lens-core service/, npm test).",
+    "Base URL is the runner's. Lengths count Unicode code points after NFC normalisation.",
+    "Placeholders in flows: {payload}, {payload:PATCH}, {terms}, {install}, {install2}, {id}, {key},",
+    "{id2}, {key2}; 'save' copies response fields into those names. 'op' steps are runner actions:",
+    "takedown(id, reason), pause, unpause, ban(install), set_cap(name, n), video_gone(videoId)."
+  ],
+  "version": 1,
+  "terms": "2026-11-01",
+  "bodyLimit": 131072,
+  "installHeader": "X-VL-Install",
+  "errors": {
+    "schema": 400, "terms": 400, "video": 400, "auth": 401, "not_found": 404,
+    "removed": 410, "size": 413, "rate": 429, "paused": 503
+  },
+  "reasons": ["illegal", "copyright", "spam", "personal_data", "other"],
+  "goneVideoId": "ZZZZZZZZZZZ",
+  "payload": {
+    "v": 1,
+    "videoId": "AAAAAAAAAAA",
+    "title": "A made-up talk about **agents** & <tools>",
+    "channel": "Example Channel",
+    "channelId": "UCaaaaaaaaaaaaaaaaaaaaaa",
+    "duration": "1h 2m",
+    "durationS": 3720,
+    "published": "Jan 1 2026",
+    "lang": "en",
+    "tags": ["ai", "agents", "c++"],
+    "summary": "First paragraph with **bold** and `code`.\n\nSecond paragraph.",
+    "takeaway": "One *line*.",
+    "keyPoints": [
+      {"point": "Point one", "why": "Because.", "detail": "Detail with **bold**."},
+      {"point": "Point two", "why": "", "detail": ""}
+    ],
+    "outline": [
+      {"t": 0, "title": "Intro", "detail": "Start."},
+      {"t": 754, "title": "Middle", "detail": ""}
+    ],
+    "model": "claude-opus-5-5",
+    "notes": ["local-transcript"],
+    "created": "2026-11-11"
+  },
+  "minimalPayload": {
+    "v": 1, "videoId": "AAAAAAAAAAA", "title": "T", "summary": "S", "takeaway": "K",
+    "keyPoints": [{"point": "P"}], "outline": []
+  },
+  "minimalNormalised": {
+    "v": 1, "videoId": "AAAAAAAAAAA", "title": "T", "channel": "", "channelId": "", "duration": "",
+    "durationS": null, "published": "", "lang": "", "tags": [], "summary": "S", "takeaway": "K",
+    "keyPoints": [{"point": "P", "why": "", "detail": ""}], "outline": [], "model": "", "notes": [],
+    "created": ""
+  },
+  "validPatches": [
+    {"name": "nfc", "patch": {"title": "Café"}},
+    {"name": "tab and newline", "patch": {"summary": "a\tb\nc"}},
+    {"name": "durationS null", "patch": {"durationS": null}},
+    {"name": "channelId empty", "patch": {"channelId": ""}},
+    {"name": "lang with region", "patch": {"lang": "pt-BR"}},
+    {"name": "five tags", "patch": {"tags": ["a", "b", "c", "d", "e"]}},
+    {"name": "summary at limit", "patch": {"summary": "@6000"}},
+    {"name": "hostile text is text", "patch": {"summary": "<script>window.__pwned=1</script> <img src=x onerror=1>"}},
+    {"name": "both notes", "patch": {"notes": ["lang-fallback", "local-transcript"]}},
+    {"name": "outline max t", "patch": {"outline": [{"t": 86400, "title": "End", "detail": ""}]}}
+  ],
+  "invalidPatches": [
+    {"name": "unknown key", "patch": {"html": "<b>x</b>"}, "field": "html"},
+    {"name": "wrong version", "patch": {"v": 2}, "field": "v"},
+    {"name": "bad video id", "patch": {"videoId": "short"}, "field": "videoId"},
+    {"name": "missing title", "patch": {"title": "#delete"}, "field": "title"},
+    {"name": "empty title", "patch": {"title": ""}, "field": "title"},
+    {"name": "title too long", "patch": {"title": "@301"}, "field": "title"},
+    {"name": "title not a string", "patch": {"title": 5}, "field": "title"},
+    {"name": "bad channel id", "patch": {"channelId": "UCshort"}, "field": "channelId"},
+    {"name": "durationS float", "patch": {"durationS": 1.5}, "field": "durationS"},
+    {"name": "durationS bool", "patch": {"durationS": true}, "field": "durationS"},
+    {"name": "durationS too big", "patch": {"durationS": 86401}, "field": "durationS"},
+    {"name": "bad lang", "patch": {"lang": "english"}, "field": "lang"},
+    {"name": "six tags", "patch": {"tags": ["a", "b", "c", "d", "e", "f"]}, "field": "tags"},
+    {"name": "bad tag", "patch": {"tags": ["Upper"]}, "field": "tags"},
+    {"name": "summary too long", "patch": {"summary": "@6001"}, "field": "summary"},
+    {"name": "takeaway empty", "patch": {"takeaway": ""}, "field": "takeaway"},
+    {"name": "no key points", "patch": {"keyPoints": []}, "field": "keyPoints"},
+    {"name": "21 key points", "patch": {"keyPoints": "@21kp"}, "field": "keyPoints"},
+    {"name": "key point unknown key", "patch": {"keyPoints": [{"point": "P", "url": "x"}]}, "field": "keyPoints"},
+    {"name": "key point empty", "patch": {"keyPoints": [{"point": ""}]}, "field": "keyPoints"},
+    {"name": "key point not object", "patch": {"keyPoints": ["P"]}, "field": "keyPoints"},
+    {"name": "outline t negative", "patch": {"outline": [{"t": -1, "title": "x"}]}, "field": "outline"},
+    {"name": "outline t string", "patch": {"outline": [{"t": "1:00", "title": "x"}]}, "field": "outline"},
+    {"name": "outline t too big", "patch": {"outline": [{"t": 86401, "title": "x"}]}, "field": "outline"},
+    {"name": "outline title empty", "patch": {"outline": [{"t": 0, "title": ""}]}, "field": "outline"},
+    {"name": "101 outline items", "patch": {"outline": "@101ol"}, "field": "outline"},
+    {"name": "bad model", "patch": {"model": "model <x>"}, "field": "model"},
+    {"name": "unknown note", "patch": {"notes": ["other"]}, "field": "notes"},
+    {"name": "three notes", "patch": {"notes": ["lang-fallback", "local-transcript", "lang-fallback"]}, "field": "notes"},
+    {"name": "bad created", "patch": {"created": "11/11/2026"}, "field": "created"},
+    {"name": "control char", "patch": {"summary": "a\u0007b"}, "field": "summary"},
+    {"name": "NUL byte", "patch": {"takeaway": "a\u0000b"}, "field": "takeaway"},
+    {"name": "bidi override", "patch": {"title": "a‮b"}, "field": "title"},
+    {"name": "bidi isolate", "patch": {"channel": "a⁧b"}, "field": "channel"},
+    {"name": "control char in key point", "patch": {"keyPoints": [{"point": "a\u001bb"}]}, "field": "keyPoints"}
+  ],
+  "patchMacros": {
+    "#delete": "remove the key",
+    "@N": "a string of N copies of 'x'",
+    "@21kp": "21 copies of {\"point\": \"P\"}",
+    "@101ol": "101 outline items {\"t\": i, \"title\": \"T\"}"
+  },
+  "flows": [
+    {"name": "health", "steps": [
+      {"request": {"method": "GET", "path": "/api/v1/health"},
+       "expect": {"status": 200, "json": {"ok": true, "version": "string", "terms": "{terms}", "uploads": "open"}}}]},
+
+    {"name": "create, read, update, delete", "steps": [
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 201, "json": {"id": "id", "url": "shareUrl", "manageKey": "key", "sha": "sha"}},
+       "save": {"id": "id", "key": "manageKey", "sha": "sha"}},
+      {"request": {"method": "GET", "path": "/api/v1/shares/{id}", "auth": "{key}"},
+       "expect": {"status": 200, "json": {"id": "{id}", "status": "live", "views": 0, "created": "int", "updated": "int"}}},
+      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 200, "json": {"id": "{id}", "url": "shareUrl", "updated": "int", "sha": "{sha}"}}},
+      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload:{\"takeaway\": \"Changed.\"}}"}},
+       "expect": {"status": 200, "json": {"id": "{id}", "url": "shareUrl", "updated": "int", "sha": "!{sha}"}}},
+      {"request": {"method": "DELETE", "path": "/api/v1/shares/{id}", "auth": "{key}"},
+       "expect": {"status": 200, "json": {"deleted": true}}},
+      {"request": {"method": "GET", "path": "/api/v1/shares/{id}", "auth": "{key}"},
+       "expect": {"status": 401, "json": {"error": "auth"}}}]},
+
+    {"name": "minimal payload is normalised", "steps": [
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{minimalPayload}"}},
+       "expect": {"status": 201, "json": {"id": "id", "url": "shareUrl", "manageKey": "key", "sha": "sha:minimalNormalised"}}}]},
+
+    {"name": "auth: unknown id and wrong key look the same", "steps": [
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 201}, "save": {"id": "id", "key": "manageKey"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 201}, "save": {"id2": "id", "key2": "manageKey"}},
+      {"request": {"method": "GET", "path": "/api/v1/shares/{id}", "auth": "{key2}"}, "expect": {"status": 401, "json": {"error": "auth"}}},
+      {"request": {"method": "GET", "path": "/api/v1/shares/AAAAAAAAAAAAAAAAAAAAAA", "auth": "{key}"}, "expect": {"status": 401, "json": {"error": "auth"}}},
+      {"request": {"method": "GET", "path": "/api/v1/shares/{id}"}, "expect": {"status": 401, "json": {"error": "auth"}}},
+      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key2}", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}}, "expect": {"status": 401, "json": {"error": "auth"}}},
+      {"request": {"method": "DELETE", "path": "/api/v1/shares/{id}", "auth": "{key2}"}, "expect": {"status": 401, "json": {"error": "auth"}}},
+      {"request": {"method": "GET", "path": "/api/v1/shares/{id}", "auth": "{key}"}, "expect": {"status": 200}}]},
+
+    {"name": "terms version must match", "steps": [
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "2000-01-01", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 400, "json": {"error": "terms"}}}]},
+
+    {"name": "install header must match the body", "steps": [
+      {"request": {"method": "POST", "path": "/api/v1/shares", "headers": {"X-VL-Install": "{install2}"}, "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 400, "json": {"error": "schema", "field": "install"}}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "headers": {"X-VL-Install": "short"}, "body": {"terms": "{terms}", "install": "short", "payload": "{payload}"}},
+       "expect": {"status": 400, "json": {"error": "schema", "field": "install"}}}]},
+
+    {"name": "body: not JSON, unknown key, too large", "steps": [
+      {"request": {"method": "POST", "path": "/api/v1/shares", "rawBody": "{not json"},
+       "expect": {"status": 400, "json": {"error": "schema", "field": "body"}}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}", "extra": 1}},
+       "expect": {"status": 400, "json": {"error": "schema", "field": "body"}}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "rawBody": "@131073"},
+       "expect": {"status": 413, "json": {"error": "size"}}}]},
+
+    {"name": "video that YouTube says does not exist", "steps": [
+      {"op": "video_gone", "args": {"videoId": "ZZZZZZZZZZZ"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload:{\"videoId\": \"ZZZZZZZZZZZ\"}}"}},
+       "expect": {"status": 400, "json": {"error": "video"}}}]},
+
+    {"name": "takedown", "steps": [
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 201}, "save": {"id": "id", "key": "manageKey"}},
+      {"op": "takedown", "args": {"id": "{id}", "reason": "spam"}},
+      {"request": {"method": "GET", "path": "/api/v1/shares/{id}", "auth": "{key}"},
+       "expect": {"status": 200, "json": {"id": "{id}", "status": "removed", "reason": "spam"}}},
+      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 410, "json": {"error": "removed", "reason": "spam"}}},
+      {"request": {"method": "DELETE", "path": "/api/v1/shares/{id}", "auth": "{key}"},
+       "expect": {"status": 200, "json": {"deleted": true}}}]},
+
+    {"name": "kill switch", "steps": [
+      {"op": "pause"},
+      {"request": {"method": "GET", "path": "/api/v1/health"}, "expect": {"status": 200, "json": {"uploads": "paused"}}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 503, "json": {"error": "paused"}}},
+      {"op": "unpause"},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 201}}]},
+
+    {"name": "install day cap", "steps": [
+      {"op": "set_cap", "args": {"name": "install", "n": 1}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 201}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 429, "json": {"error": "rate"}, "headers": {"Retry-After": "int"}}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install2}", "payload": "{payload}"}},
+       "expect": {"status": 201}}]},
+
+    {"name": "global day cap pauses", "steps": [
+      {"op": "set_cap", "args": {"name": "global", "n": 1}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 201}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install2}", "payload": "{payload}"}},
+       "expect": {"status": 503, "json": {"error": "paused"}}}]},
+
+    {"name": "banned install", "steps": [
+      {"op": "ban", "args": {"install": "{install}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+       "expect": {"status": 429, "json": {"error": "rate"}}}]},
+
+    {"name": "unknown routes", "steps": [
+      {"request": {"method": "GET", "path": "/api/v1/nope"}, "expect": {"status": 404, "json": {"error": "not_found"}}},
+      {"request": {"method": "PATCH", "path": "/api/v1/shares"}, "expect": {"status": 404, "json": {"error": "not_found"}}}]}
+  ],
+  "responseHeaders": {"Cache-Control": "no-store", "Content-Type": "application/json"},
+  "matchers": {
+    "string": "any string", "int": "any integer", "id": "^[A-Za-z0-9_-]{22}$", "key": "^[A-Za-z0-9_-]{43}$",
+    "sha": "^[0-9a-f]{64}$", "sha:NAME": "the SHA-256 hex of JSON.stringify of the named object",
+    "shareUrl": "<base>/s/<the id>/", "!{x}": "anything but the saved value"
+  }
+}
