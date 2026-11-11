@@ -73,4 +73,4 @@ The repo is public: recs fixtures, labels and examples built from a real library
 
 ## Working notes
 
-Concepts, plans, audits and session logs live in the private sibling repo `~/repos/video-lens-notes`, not here (`concepts/` and `docs/log/` are gitignored). New concept docs go there, numbered after the last one. Public text (code comments, CHANGELOG, commit messages, PR bodies) doesn't link to those notes.
+Concepts, plans, audits and session logs live in the private sibling repo `~/repos/video-lens-core`, not here (`concepts/` and `docs/log/` are gitignored). New concept docs go there, numbered after the last one. Public text (code comments, CHANGELOG, commit messages, PR bodies) doesn't link to those notes.
