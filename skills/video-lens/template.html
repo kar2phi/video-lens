@@ -1,3 +1,4 @@
+<!-- GENERATED from viewer/ by tools/build_viewer.py. Do not edit; edit viewer/ and rebuild. -->
 <!doctype html>
 <html lang="{{LANG}}" data-vl-mode="{{VL_MODE}}">
 <head>
@@ -5,7 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{VIDEO_TITLE}} · video-lens</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23c0392b'/><text x='16' y='21' font-family='sans-serif' font-size='13' font-weight='700' fill='%23ffd700' text-anchor='middle' letter-spacing='-0.5'>VL</text></svg>">
-<!-- @local -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap">
 <style>
@@ -1129,13 +1129,6 @@ kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px soli
 })();
 
 </script>
-<!-- @end -->
-<!-- @share -->
-{{HEAD_EXTRA}}
-<link rel="stylesheet" href="{{ASSET_FONTS}}">
-<link rel="stylesheet" href="{{ASSET_CSS}}">
-<script src="{{ASSET_JS}}"></script>
-<!-- @end -->
 </head>
 <body>
 <div class="layout">
@@ -1149,15 +1142,10 @@ kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px soli
 <div class="watch">
 
 <div class="stage">
-<!-- @local -->
 <div id="yt-facade" class="player" data-video-id="{{VIDEO_ID}}" data-autoload>
 <a class="watch-link" href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer">Watch on YouTube ↗</a>
 <p class="player-note" id="file-note" hidden>YouTube does not play from a file. Start a server in the folder of this report (<code>python3 -m http.server 8765</code>), then open <a href="http://localhost:8765/">localhost:8765</a>.</p>
 </div>
-<!-- @end -->
-<!-- @share -->
-{{PLAYER_PANEL}}
-<!-- @end -->
 <div class="nowbar" hidden>
 <button type="button" class="tool icon" id="sec-prev" aria-label="Previous section" title="Previous section [p]"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3 2v12M13 2 6 8l7 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
 <button type="button" class="tool icon" id="sec-next" aria-label="Next section" title="Next section [n]"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M13 2v12M3 2l7 6-7 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
@@ -1182,12 +1170,7 @@ kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px soli
 </section>
 
 <div class="rail">
-<!-- @local -->
 <a class="brand" href="../index.html" title="Back to your gallery"><svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg><span>Gallery</span></a>
-<!-- @end -->
-<!-- @share -->
-<a class="brand" href="/" title="What is video-lens?"><svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg><span>video-lens</span></a>
-<!-- @end -->
 <span class="rail-gap"></span>
 <button type="button" class="tool" id="md-copy" title="Copy the report as Markdown [e]" hidden>Copy Markdown</button>
 <button type="button" class="tool icon" id="md-save" aria-label="Download as Markdown file" title="Download as Markdown file" hidden><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg></button>
@@ -1222,19 +1205,11 @@ kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px soli
 </ol>
 </section>
 
-<!-- @local -->
 {{DESCRIPTION_SECTION}}
-<!-- @end -->
 </main>
 
 <footer class="colophon">
-<!-- @local -->
 <p class="gen">Written by an AI model with <a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">video-lens</a><span id="gen-facts"></span>. It can be wrong; the video is the source.</p>
-<!-- @end -->
-<!-- @share -->
-<p>Summary written by a video-lens user with an AI model. Video © its creator, played from YouTube only after you click. <a href="https://www.youtube.com/t/terms">YouTube Terms</a> · <a href="https://policies.google.com/privacy">Google Privacy Policy</a></p>
-<p><a href="/">Made with video-lens</a> · <a href="{{REPORT_URL}}">Report this page</a> · <a href="/legal/imprint">Imprint</a> · <a href="/legal/privacy">Privacy</a> · <a href="/legal/terms">Terms</a></p>
-<!-- @end -->
 </footer>
 </div>
 
@@ -1261,8 +1236,6 @@ kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px soli
 <p>video-lens turns a YouTube video into this report: a summary, the takeaway, key points and a timed outline beside the player. <a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">video-lens on GitHub ↗</a></p>
 </dialog>
 
-<!-- @local -->
 <script type="application/json" id="video-lens-meta">{{VIDEO_LENS_META}}</script>{{VIDEO_LENS_DATA}}
-<!-- @end -->
 </body>
 </html>

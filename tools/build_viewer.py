@@ -5,15 +5,24 @@
   python3 tools/build_viewer.py --check        exit 1 when template.html is stale
 """
 import argparse
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+GENERATED = "<!-- GENERATED from viewer/ by tools/build_viewer.py. Do not edit; edit viewer/ and rebuild. -->\n"
+
+
+def _keep_mode(shell, mode):
+    """035 §4.4 rule 4: drop the other mode's blocks, keep this mode's without the markers."""
+    other = "share" if mode == "local" else "local"
+    shell = re.sub(r"<!-- @%s -->.*?<!-- @end -->\n?" % other, "", shell, flags=re.S)
+    return re.sub(r"<!-- @%s -->\n?|<!-- @end -->\n?" % mode, "", shell)
 
 
 def build_local(root):
     src = Path(root) / "viewer"
-    shell = (src / "shell.html").read_text(encoding="utf-8")
+    shell = _keep_mode((src / "shell.html").read_text(encoding="utf-8"), "local")
     css = (src / "viewer.css").read_text(encoding="utf-8")
     js = (src / "viewer.js").read_text(encoding="utf-8")
     for token in ("{{VL_CSS}}", "{{VL_JS}}"):
@@ -24,7 +33,7 @@ def build_local(root):
     mid, tail = rest.split("{{VL_JS}}") if "{{VL_JS}}" in rest else (None, None)
     if mid is None:
         raise SystemExit("{{VL_JS}} must come after {{VL_CSS}} in shell.html")
-    return head + css + mid + js + tail
+    return GENERATED + head + css + mid + js + tail
 
 
 def target(root):
