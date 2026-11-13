@@ -37,8 +37,13 @@ STOPWORDS = {
 
 # ---------- report parsing ----------
 
+INLINE_TAG_RE = re.compile(r"</?(?:strong|em|code|b|i)>")
+
+
 def _text(fragment: str) -> str:
-    return " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", fragment or "")).split())
+    """Visible text: inline tags vanish (`<strong>x</strong>.` is "x."), others separate words."""
+    fragment = INLINE_TAG_RE.sub("", fragment or "")
+    return " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", fragment)).split())
 
 
 def _grab(pattern: str, text: str) -> str:
@@ -64,6 +69,39 @@ def _section_text(section_id: str, html: str) -> str:
     return _text(" ".join(re.findall(r"<p>(.*?)</p>", body, re.S)))
 
 
+KP_TIME_LINK_RE = re.compile(r'\s*<a class="ts"[^>]*>.*?</a>', re.S)
+
+
+def _data_block(html: str):
+    """The report's share payload v1 (`video-lens-data`), or None."""
+    raw = _grab(r'<script type="application/json" id="video-lens-data">(.*?)</script>', html)
+    try:
+        data = json.loads(raw.replace("<\\/", "</"))
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _kp_detail(li: str, data) -> list:
+    """The detail paragraph(s) of a key point: "paragraph" means the analytical detail.
+
+    Before 037 A4 the only <p> of a key point was its detail (`<strong>…</strong> — why<p>…`).
+    Since F1 the `why` is a <p> too (`<strong>…</strong><p>why</p><p>detail</p>`), and a point
+    with only one of them has one <p> either way, so the markup alone cannot tell. The data
+    block can: when it says the point has a `why` and the li holds one <p> more than the
+    detail, the first <p> is the why. Without a data block, text between the headline and
+    the first <p> means the old shape (every <p> is the detail); a bare headline means the new
+    shape, whose first <p> is read as the why, as viewer.js reads it. That misreads an old
+    point that had no why but a detail; such points are rare and come with a data block from
+    033 P1 on."""
+    ps = re.findall(r"<p>(.*?)</p>", li, re.S)
+    if isinstance(data, dict):
+        why, detail = bool(str(data.get("why") or "")), bool(str(data.get("detail") or ""))
+        return ps[1:] if why and len(ps) == 1 + detail else ps
+    bare = _text(re.sub(r"<strong>.*?</strong>", "", li.split("<p>", 1)[0], count=1, flags=re.S))
+    return ps if bare else ps[1:]
+
+
 def parse_report(html: str) -> dict:
     meta_raw = _grab(r'<script type="application/json" id="video-lens-meta">(.*?)</script>', html)
     try:
@@ -75,10 +113,15 @@ def parse_report(html: str) -> dict:
     # Both report shapes: <ul> in reports before 037 A2 (HEAD arms of eval-compare keep it),
     # <ol class="kp-list"> after.
     kp_html = _grab(r'<section id="key-points"[^>]*>.*?<(?:ul|ol)\b[^>]*>(.*?)</(?:ul|ol)>\s*</section>', html)
-    for li in re.findall(r"<li>(.*?)</li>", kp_html, re.S):
+    kp_data = (_data_block(html) or {}).get("keyPoints")
+    lis = re.findall(r"<li>(.*?)</li>", kp_html, re.S)
+    if not isinstance(kp_data, list) or len(kp_data) != len(lis):
+        kp_data = [None] * len(lis)
+    for li, data in zip(lis, kp_data):
+        li = KP_TIME_LINK_RE.sub("", li)   # 037 F3: a key point's time link is not its text
         key_points.append({
             "headline": _text(_grab(r"<strong>(.*?)</strong>", li)),
-            "paragraph": _text(" ".join(re.findall(r"<p>(.*?)</p>", li, re.S))),
+            "paragraph": _text(" ".join(_kp_detail(li, data))),
             "text": _text(li),
         })
 

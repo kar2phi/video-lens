@@ -1,5 +1,6 @@
 """Fast tests for evals/checks.py: the eval's gates must catch what they claim to catch."""
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -40,6 +41,20 @@ def render(tmp_path, **overrides):
     out = tmp_path / "report.html"
     render_from_payload(payload, str(out))
     return checks.parse_report(out.read_text(encoding="utf-8"))
+
+
+def test_key_point_paragraph_means_the_detail_after_f1(tmp_path):
+    """037 A4: since F1 a key point's why is a <p> too; "paragraph" (kp_paragraph_share)
+    still means the analytical detail. The data block tells a why-only point from a
+    detail-only one, which have the same markup; the F3 time link is not text."""
+    rep = render(tmp_path, KEY_POINTS=[
+        {"point": "Both", "why": "Why.", "detail": "Detail one.", "t": 65},
+        {"point": "Why only", "why": "Just why."},
+        {"point": "Detail only", "detail": "Detail three."}],
+        OUTLINE=[{"t": 0, "title": "Intro"}, {"t": 65, "title": "Why skills"}])
+    assert [k["paragraph"] for k in rep["key_points"]] == ["Detail one.", "", "Detail three."]
+    assert rep["key_points"][0]["text"] == "Both Why. Detail one."
+    assert checks.report_metrics(rep)["kp_paragraph_share"] == 0.67
 
 
 def test_parse_report_reads_back_what_the_renderer_wrote(tmp_path):
@@ -588,11 +603,19 @@ def test_parse_report_reads_both_report_shapes_alike():
     old = checks.parse_report((GOLDEN / "pre_a2_report.html").read_text(encoding="utf-8"))
     new = checks.parse_report((GOLDEN / "share_report.html").read_text(encoding="utf-8"))
     assert '<ol class="kp-list">' not in (GOLDEN / "pre_a2_report.html").read_text(encoding="utf-8")
+    # 037 A4: the summary and takeaway render their markers (the old report shows them as
+    # typed), and a key point's why is its own <p> (no " — " before it, F1).
+    for key in ("summary", "takeaway"):
+        assert new[key] == re.sub(r"[*`]", "", old[key])
+        old[key] = new[key]
+    for k in old["key_points"]:
+        k["text"] = k["text"].replace(" — ", " ")
     assert old == new
-    assert new["summary"].startswith("Skills load **on demand**. A second paragraph")
-    assert new["takeaway"] == "Keep the *context* small."
+    assert new["summary"].startswith("Skills load on demand. A second paragraph")
+    assert new["takeaway"] == "Keep the context small."
     assert [k["headline"] for k in new["key_points"]] == ["Progressive disclosure", "Scripts", "A & B <tags>"]
     assert new["key_points"][0]["paragraph"].startswith("Bodies load on demand")
+    assert [bool(k["paragraph"]) for k in new["key_points"]] == [True, False, True]
     assert [o["t"] for o in new["outline"]] == [0, 65, 600]
     assert new["meta_line"].startswith("Anthropic · 12 min") and new["unreplaced"] == []
 

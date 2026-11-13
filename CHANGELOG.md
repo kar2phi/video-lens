@@ -115,6 +115,23 @@ of R1 still needs the A/B gate on Claude and qwen before release.
   are unchanged. HTML strings still work, and a list of `<li>` strings, the most common
   rejection under the old contract, is now joined instead of rejected. SKILL.md Step 3
   describes the fields instead of HTML, and Step 4 loses its two longest rows.
+- One fragment grammar for the local report and the share page (037 A4, 035 §4.5): the
+  renderer uses the share service's marker rules (code spans first, no span across a line
+  break, no space just inside `**`/`*`, linear on a 6,000-`*` run) and escapes `& < > " '`
+  with the same entities. `SUMMARY` and `TAKEAWAY` render `**bold**`, `*italic*` and
+  `` `code` ``, and a blank line starts a new paragraph (a single line break is a `<br>`).
+  A key point's `why` is its own paragraph (F1); outline links lose the "▶ " and the " — "
+  (F2) and end in `&t=<t>s`. `viewer/fragments.json` (`tools/build_viewer.py --vectors`)
+  pins the exact bytes for both sides; `--check` fails when it is stale.
+- `KEY_POINTS` items take an optional `t` (037 D7, F3): the start of the outline section
+  the point belongs to. The report shows it as a time link after the headline, and the
+  share payload carries it (`{t, point, why, detail}`). A `t` that names no outline entry is
+  dropped with a `RENDER_WARN` line; the report still renders. The share contract and the
+  fake accept it and reject a `t` with no outline entry (`keyPoints.t`).
+- `evals/checks.py`: a key point's "paragraph" (`kp_paragraph_share`) still means its
+  detail now that the `why` is a `<p>` too (read from the data block when the markup is
+  ambiguous), and the time link is not part of its text. Inline tags no longer split words
+  in parsed text.
 - Render errors carry their own fix (025-§4.3): `RENDER_DISALLOWED_HTML`,
   `RENDER_INVALID_TYPE` and the new `RENDER_INVALID_ITEM` (naming the item, e.g.
   `KEY_POINTS[2] has unknown key 'paragraph'`) say what to change. SKILL.md's list of

@@ -120,6 +120,7 @@ Produce these four sections:
 - **point** — the core claim, concept, or term (a short headline).
 - **why** — one sentence on why it matters or what the viewer should understand from it. Optionally include *the speaker's own phrasing* when it adds colour or precision.
 - **detail** — a 2–4 sentence analytical paragraph: context, causality, connections to other ideas, implications, and the speaker's reasoning. It must add depth the headline cannot — do not merely expand the headline into a longer sentence.
+- **t** *(optional)* — the start time of the Outline section the point belongs to: copy that entry's `t` exactly. Leave it out when the point spans several sections.
 
 The detail is the default. Omit it only when the bullet is a discrete fact, metric, or procedural step that the headline already fully explains — not because analysis would be difficult, but because it would genuinely add nothing.
 
@@ -177,7 +178,7 @@ Payload fields (`python3 "SCRIPTS_DIR/render_report.py" --schema` prints the liv
 | `VIDEO_URL` | The full YouTube URL; the renderer checks it matches `VIDEO_ID`. |
 | `SUMMARY` | Plain text — the Summary from Step 3. |
 | `TAKEAWAY` | Plain text — the Takeaway from Step 3. |
-| `KEY_POINTS` | JSON array, one object per Step 3 Key Point: `{"point": "…", "why": "…", "detail": "…"}`. |
+| `KEY_POINTS` | JSON array, one object per Step 3 Key Point: `{"point": "…", "why": "…", "detail": "…", "t": 754}`; `t` is optional and must equal the `t` of one `OUTLINE` entry. |
 | `OUTLINE` | JSON array, one object per entry: `{"t": 754, "title": "Short Title", "detail": "One sentence."}`. The renderer builds the links and the displayed times from `t`. |
 | `DESCRIPTION_SECTION` | When `YTDLP_DESC_HTML` is non-empty: `<details class="description-details"><summary>YouTube Description</summary><div class="video-description">YTDLP_DESC_HTML</div></details>`. Otherwise `""` — the key is still required. |
 | `TAGS` | JSON array of 3–5 lowercase tags from Step 3, e.g. `["ai", "hardware"]`. |

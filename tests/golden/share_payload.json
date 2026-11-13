@@ -9,7 +9,7 @@
  "GENERATION_DATE": "2026-11-11", "GENERATION_DURATION_SECONDS": 42, "AGENT_MODEL": "claude-opus-5-5[1m]",
  "KEY_POINTS": [
    {"point": "Progressive disclosure", "why": "Only names load up front.", "detail": "Bodies load *on demand*, so **context stays small**; see `SKILL.md`."},
-   {"point": "Scripts", "why": "Deterministic steps."},
+   {"point": "Scripts", "why": "Deterministic steps.", "t": 65},
    {"point": "A & B <tags>", "why": "Quotes \"stay\".", "detail": "2 * 3 * 4 is not italic."}],
  "OUTLINE": [
    {"t": 0, "title": "Intro", "detail": "Why skills exist."},

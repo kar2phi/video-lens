@@ -13,10 +13,13 @@ the payload contains double quotes — shells/heredocs mangle them). Required ke
     KEY_POINTS, TAKEAWAY, OUTLINE, DESCRIPTION_SECTION
 
 KEY_POINTS and OUTLINE are JSON arrays of objects (025-R1):
-    KEY_POINTS: [{"point": "…", "why": "…", "detail": "…"}]   **bold**, *italic*, `code`
+    KEY_POINTS: [{"point": "…", "why": "…", "detail": "…", "t": 754}]   **bold**, *italic*, `code`
     OUTLINE:    [{"t": 754, "title": "…", "detail": "…"}]     t in seconds (or "12:34")
-The renderer escapes their text and builds the same HTML a model used to write by
-hand, links and timestamps included. An HTML string (the older contract) still works.
+A key point's optional t is the start of the outline section it belongs to; one that names
+no outline entry is dropped with a RENDER_WARN line. SUMMARY and TAKEAWAY take the same
+markers, and a blank line between paragraphs. The renderer escapes all text and builds the
+fragments (fragments() below, the same bytes as the share page). An HTML string (the older
+contract) still works for KEY_POINTS and OUTLINE.
 
 Renderer builds VIDEO_LENS_META from agent-authored content. When KEY_POINTS and
 OUTLINE are arrays it also writes VIDEO_LENS_DATA, the share payload v1 (033 §5.2), which
@@ -61,7 +64,7 @@ def _schema_help() -> str:
     return (
         "EXPECTED_KEYS=" + ",".join(sorted(EXPECTED_KEYS))
         + " REQUIRED_NONEMPTY=" + ",".join(REQUIRED_NONEMPTY)
-        + ' KEY_POINTS=[{"point","why","detail"}] OUTLINE=[{"t" (seconds),"title","detail"}]'
+        + ' KEY_POINTS=[{"point","why","detail","t" (optional: an OUTLINE t)}] OUTLINE=[{"t" (seconds),"title","detail"}]'
         + " GENERATION_DATE optional (YYYY-MM-DD; defaults to today with --output-dir)"
     )
 
@@ -71,6 +74,7 @@ HTML_KEYS = ("KEY_POINTS", "OUTLINE", "DESCRIPTION_SECTION")
 ALLOWED_TAGS_BY_KEY = {
     "KEY_POINTS": {
         "li": set(),
+        "a": {"href", "target", "rel", "class", "data-t"},   # F3: a time link, as in OUTLINE
         "p": set(),
         "strong": set(),
         "em": set(),
@@ -204,10 +208,10 @@ class AllowlistSanitiser(HTMLParser):
 
             if name == "href":
                 href_seen = True
-                if self.key == "OUTLINE":
+                if self.key in ("OUTLINE", "KEY_POINTS"):
                     linked_id = _extract_youtube_id(value)
                     if linked_id != self.video_id:
-                        raise _Disallowed(f"outline href {value!r}")
+                        raise _Disallowed(f"time link href {value!r}")
                 elif not _is_http_url(value):
                     raise _Disallowed(f"href {value!r}")
                 kept.append((name, value))
@@ -233,7 +237,7 @@ class AllowlistSanitiser(HTMLParser):
                 continue
 
             if name == "data-t":
-                if self.key != "OUTLINE" or not DATA_T_RE.fullmatch(value):
+                if self.key not in ("OUTLINE", "KEY_POINTS") or not DATA_T_RE.fullmatch(value):
                     raise _Disallowed(f"data-t {value!r}")
                 kept.append((name, value))
                 continue
@@ -500,17 +504,9 @@ def share_tag_ok(tag: str) -> bool:
         c in " +#.-" or unicodedata.category(c) in rest for c in tag[1:])
 
 
-def _share_items(data: dict) -> dict | None:
-    """The KEY_POINTS and OUTLINE arrays when both are arrays of objects, else None:
-    an HTML string (the older contract) leaves the data block out."""
-    items = {key: data.get(key) for key in ITEM_FIELDS}
-    if all(isinstance(v, list) and v and all(isinstance(i, dict) for i in v) for v in items.values()):
-        return items
-    return None
-
-
 def _build_share_data(data: dict, meta: dict, items: dict) -> dict:
-    """Payload v1 from the same values the meta block uses (033 §5.2)."""
+    """Payload v1 from the same values the meta block uses (033 §5.2). `items` holds the
+    KEY_POINTS and OUTLINE arrays already in v1 shape (items_to_v1)."""
     sidecar = _sidecar(meta["videoId"])
     meta_line = str(data.get("META_LINE", ""))
     notes = [note for marker, note in SHARE_NOTES if marker in meta_line]
@@ -535,16 +531,8 @@ def _build_share_data(data: dict, meta: dict, items: dict) -> dict:
         "tags": [tag for tag in (unicodedata.normalize("NFC", t) for t in meta["tags"]) if share_tag_ok(tag)][:5],
         "summary": str(data.get("SUMMARY", "")).strip(),
         "takeaway": str(data.get("TAKEAWAY", "")).strip(),
-        "keyPoints": [
-            {field: _as_markers(_item_text("KEY_POINTS", i, item, field)) for field in ITEM_FIELDS["KEY_POINTS"]}
-            for i, item in enumerate(items["KEY_POINTS"])
-        ],
-        "outline": [
-            {"t": _item_seconds(i, item["t"]),
-             "title": _item_text("OUTLINE", i, item, "title"),
-             "detail": _item_text("OUTLINE", i, item, "detail")}
-            for i, item in enumerate(items["OUTLINE"])
-        ],
+        "keyPoints": items["KEY_POINTS"],
+        "outline": items["OUTLINE"],
         "model": model if SHARE_MODEL_RE.fullmatch(model) else "",
         "notes": notes,
         "created": created if re.fullmatch(r"\d{4}-\d{2}-\d{2}", created) else "",
@@ -584,10 +572,7 @@ def _serialize_share_data(share: dict | None) -> str:
             + _serialize_meta(share) + "</script>")
 
 
-ITEM_FIELDS = {"KEY_POINTS": ("point", "why", "detail"), "OUTLINE": ("t", "title", "detail")}
-CODE_SPAN_RE = re.compile(r"`([^`\n]+)`")
-BOLD_RE = re.compile(r"\*\*(?=\S)(.+?)(?<=\S)\*\*")
-ITALIC_RE = re.compile(r"\*(?=\S)(.+?)(?<=\S)\*")
+ITEM_FIELDS = {"KEY_POINTS": ("point", "why", "detail", "t"), "OUTLINE": ("t", "title", "detail")}
 CLOCK_RE = re.compile(r"(?:(\d+):)?(\d{1,2}):(\d{2})")
 # Inline tags a model used to the HTML-string contract may still type; read as their markers.
 OLD_INLINE_TAGS = {"strong": "**", "b": "**", "em": "*", "i": "*", "code": "`"}
@@ -599,24 +584,56 @@ def _as_markers(text: str) -> str:
                                            f"{OLD_INLINE_TAGS[m.group(1).lower()]}", text)
 
 
-def _inline_html(text: str, bold: bool = True) -> str:
-    """Escape text, then turn **bold**, *italic* and `code` into tags; nothing else
-    becomes markup. bold=False drops the ** markers (for a headline that is bold already)."""
-    out = []
-    for i, part in enumerate(CODE_SPAN_RE.split(_as_markers(text))):
-        escaped = html_lib.escape(part, quote=False)
-        if i % 2:
-            out.append(f"<code>{escaped}</code>")
-            continue
-        escaped = BOLD_RE.sub(r"<strong>\1</strong>" if bold else r"\1", escaped)
-        out.append(ITALIC_RE.sub(r"<em>\1</em>", escaped))
-    return "".join(out)
+# ---------- fragments (035 §4.5, 036 §6) ----------
+# The Worker's grammar (video-lens-core service/src/render.ts), character for character, so
+# the local report and the share page build the same bytes from the same payload v1. Both test
+# suites assert viewer/fragments.json (tools/build_viewer.py --vectors), which these functions
+# write. Change one side only together with the other and the vectors.
+
+ENTITIES = {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}
+ESC_RE = re.compile(r"""[&<>"']""")
+# JavaScript's \s (and the set String.prototype.trim removes): Python's \s differs at U+FEFF
+# (JS only) and U+001C–U+001F, U+0085 (Python only), so the class is spelled out.
+JS_SPACE = "\t\n\x0b\x0c\r \xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+JS_TRIM_RE = re.compile(f"^[{JS_SPACE}]+|[{JS_SPACE}]+$")
+# Spans never cross a line break and never contain their own marker, so every match is linear
+# and the produced tags always nest. Bold and italic text must not start or end with a space.
+CODE_SPAN_RE = re.compile(r"`([^`\n]+)`")
+STRONG_RE = re.compile(rf"\*\*([^*{JS_SPACE}](?:[^*\n]*[^*{JS_SPACE}])?)\*\*")
+EM_RE = re.compile(rf"\*([^*{JS_SPACE}](?:[^*\n]*[^*{JS_SPACE}])?)\*")
+WATCH_URL = "https://www.youtube.com/watch?v={}&amp;t={}s"
 
 
-def _plain_html(text: str) -> str:
-    """Escape text and drop inline markers: outline spans allow no inline tags."""
-    text = ITALIC_RE.sub(r"\1", BOLD_RE.sub(r"\1", CODE_SPAN_RE.sub(r"\1", _as_markers(text))))
-    return html_lib.escape(text, quote=False)
+def esc(s: str) -> str:
+    """`& < > " '` become entities (the Worker's esc())."""
+    return ESC_RE.sub(lambda m: ENTITIES[m.group()], s)
+
+
+def strip_markers(s: str) -> str:
+    """Text with the marker pairs dropped; a lone `*` or backtick stays."""
+    return "".join(part if i % 2 else EM_RE.sub(r"\1", STRONG_RE.sub(r"\1", part))
+                   for i, part in enumerate(CODE_SPAN_RE.split(s)))
+
+
+def inline(s: str, bold: bool = True) -> str:
+    """esc(), then `**x**` → <strong>, `*x*` → <em>, `` `x` `` → <code>; nothing inside code
+    is formatted. bold=False drops the `**` pair instead (a key point's headline is bold)."""
+    strong = r"<strong>\1</strong>" if bold else r"\1"
+    return "".join(f"<code>{esc(part)}</code>" if i % 2
+                   else EM_RE.sub(r"<em>\1</em>", STRONG_RE.sub(strong, esc(part)))
+                   for i, part in enumerate(CODE_SPAN_RE.split(s)))
+
+
+def plain(s: str) -> str:
+    """Markers dropped, then esc(): outline text."""
+    return esc(strip_markers(s))
+
+
+def paragraphs(s: str) -> str:
+    """inline() per paragraph (split on blank lines), a single line break as <br>."""
+    paras = (JS_TRIM_RE.sub("", p) for p in re.split(r"\n{2,}", s))
+    return "\n".join("<p>" + "<br>".join(inline(line) for line in p.split("\n")) + "</p>"
+                     for p in paras if p)
 
 
 def _clock(seconds: int) -> str:
@@ -624,6 +641,39 @@ def _clock(seconds: int) -> str:
     h, rem = divmod(seconds, 3600)
     m, s = divmod(rem, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+def _time_link(video_id: str, t: int) -> str:
+    return (f'<a class="ts" data-t="{t}" href="{WATCH_URL.format(video_id, t)}" '
+            f'target="_blank" rel="noopener noreferrer">{_clock(t)}</a>')
+
+
+def outline_fragment(video_id: str, outline: list) -> str:
+    """OUTLINE from payload v1 `outline` (F2: no "▶ ", no " — ")."""
+    return "\n".join(
+        f'<li>{_time_link(video_id, o["t"])} <span class="outline-title">{plain(o["title"])}</span>'
+        + (f'<span class="outline-detail">{plain(o["detail"])}</span>' if o["detail"] else "")
+        + "</li>" for o in outline)
+
+
+def key_points_fragment(video_id: str, key_points: list) -> str:
+    """KEY_POINTS from payload v1 `keyPoints`: F1 (`why` is its own <p>), F3 (a time link
+    after the headline when the point has `t`)."""
+    return "\n".join(
+        f"<li><strong>{inline(k['point'], bold=False)}</strong>"
+        + (f" {_time_link(video_id, k['t'])}" if "t" in k else "")
+        + (f"<p>{inline(k['why'])}</p>" if k["why"] else "")
+        + (f"<p>{inline(k['detail'])}</p>" if k["detail"] else "")
+        + "</li>" for k in key_points)
+
+
+def fragments(payload: dict) -> dict:
+    """The four per-page fragments of a validated payload v1 (viewer/fragments.json `expect`)."""
+    vid = payload["videoId"]
+    return {"outline": outline_fragment(vid, payload["outline"]),
+            "keyPoints": key_points_fragment(vid, payload["keyPoints"]),
+            "summary": paragraphs(payload["summary"]),
+            "takeaway": paragraphs(payload["takeaway"])}
 
 
 def _item_error(key: str, detail: str) -> RenderValidationError:
@@ -645,72 +695,73 @@ def _item_text(key: str, i: int, item: dict, field: str, required: bool = False)
     return value.strip()
 
 
-def _item_seconds(i: int, value) -> int:
-    """Outline start time: seconds as a number, a digit string, or an M:SS / H:MM:SS clock."""
-    seconds = None
+def _seconds(value) -> int | None:
+    """Seconds as a number, a digit string, or an M:SS / H:MM:SS clock; None otherwise."""
     if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
-        seconds = int(value)
-    elif isinstance(value, str):
+        return int(value)
+    if isinstance(value, str):
         text = value.strip().strip("[]▶ ")
         clock = CLOCK_RE.fullmatch(text)
         if text.isdigit():
-            seconds = int(text)
-        elif clock:
+            return int(text)
+        if clock:
             h, m, s = clock.groups()
-            seconds = int(h or 0) * 3600 + int(m) * 60 + int(s)
+            return int(h or 0) * 3600 + int(m) * 60 + int(s)
+    return None
+
+
+def _item_seconds(i: int, value) -> int:
+    """Outline start time: seconds as a number, a digit string, or an M:SS / H:MM:SS clock."""
+    seconds = _seconds(value)
     if seconds is None or seconds >= 10 ** 6:
         raise _item_error("OUTLINE", f"OUTLINE[{i}].t must be the start in seconds, e.g. 754, got {value!r}")
     return seconds
 
 
-def _key_point_html(i: int, item: dict) -> str:
-    point = _item_text("KEY_POINTS", i, item, "point", required=True)
-    why = _item_text("KEY_POINTS", i, item, "why")
-    detail = _item_text("KEY_POINTS", i, item, "detail")
-    li = f"<li><strong>{_inline_html(point, bold=False)}</strong>"
-    if why:
-        li += f" — {_inline_html(why)}"
-    if detail:
-        li += f"<p>{_inline_html(detail)}</p>"
-    return li + "</li>"
-
-
-def _outline_html(i: int, item: dict, video_id: str) -> str:
+def _v1_outline(i: int, item: dict) -> dict:
     if "t" not in item:
         raise _item_error("OUTLINE", f"OUTLINE[{i}].t is missing")
-    t = _item_seconds(i, item["t"])
-    title = _item_text("OUTLINE", i, item, "title", required=True)
-    detail = _item_text("OUTLINE", i, item, "detail")
-    li = (f'<li><a class="ts" data-t="{t}" href="{_canonical_video_url(video_id)}&amp;t={t}" '
-          f'target="_blank" rel="noopener noreferrer">▶ {_clock(t)}</a> — '
-          f'<span class="outline-title">{_plain_html(title)}</span>')
-    if detail:
-        li += f'<span class="outline-detail">{_plain_html(detail)}</span>'
-    return li + "</li>"
+    return {"t": _item_seconds(i, item["t"]),
+            "title": _as_markers(_item_text("OUTLINE", i, item, "title", required=True)),
+            "detail": _as_markers(_item_text("OUTLINE", i, item, "detail"))}
 
 
-def items_to_html(key: str, items: list, video_id: str) -> str:
-    """025-R1: build the KEY_POINTS or OUTLINE HTML string from a JSON array.
+def _v1_key_point(i: int, item: dict, starts: set, warnings: list) -> dict:
+    """A key point in payload v1 shape. `t` (D7) is kept only when it names an outline
+    entry's start; otherwise it is dropped with a warning and the report still renders."""
+    point = {}
+    if "t" in item and item["t"] not in (None, ""):
+        t = _seconds(item["t"])
+        if t is not None and t in starts:
+            point["t"] = t
+        else:
+            warnings.append(f"KEY_POINTS[{i}].t {item['t']!r} is not the t of an OUTLINE entry; "
+                            "the point is shown without its time link")
+    point["point"] = _as_markers(_item_text("KEY_POINTS", i, item, "point", required=True))
+    point["why"] = _as_markers(_item_text("KEY_POINTS", i, item, "why"))
+    point["detail"] = _as_markers(_item_text("KEY_POINTS", i, item, "detail"))
+    return point
 
-    Objects become exactly the markup a model writes by hand, which then goes
-    through the same sanitiser. A list of HTML strings (the old contract, written
-    as an array) is joined.
-    """
+
+def items_to_v1(key: str, items: list, starts: set | None = None, warnings: list | None = None) -> list | None:
+    """025-R1: the KEY_POINTS or OUTLINE array as payload v1 items, or None for a list of
+    HTML strings (the old contract, written as an array; the caller joins it)."""
     if not items:
         raise RenderValidationError("RENDER_PAYLOAD_INVALID", f"empty_keys=['{key}']")
     if all(isinstance(item, str) and item.lstrip().lower().startswith("<li") for item in items):
-        return "".join(items)
+        return None
     if any(isinstance(item, dict) for item in items) and any(isinstance(item, str) for item in items):
         raise _item_error(key, f"{key} mixes strings and objects")
-    parts = []
+    out = []
     for i, item in enumerate(items):
         if not isinstance(item, dict):
             raise _item_error(key, f"{key}[{i}] is {type(item).__name__}, not an object")
         unknown = sorted(set(item) - set(ITEM_FIELDS[key]))
         if unknown:
             raise _item_error(key, f"{key}[{i}] has unknown key {unknown[0]!r}")
-        parts.append(_key_point_html(i, item) if key == "KEY_POINTS" else _outline_html(i, item, video_id))
-    return "".join(parts)
+        out.append(_v1_key_point(i, item, starts or set(), warnings if warnings is not None else [])
+                   if key == "KEY_POINTS" else _v1_outline(i, item))
+    return out
 
 
 LINT_MARKER = ".render-lint"   # in the payload's per-run directory: the lint has stopped once
@@ -772,7 +823,12 @@ def lint_payload(data: dict, clean: dict) -> list[str]:
     n = len(scan.has_p)
     if not 3 <= n <= 8:
         problems.append(f"KEY_POINTS has {n} item{'' if n == 1 else 's'}; write 3–8")
-    with_detail = sum(scan.has_p)
+    items = data.get("KEY_POINTS")
+    if isinstance(items, list) and items and all(isinstance(i, dict) for i in items):
+        # Since F1 a key point's `why` is a <p> too, so the array says which have a detail.
+        with_detail = sum(bool(str(i.get("detail") or "").strip()) for i in items)
+    else:
+        with_detail = sum(scan.has_p)   # the old HTML-string contract: the only <p> is the detail
     if n and with_detail * 2 < n:
         problems.append(f"detail on {with_detail} of {n} Key Points; give most of them "
                         "the 2–4 sentence analytical paragraph")
@@ -818,10 +874,26 @@ def sanitise_payload(data: dict, output_path: str = "") -> dict:
         raise RenderValidationError("RENDER_INVALID_VIDEO_URL", f"invalid video url: {video_url!r}")
 
     data = {**data, "META_LINE": _maybe_compose_meta_line(data)}
-    share_items = _share_items(data)
-    for key in ITEM_FIELDS:
-        if isinstance(data.get(key), list):
-            data[key] = items_to_html(key, data[key], video_id)
+    # Arrays of objects become payload v1 items, then the fragments (035 §4.5). The outline
+    # goes first: a key point's `t` must name one of its starts (D7).
+    v1, warnings = {}, []
+    for key in ("OUTLINE", "KEY_POINTS"):
+        if not isinstance(data.get(key), list):
+            continue
+        if key == "OUTLINE":
+            starts = None
+        elif "OUTLINE" in v1:
+            starts = {o["t"] for o in v1["OUTLINE"]}
+        else:
+            starts = {int(t) for t in re.findall(r'data-t="(\d+)"', str(data.get("OUTLINE", "")))}
+        items = items_to_v1(key, data[key], starts, warnings)
+        if items is None:
+            data[key] = "".join(data[key])
+        else:
+            v1[key] = items
+            data[key] = (outline_fragment if key == "OUTLINE" else key_points_fragment)(video_id, items)
+    for warning in warnings:
+        print(f"RENDER_WARN: {warning}", file=sys.stderr)
 
     clean = {}
     clean["VIDEO_ID"] = video_id
@@ -837,8 +909,10 @@ def sanitise_payload(data: dict, output_path: str = "") -> dict:
                 "fix it, re-Write the payload and retry.",
             )
 
+    # Plain text is escaped as the Worker's esc() does; SUMMARY and TAKEAWAY get paragraphs
+    # and inline markers (035 §4.5), so the shell's slot has no wrapper.
     for key in PLAINTEXT_KEYS:
-        clean[key] = html_lib.escape(data.get(key, ""), quote=False)
+        clean[key] = paragraphs(data[key]) if key in ("SUMMARY", "TAKEAWAY") else esc(data[key])
 
     for key in HTML_KEYS:
         try:
@@ -860,7 +934,7 @@ def sanitise_payload(data: dict, output_path: str = "") -> dict:
     clean["LANG"] = _page_lang(data, meta["videoId"])
     clean["DURATION_S"] = str(_duration_seconds(data, meta["videoId"]))
     clean["VIDEO_LENS_DATA"] = _serialize_share_data(
-        _build_share_data(data, meta, share_items) if share_items else None)
+        _build_share_data(data, meta, v1) if len(v1) == 2 else None)
 
     return clean
 
@@ -904,11 +978,8 @@ def _render_clean(data: dict, output_path: str, template_path: pathlib.Path | No
 
     html = _local_build(template_path.read_text(encoding="utf-8"))
     # Defaults for pre-built clean dicts from older callers. The Python renderer only ever
-    # writes the local report. SUMMARY and TAKEAWAY are one paragraph each: the shell's
-    # slot has no wrapper.
+    # writes the local report. SUMMARY and TAKEAWAY arrive as paragraphs (sanitise_payload).
     data = {"VIDEO_LENS_DATA": "", "LANG": "", "DURATION_S": "0", **data, "VL_MODE": "local"}
-    for key in ("SUMMARY", "TAKEAWAY"):
-        data[key] = f"<p>{data.get(key, '')}</p>"
 
     # Collect the template's own placeholders *before* substituting: agent content
     # may legitimately quote a `{{TOKEN}}` (videos about Jinja, Handlebars, GitHub

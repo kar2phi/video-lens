@@ -5,7 +5,9 @@
     "Base URL is the runner's. Lengths count Unicode code points after NFC normalisation.",
     "The install ID travels only in the X-VL-Install header (default: the runner's own; {install2} is a second one). Placeholders in flows: {payload}, {payload:PATCH}, {terms}, {install2}, {id}, {key},",
     "{id2}, {key2}; 'save' copies response fields into those names. 'op' steps are runner actions:",
-    "takedown(id, reason), pause, unpause, set_cap(name, n), video_gone(videoId)."
+    "takedown(id, reason), pause, unpause, set_cap(name, n), video_gone(videoId).",
+    "keyPoints[].t (037 D7) is optional: an integer 0..86400 that equals the t of one outline entry, else field keyPoints.t.",
+    "It comes first in the normalised key point ({t, point, why, detail}; timedKeyPoint), which matters because the payload is hashed."
   ],
   "version": 1,
   "terms": "2026-11-01",
@@ -52,6 +54,10 @@
     "keyPoints": [{"point": "P", "why": "", "detail": ""}], "outline": [], "model": "", "notes": [],
     "created": ""
   },
+  "timedKeyPoint": {
+    "in": {"point": "P", "detail": "D", "t": 754},
+    "normalised": {"t": 754, "point": "P", "why": "", "detail": "D"}
+  },
   "validPatches": [
     {"name": "nfc", "patch": {"title": "Café"}},
     {"name": "tab and newline", "patch": {"summary": "a\tb\nc"}},
@@ -63,7 +69,8 @@
     {"name": "summary at limit", "patch": {"summary": "@6000"}},
     {"name": "hostile text is text", "patch": {"summary": "<script>window.__pwned=1</script> <img src=x onerror=1>"}},
     {"name": "both notes", "patch": {"notes": ["lang-fallback", "local-transcript"]}},
-    {"name": "outline max t", "patch": {"outline": [{"t": 86400, "title": "End", "detail": ""}]}}
+    {"name": "outline max t", "patch": {"outline": [{"t": 86400, "title": "End", "detail": ""}]}},
+    {"name": "key point t names an outline entry", "patch": {"keyPoints": [{"t": 754, "point": "P"}, {"point": "Q", "t": 0}]}}
   ],
   "invalidPatches": [
     {"name": "unknown key", "patch": {"html": "<b>x</b>"}, "field": "html"},
@@ -102,7 +109,10 @@
     {"name": "NUL byte", "patch": {"takeaway": "a\u0000b"}, "field": "takeaway"},
     {"name": "bidi override", "patch": {"title": "a‮b"}, "field": "title"},
     {"name": "bidi isolate", "patch": {"channel": "a⁧b"}, "field": "channel"},
-    {"name": "control char in key point", "patch": {"keyPoints": [{"point": "a\u001bb"}]}, "field": "keyPoints"}
+    {"name": "control char in key point", "patch": {"keyPoints": [{"point": "a\u001bb"}]}, "field": "keyPoints"},
+    {"name": "key point t matches no outline entry", "patch": {"keyPoints": [{"t": 5, "point": "P"}]}, "field": "keyPoints.t"},
+    {"name": "key point t not an integer", "patch": {"keyPoints": [{"t": "754", "point": "P"}]}, "field": "keyPoints.t"},
+    {"name": "key point t with an empty outline", "patch": {"keyPoints": [{"t": 0, "point": "P"}], "outline": []}, "field": "keyPoints.t"}
   ],
   "patchMacros": {
     "#delete": "remove the key",

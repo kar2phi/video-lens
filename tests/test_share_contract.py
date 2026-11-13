@@ -191,3 +191,12 @@ def test_fault_injection_and_log(fake):
     assert statuses.count(500) == 2
     _, _, log = request(fake.url, "GET", "/__fake/log")
     assert [e["status"] for e in log[:2]] == [429, 201]
+
+
+def test_a_timed_key_point_normalises_with_t_first():
+    """037 D7: `t` leads the normalised key point, as in the Worker; the payload is hashed."""
+    case = CONTRACT["timedKeyPoint"]
+    out = validate_payload(patched(CONTRACT["payload"], {"keyPoints": [case["in"]]}))
+    assert out["keyPoints"] == [case["normalised"]]
+    assert list(out["keyPoints"][0]) == ["t", "point", "why", "detail"]
+    assert "t" not in validate_payload(CONTRACT["payload"])["keyPoints"][0]

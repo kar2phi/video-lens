@@ -49,18 +49,20 @@ KP_ARRAY = [
     {"point": "Scripts", "why": "Deterministic steps."},
     {"point": "A & B <tags>", "why": 'Quotes "stay" & angle <brackets> are text.', "detail": "2 * 3 * 4 is not italic."},
 ]
+# 037 A4: F1 (`why` is its own <p>), the Worker's five entities, one item per line.
 KP_STRING = (
-    "<li><strong>Progressive disclosure</strong> — Only names load up front."
-    "<p>Bodies load <em>on demand</em>, so <strong>context stays small</strong>; see <code>SKILL.md</code>.</p></li>"
-    "<li><strong>Scripts</strong> — Deterministic steps.</li>"
-    "<li><strong>A &amp; B &lt;tags&gt;</strong> — Quotes \"stay\" &amp; angle &lt;brackets&gt; are text."
+    "<li><strong>Progressive disclosure</strong><p>Only names load up front.</p>"
+    "<p>Bodies load <em>on demand</em>, so <strong>context stays small</strong>; see <code>SKILL.md</code>.</p></li>\n"
+    "<li><strong>Scripts</strong><p>Deterministic steps.</p></li>\n"
+    "<li><strong>A &amp; B &lt;tags&gt;</strong><p>Quotes &quot;stay&quot; &amp; angle &lt;brackets&gt; are text.</p>"
     "<p>2 * 3 * 4 is not italic.</p></li>"
 )
 
 
 def _outline_li(t, clock, title, detail=None):
-    li = (f'<li><a class="ts" data-t="{t}" href="https://www.youtube.com/watch?v={VIDEO_ID}&t={t}" '
-          f'target="_blank" rel="noopener noreferrer">▶ {clock}</a> — <span class="outline-title">{title}</span>')
+    # F2: no "▶ ", no " — "; links end in &t=<t>s (037 §3.2 item 4).
+    li = (f'<li><a class="ts" data-t="{t}" href="https://www.youtube.com/watch?v={VIDEO_ID}&t={t}s" '
+          f'target="_blank" rel="noopener noreferrer">{clock}</a> <span class="outline-title">{title}</span>')
     return li + (f'<span class="outline-detail">{detail}</span>' if detail else "") + "</li>"
 
 
@@ -69,9 +71,9 @@ OUTLINE_ARRAY = [
     {"t": 754, "title": "Why it **fails**", "detail": "Context & *cause*."},
     {"t": 3725, "title": "Wrap-up"},
 ]
-OUTLINE_STRING = (_outline_li(0, "0:00", "Intro", "Opening.")
-                  + _outline_li(754, "12:34", "Why it fails", "Context &amp; cause.")
-                  + _outline_li(3725, "1:02:05", "Wrap-up"))
+OUTLINE_STRING = "\n".join([_outline_li(0, "0:00", "Intro", "Opening."),
+                            _outline_li(754, "12:34", "Why it fails", "Context &amp; cause."),
+                            _outline_li(3725, "1:02:05", "Wrap-up")])
 
 
 def test_arrays_render_exactly_what_the_equivalent_strings_render():
@@ -85,7 +87,7 @@ def test_array_key_points_feed_the_gallery_keywords():
 
 def test_bold_in_a_headline_does_not_split_its_keyword():
     out = clean(KEY_POINTS=[{"point": "The **real** cost", "why": "x"}])
-    assert out["KEY_POINTS"] == "<li><strong>The real cost</strong> — x</li>"
+    assert out["KEY_POINTS"] == "<li><strong>The real cost</strong><p>x</p></li>"
     assert out["VIDEO_LENS_META"]["keywords"] == ["The real cost"]
 
 
@@ -94,7 +96,7 @@ def test_outline_times_accept_clock_strings_and_numbers():
                {"t": 90.6, "title": "d"}]
     out = clean(OUTLINE=entries)["OUTLINE"]
     for t in (754, 3725, 75, 90):
-        assert f'data-t="{t}"' in out and f"&amp;t={t}\"" in out
+        assert f'data-t="{t}"' in out and f"&amp;t={t}s\"" in out
 
 
 def test_a_list_of_html_strings_is_joined_instead_of_rejected():
@@ -131,7 +133,7 @@ def test_bad_items_name_the_item_and_the_fix(key, value, needle):
     assert err.code in ("RENDER_INVALID_ITEM", "RENDER_PAYLOAD_INVALID")
     assert needle in err.detail
     if err.code == "RENDER_INVALID_ITEM":
-        assert ("point, why, detail" if key == "KEY_POINTS" else "t, title, detail") in err.detail
+        assert ("point, why, detail, t" if key == "KEY_POINTS" else "t, title, detail") in err.detail
 
 
 def test_other_fields_still_must_be_strings():
@@ -159,7 +161,7 @@ def test_skill_md_documents_the_fields_the_renderer_accepts():
 def test_inline_tags_from_the_old_contract_become_emphasis_not_literal_text():
     out = clean(KEY_POINTS=[{"point": "<strong>P</strong>", "why": "an <em>odd</em> <b>habit</b>",
                              "detail": "<i>a</i> <code>x</code> <span>kept as text</span>"}])["KEY_POINTS"]
-    assert out == ("<li><strong>P</strong> — an <em>odd</em> <strong>habit</strong>"
+    assert out == ("<li><strong>P</strong><p>an <em>odd</em> <strong>habit</strong></p>"
                    "<p><em>a</em> <code>x</code> &lt;span&gt;kept as text&lt;/span&gt;</p></li>")
     title = clean(OUTLINE=[{"t": 1, "title": "<em>Intro</em>"}])["OUTLINE"]
     assert '<span class="outline-title">Intro</span>' in title

@@ -123,22 +123,32 @@ def validate_payload(p):
     if not isinstance(notes, list) or len(notes) > 2 or len(set(notes)) != len(notes) or not set(notes) <= NOTES:
         raise SchemaError("notes")
     out["notes"] = list(notes)
-    out["keyPoints"] = _items(p["keyPoints"], "keyPoints", 1, 20, KP_FIELDS)
+    out["keyPoints"] = _items(p["keyPoints"], "keyPoints", 1, 20, KP_FIELDS, optional_t=True)
     out["outline"] = _items(p["outline"], "outline", 0, 100, OL_FIELDS, timed=True)
+    # D7: a key point's t must name one outline entry
+    starts = {o["t"] for o in out["outline"]}
+    if any("t" in k and k["t"] not in starts for k in out["keyPoints"]):
+        raise SchemaError("keyPoints.t")
     return {key: out[key] for key in KEY_ORDER}
 
 
-def _items(items, field, lo, hi, fields, timed=False):
+def _items(items, field, lo, hi, fields, timed=False, optional_t=False):
+    """`timed`: t is required (outline). `optional_t`: t may be left out (keyPoints, D7); it
+    comes first in the normalised item, as in the Worker, because the payload is hashed."""
     if not isinstance(items, list) or not lo <= len(items) <= hi:
         raise SchemaError(field)
     out = []
     for item in items:
-        if not isinstance(item, dict) or not set(item) <= set(fields) | ({"t"} if timed else set()):
+        if not isinstance(item, dict) or not set(item) <= set(fields) | ({"t"} if timed or optional_t else set()):
             raise SchemaError(field)
         clean = {}
         if timed:
             if not _int(item.get("t"), 0, 86400):
                 raise SchemaError(field)
+            clean["t"] = item["t"]
+        elif optional_t and "t" in item:
+            if not _int(item["t"], 0, 86400):
+                raise SchemaError(field + ".t")
             clean["t"] = item["t"]
         for name, (a, b) in fields.items():
             if a and name not in item:
