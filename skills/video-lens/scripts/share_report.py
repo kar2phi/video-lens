@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Share a video-lens report as an unlisted link (stdlib only).
 
-    share_report.py report PATH [--new-link] [--json]   create, or update the existing link
-    share_report.py list [--json]                       own shares with views, from the service
-    share_report.py revoke (ID | URL | PATH) [--json]
+    share_report.py report PATH [--new-link]            create, or update the existing link
+    share_report.py list                                own shares with views, from the service
+    share_report.py revoke (ID | URL | PATH)
     share_report.py terms [--accept]                    show the terms; record acceptance
-    share_report.py status [--json]                     reachable? uploads open? terms? offer?
     share_report.py offer (on | off)                    the closing offer line in the skill
 
 This is the only video-lens script that sends report content off the machine, and it does so
@@ -310,7 +309,7 @@ def cmd_report(args) -> int:
         raise ShareError("SHARE_TERMS", f"accept the terms first: read {terms_url(base)}, "
                                         "then run `share_report.py terms --accept`")
     install = ensure_install(cfg)
-    body = {"terms": cfg["terms_accepted"], "install": install, "payload": payload}
+    body = {"terms": cfg["terms_accepted"], "payload": payload}
     if len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > BODY_LIMIT:
         raise ShareError("SHARE_INPUT", "the report is too large to share (128 KiB limit)")
 
@@ -346,11 +345,8 @@ def cmd_report(args) -> int:
             shares = [s for s in load_registry() if s.get("id") != existing["id"]]
             save_registry(shares)
             action = "replaced"
-    if args.json:
-        out(json.dumps({"id": entry["id"], "url": entry["url"], "action": action}))
-    else:
-        out(f"SHARE_URL: {entry['url']}")
-        out(f"SHARE_ID: {entry['id']}")
+    out(f"SHARE_URL: {entry['url']}")
+    out(f"SHARE_ID: {entry['id']}")
     return 0
 
 
@@ -393,14 +389,11 @@ def cmd_list(args) -> int:
         rows.append({"id": s["id"], "url": s.get("url", ""), "views": views,
                      "updated": _day(info.get("updated") or s.get("updated")), "state": state,
                      "reason": info.get("reason"), "title": s.get("title", ""), "source": s.get("source", "")})
-    if args.json:
-        out(json.dumps(rows, ensure_ascii=False))
-    else:
-        for r in rows:
-            title = " ".join(str(r["title"]).split())
-            out(f"SHARE: {r['id']} {r['views']} {r['updated']} {r['state']} {title}")
-        if not rows:
-            out("SHARES: none")
+    for r in rows:
+        title = " ".join(str(r["title"]).split())
+        out(f"SHARE: {r['id']} {r['views']} {r['updated']} {r['state']} {title}")
+    if not rows:
+        out("SHARES: none")
     return 0
 
 
@@ -428,10 +421,7 @@ def cmd_revoke(args) -> int:
     if resp.status != 401:   # 401: the service no longer has it, so it is gone either way
         raise_for(resp, base)
     save_registry([s for s in load_registry() if s.get("id") != share["id"]])
-    if args.json:
-        out(json.dumps({"revoked": share["id"]}))
-    else:
-        out(f"REVOKED: {share['id']}")
+    out(f"REVOKED: {share['id']}")
     return 0
 
 
@@ -456,25 +446,6 @@ def cmd_terms(args) -> int:
     return 0
 
 
-def cmd_status(args) -> int:
-    cfg = load_config()
-    base = service_url(cfg)
-    status = {"service": base, "reachable": False, "uploads": None, "terms": None,
-              "termsAccepted": False, "offer": cfg["offer"]}
-    try:
-        health = _health(base, retries=0, timeout=5)
-        status.update(reachable=True, uploads=health.get("uploads"), terms=health["terms"],
-                      termsAccepted=cfg["terms_accepted"] == health["terms"])
-    except ShareError:
-        status["termsAccepted"] = bool(cfg["terms_accepted"])
-    if args.json:
-        out(json.dumps(status))
-    else:
-        for k, v in status.items():
-            out(f"{k}: {v}")
-    return 0
-
-
 def cmd_offer(args) -> int:
     cfg = load_config()
     cfg["offer"] = args.state == "on"
@@ -489,21 +460,15 @@ def build_parser() -> argparse.ArgumentParser:
     r = sub.add_parser("report", help="create a link, or update the existing one")
     r.add_argument("path")
     r.add_argument("--new-link", action="store_true", help="make a fresh link and delete the old one")
-    r.add_argument("--json", action="store_true")
     r.set_defaults(func=cmd_report)
     lst = sub.add_parser("list", help="own shares with views")
-    lst.add_argument("--json", action="store_true")
     lst.set_defaults(func=cmd_list)
     rv = sub.add_parser("revoke", help="delete a link (ID, URL or report path)")
     rv.add_argument("target")
-    rv.add_argument("--json", action="store_true")
     rv.set_defaults(func=cmd_revoke)
     t = sub.add_parser("terms", help="show the terms; --accept records acceptance")
     t.add_argument("--accept", action="store_true")
     t.set_defaults(func=cmd_terms)
-    s = sub.add_parser("status", help="service and local state")
-    s.add_argument("--json", action="store_true")
-    s.set_defaults(func=cmd_status)
     o = sub.add_parser("offer", help="turn the offer line on or off")
     o.add_argument("state", choices=["on", "off"])
     o.set_defaults(func=cmd_offer)
@@ -514,7 +479,7 @@ def _protect_ids(argv: list[str]) -> list[str]:
     """A share ID is base64url and may start with "-"; keep argparse from reading it as a flag."""
     if not argv or argv[0] != "revoke":
         return argv
-    flags = [a for a in argv[1:] if a in ("--json", "-h", "--help")]
+    flags = [a for a in argv[1:] if a in ("-h", "--help")]
     rest = [a for a in argv[1:] if a not in flags and a != "--"]
     return ["revoke", *flags, "--", *rest] if rest else argv
 

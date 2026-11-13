@@ -146,7 +146,7 @@ def test_share_sends_install_header_and_user_agent(env, monkeypatch):
     install = env.config()["install"]
     assert method == "POST"
     assert headers["X-VL-Install"] == install
-    assert json.loads(data)["install"] == install
+    assert "install" not in json.loads(data)
     assert json.loads(data)["terms"] == TERMS
     assert headers["User-Agent"] == f"video-lens-share/{sr.skill_version()}"
     assert sr.skill_version() not in ("", "0")
@@ -193,16 +193,6 @@ def test_two_reports_get_two_links(env):
     assert a != b and len(env.registry()) == 2
 
 
-def test_json_output(env):
-    env.accept()
-    code, out, _ = env.run("report", env.report(), "--json")
-    assert code == 0
-    data = json.loads(out)
-    assert set(data) == {"id", "url", "action"} and data["action"] == "created"
-    data = json.loads(env.run("report", env.report(), "--json")[1])
-    assert data["action"] == "updated"
-
-
 # ── install ID ───────────────────────────────────────────────────────────────
 
 def test_install_id_is_created_once_at_the_first_upload(env):
@@ -244,8 +234,7 @@ def test_revoke(env, by):
     assert env.registry() == []
 
 
-@pytest.mark.parametrize("flag_first", [False, True])
-def test_revoke_an_id_that_starts_with_a_dash(env, flag_first):
+def test_revoke_an_id_that_starts_with_a_dash(env):
     env.accept()
     path = env.report()
     old = lines(env.run("report", path)[1], "SHARE_ID:")[0]
@@ -255,10 +244,9 @@ def test_revoke_an_id_that_starts_with_a_dash(env, flag_first):
     shares = env.registry()
     shares[0]["id"] = dash_id
     sr.save_registry(shares)
-    argv = ["revoke", "--json", dash_id] if flag_first else ["revoke", dash_id, "--json"]
-    code, out, err = env.run(*argv)
+    code, out, err = env.run("revoke", dash_id)
     assert code == 0, err
-    assert json.loads(out) == {"revoked": dash_id}
+    assert out.strip() == f"REVOKED: {dash_id}"
     assert env.fake.state.shares == {}
 
 
@@ -295,15 +283,10 @@ def test_list_states(env):
     assert rows[ids[1]][3] == "outdated"
     assert rows[ids[2]][3] == "removed"
 
-    data = json.loads(env.run("list", "--json")[1])
-    assert {d["id"]: d["state"] for d in data} == {ids[0]: "current", ids[1]: "outdated", ids[2]: "removed"}
-    assert next(d for d in data if d["id"] == ids[2])["reason"] == "spam"
-
 
 def test_list_empty(env):
     code, out, _ = env.run("list")
     assert code == 0 and out.strip() == "SHARES: none"
-    assert json.loads(env.run("list", "--json")[1]) == []
 
 
 # ── terms flow ───────────────────────────────────────────────────────────────
@@ -338,34 +321,15 @@ def test_changed_terms_ask_again(env):
     assert lines(env.run("terms")[1], "TERMS_ACCEPTED:") == ["no"]
 
 
-# ── offer and status ─────────────────────────────────────────────────────────
+# ── offer ─────────────────────────────────────────────────────────
 
 def test_offer_on_off(env):
     assert sr.load_config()["offer"] is True                # default without a config
     code, out, _ = env.run("offer", "off")
     assert code == 0 and out.strip() == "OFFER: off"
     assert env.config()["offer"] is False
-    assert json.loads(env.run("status", "--json")[1])["offer"] is False
     env.run("offer", "on")
     assert env.config()["offer"] is True
-    assert json.loads(env.run("status", "--json")[1])["offer"] is True
-
-
-def test_status(env):
-    data = json.loads(env.run("status", "--json")[1])
-    assert data == {"service": env.fake.url, "reachable": True, "uploads": "open", "terms": TERMS,
-                    "termsAccepted": False, "offer": True}
-    env.accept()
-    with env.fake.state.lock:
-        env.fake.state.op("pause", {})
-    data = json.loads(env.run("status", "--json")[1])
-    assert data["termsAccepted"] is True and data["uploads"] == "paused"
-
-
-def test_status_when_unreachable(env, monkeypatch):
-    monkeypatch.setenv("VIDEO_LENS_SHARE_URL", "http://127.0.0.1:9")
-    code, out, _ = env.run("status", "--json")
-    assert code == 0 and json.loads(out)["reachable"] is False
 
 
 def test_service_url_from_config_and_default(env, monkeypatch):
@@ -518,10 +482,10 @@ def test_network_error(env, monkeypatch):
 def test_runs_as_a_script_with_the_stdlib_only(env, tmp_path):
     """Run with -I (no user site, no cwd on sys.path) as the skill does."""
     environ = {**os.environ}
-    proc = subprocess.run([sys.executable, "-I", str(SCRIPTS / "share_report.py"), "status", "--json"],
+    proc = subprocess.run([sys.executable, "-I", str(SCRIPTS / "share_report.py"), "offer", "on"],
                           capture_output=True, text=True, env=environ, timeout=30)
     assert proc.returncode == 0, proc.stderr
-    assert json.loads(proc.stdout)["reachable"] is True
+    assert proc.stdout.strip() == "OFFER: on"
     imports = {line.split()[1].split(".")[0] for line in (SCRIPTS / "share_report.py").read_text().splitlines()
                if line.startswith(("import ", "from "))}
     assert imports <= set(sys.stdlib_module_names)

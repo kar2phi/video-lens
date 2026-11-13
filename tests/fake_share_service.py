@@ -5,7 +5,7 @@ It implements tests/share_contract.json with an in-memory store, so the client
 (share_report.py) and the evals run without the real service. Control routes under
 /__fake/ (never on the real service):
 
-    POST /__fake/op      {"op": "takedown|pause|unpause|ban|set_cap|video_gone|reset", "args": {...}}
+    POST /__fake/op      {"op": "takedown|pause|unpause|set_cap|video_gone|reset", "args": {...}}
     POST /__fake/fault   {"status": 429, "error": "rate", "retryAfter": 60, "field": null,
                           "times": 1, "match": "POST /api/v1/shares"}   # next matching requests fail
     POST /__fake/fail_every  {"n": 3}        # every Nth API request answers 500 (0 turns it off)
@@ -184,7 +184,6 @@ class FakeState:
         self.counters = {}
         self.caps = {"install": 30, "ip": 60, "global": 1000}
         self.paused = False
-        self.bans = set()
         self.gone = {CONTRACT["goneVideoId"]}
         self.faults = []
         self.fail_every = 0
@@ -203,8 +202,6 @@ class FakeState:
             self.paused = True
         elif name == "unpause":
             self.paused = False
-        elif name == "ban":
-            self.bans.add(args["install"])
         elif name == "set_cap":
             self.caps[args["name"]] = int(args["n"])
         elif name == "video_gone":
@@ -342,11 +339,9 @@ class Handler(BaseHTTPRequestHandler):
         install = self.headers.get("X-VL-Install", "")
         if not ID_RE.fullmatch(install):
             raise ApiError("schema", field="install")
-        # 033 §7.1 step 1: switch, ban and day counters before the body is read.
+        # 033 §7.1 step 1: switch and day counters before the body is read.
         if st.paused:
             raise ApiError("paused")
-        if install in st.bans:
-            raise ApiError("rate")
         ip = self.client_address[0]
         if st.count("g:w") > st.caps["global"]:
             raise ApiError("paused")
@@ -359,10 +354,8 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(raw)
         except ValueError:
             raise ApiError("schema", field="body")
-        if not isinstance(body, dict) or set(body) != {"terms", "install", "payload"}:
+        if not isinstance(body, dict) or set(body) != {"terms", "payload"}:
             raise ApiError("schema", field="body")
-        if body["install"] != install:
-            raise ApiError("schema", field="install")
         if body["terms"] != TERMS:
             raise ApiError("terms")
         try:

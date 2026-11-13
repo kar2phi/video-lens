@@ -3,9 +3,9 @@
     "Share API contract v1 (video-lens-core 033 §5.1, §7). Source of truth for the Python fake",
     "(tests/fake_share_service.py, task test) and the Worker (video-lens-core service/, npm test).",
     "Base URL is the runner's. Lengths count Unicode code points after NFC normalisation.",
-    "Placeholders in flows: {payload}, {payload:PATCH}, {terms}, {install}, {install2}, {id}, {key},",
+    "The install ID travels only in the X-VL-Install header (default: the runner's own; {install2} is a second one). Placeholders in flows: {payload}, {payload:PATCH}, {terms}, {install2}, {id}, {key},",
     "{id2}, {key2}; 'save' copies response fields into those names. 'op' steps are runner actions:",
-    "takedown(id, reason), pause, unpause, ban(install), set_cap(name, n), video_gone(videoId)."
+    "takedown(id, reason), pause, unpause, set_cap(name, n), video_gone(videoId)."
   ],
   "version": 1,
   "terms": "2026-11-01",
@@ -116,14 +116,14 @@
        "expect": {"status": 200, "json": {"ok": true, "version": "string", "terms": "{terms}", "uploads": "open"}}}]},
 
     {"name": "create, read, update, delete", "steps": [
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 201, "json": {"id": "id", "url": "shareUrl", "manageKey": "key", "sha": "sha"}},
        "save": {"id": "id", "key": "manageKey", "sha": "sha"}},
       {"request": {"method": "GET", "path": "/api/v1/shares/{id}", "auth": "{key}"},
        "expect": {"status": 200, "json": {"id": "{id}", "status": "live", "views": 0, "created": "int", "updated": "int"}}},
-      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 200, "json": {"id": "{id}", "url": "shareUrl", "updated": "int", "sha": "{sha}"}}},
-      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload:{\"takeaway\": \"Changed.\"}}"}},
+      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "payload": "{payload:{\"takeaway\": \"Changed.\"}}"}},
        "expect": {"status": 200, "json": {"id": "{id}", "url": "shareUrl", "updated": "int", "sha": "!{sha}"}}},
       {"request": {"method": "DELETE", "path": "/api/v1/shares/{id}", "auth": "{key}"},
        "expect": {"status": 200, "json": {"deleted": true}}},
@@ -131,51 +131,45 @@
        "expect": {"status": 401, "json": {"error": "auth"}}}]},
 
     {"name": "minimal payload is normalised", "steps": [
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{minimalPayload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{minimalPayload}"}},
        "expect": {"status": 201, "json": {"id": "id", "url": "shareUrl", "manageKey": "key", "sha": "sha:minimalNormalised"}}}]},
 
     {"name": "auth: unknown id and wrong key look the same", "steps": [
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 201}, "save": {"id": "id", "key": "manageKey"}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 201}, "save": {"id2": "id", "key2": "manageKey"}},
       {"request": {"method": "GET", "path": "/api/v1/shares/{id}", "auth": "{key2}"}, "expect": {"status": 401, "json": {"error": "auth"}}},
       {"request": {"method": "GET", "path": "/api/v1/shares/AAAAAAAAAAAAAAAAAAAAAA", "auth": "{key}"}, "expect": {"status": 401, "json": {"error": "auth"}}},
       {"request": {"method": "GET", "path": "/api/v1/shares/{id}"}, "expect": {"status": 401, "json": {"error": "auth"}}},
-      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key2}", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}}, "expect": {"status": 401, "json": {"error": "auth"}}},
+      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key2}", "body": {"terms": "{terms}", "payload": "{payload}"}}, "expect": {"status": 401, "json": {"error": "auth"}}},
       {"request": {"method": "DELETE", "path": "/api/v1/shares/{id}", "auth": "{key2}"}, "expect": {"status": 401, "json": {"error": "auth"}}},
       {"request": {"method": "GET", "path": "/api/v1/shares/{id}", "auth": "{key}"}, "expect": {"status": 200}}]},
 
     {"name": "terms version must match", "steps": [
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "2000-01-01", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "2000-01-01", "payload": "{payload}"}},
        "expect": {"status": 400, "json": {"error": "terms"}}}]},
-
-    {"name": "install header must match the body", "steps": [
-      {"request": {"method": "POST", "path": "/api/v1/shares", "headers": {"X-VL-Install": "{install2}"}, "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
-       "expect": {"status": 400, "json": {"error": "schema", "field": "install"}}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "headers": {"X-VL-Install": "short"}, "body": {"terms": "{terms}", "install": "short", "payload": "{payload}"}},
-       "expect": {"status": 400, "json": {"error": "schema", "field": "install"}}}]},
 
     {"name": "body: not JSON, unknown key, too large", "steps": [
       {"request": {"method": "POST", "path": "/api/v1/shares", "rawBody": "{not json"},
        "expect": {"status": 400, "json": {"error": "schema", "field": "body"}}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}", "extra": 1}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}", "extra": 1}},
        "expect": {"status": 400, "json": {"error": "schema", "field": "body"}}},
       {"request": {"method": "POST", "path": "/api/v1/shares", "rawBody": "@131073"},
        "expect": {"status": 413, "json": {"error": "size"}}}]},
 
     {"name": "video that YouTube says does not exist", "steps": [
       {"op": "video_gone", "args": {"videoId": "ZZZZZZZZZZZ"}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload:{\"videoId\": \"ZZZZZZZZZZZ\"}}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload:{\"videoId\": \"ZZZZZZZZZZZ\"}}"}},
        "expect": {"status": 400, "json": {"error": "video"}}}]},
 
     {"name": "takedown", "steps": [
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 201}, "save": {"id": "id", "key": "manageKey"}},
       {"op": "takedown", "args": {"id": "{id}", "reason": "spam"}},
       {"request": {"method": "GET", "path": "/api/v1/shares/{id}", "auth": "{key}"},
        "expect": {"status": 200, "json": {"id": "{id}", "status": "removed", "reason": "spam"}}},
-      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 410, "json": {"error": "removed", "reason": "spam"}}},
       {"request": {"method": "DELETE", "path": "/api/v1/shares/{id}", "auth": "{key}"},
        "expect": {"status": 200, "json": {"deleted": true}}}]},
@@ -183,32 +177,27 @@
     {"name": "kill switch", "steps": [
       {"op": "pause"},
       {"request": {"method": "GET", "path": "/api/v1/health"}, "expect": {"status": 200, "json": {"uploads": "paused"}}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 503, "json": {"error": "paused"}}},
       {"op": "unpause"},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 201}}]},
 
     {"name": "install day cap", "steps": [
       {"op": "set_cap", "args": {"name": "install", "n": 1}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 201}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 429, "json": {"error": "rate"}, "headers": {"Retry-After": "int"}}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install2}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "headers": {"X-VL-Install": "{install2}"}, "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 201}}]},
 
     {"name": "global day cap pauses", "steps": [
       {"op": "set_cap", "args": {"name": "global", "n": 1}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 201}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install2}", "payload": "{payload}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "headers": {"X-VL-Install": "{install2}"}, "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 503, "json": {"error": "paused"}}}]},
-
-    {"name": "banned install", "steps": [
-      {"op": "ban", "args": {"install": "{install}"}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "install": "{install}", "payload": "{payload}"}},
-       "expect": {"status": 429, "json": {"error": "rate"}}}]},
 
     {"name": "unknown routes", "steps": [
       {"request": {"method": "GET", "path": "/api/v1/nope"}, "expect": {"status": 404, "json": {"error": "not_found"}}},
