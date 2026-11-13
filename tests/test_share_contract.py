@@ -120,8 +120,6 @@ class Runner:
         if req.get("auth"):
             headers["Authorization"] = "Bearer " + self.sub(req["auth"])
         body = self.sub(req.get("body"))
-        if isinstance(body, dict) and "install" in body:
-            headers["X-VL-Install"] = body["install"]
         headers.update(self.sub(req.get("headers") or {}))
         raw = req.get("rawBody")
         if raw is not None:
@@ -149,7 +147,7 @@ def test_flow(fake, flow):
 
 
 def _create(fake, payload):
-    body = {"terms": CONTRACT["terms"], "install": INSTALL, "payload": payload}
+    body = {"terms": CONTRACT["terms"], "payload": payload}
     return request(fake.url, "POST", "/api/v1/shares", body=body, headers={"X-VL-Install": INSTALL})
 
 
