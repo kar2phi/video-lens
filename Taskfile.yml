@@ -28,7 +28,9 @@ tasks:
 
   test:
     desc: Run fast tests (no network, no LLM) — whole tests/ dir
-    cmd: python3 -m pytest tests/ -v -m "not slow and not network"
+    cmds:
+      - python3 tools/build_viewer.py --check
+      - python3 -m pytest tests/ -v -m "not slow and not network"
 
   test-real:
     desc: Real YouTube fetches for evals/fixtures.json and the recs sources (network, no LLM, ~1 min)
