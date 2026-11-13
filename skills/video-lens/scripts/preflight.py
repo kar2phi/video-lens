@@ -22,7 +22,8 @@ Stdout on success (lines that apply only):
     LANG_CODE: <code or empty>
     EXTRA_REQUEST: <the request verbatim>   # when it asks for more than a language
     CAPABILITIES: a, b, …        # whisper (Apple Silicon: the local fallback can run),
-                                 # mlx-whisper, ffmpeg, yt-dlp | yt-dlp-outdated; may be empty
+                                 # mlx-whisper, ffmpeg, yt-dlp | yt-dlp-outdated,
+                                 # share (the closing share offer is on); may be empty
     START_EPOCH: <int>
     SCRIPTS_DIR: <absolute>      # directory holding the video-lens scripts
     PAYLOAD_PATH: <absolute>     # $XDG_CACHE_HOME/video-lens/payloads/payload-XXXX/payload.json (0700 parent, file not pre-created)
@@ -195,9 +196,22 @@ def parse_request(raw: str) -> tuple[str, str]:
     return lang_code, (text if rest else "")
 
 
+def share_offer_on() -> bool:
+    """The closing share offer is on unless the share config says `"offer": false`.
+
+    Reads only the local config (share_report.load_config), never the network.
+    Any failure counts as on: reading the config must never fail the preflight.
+    """
+    try:
+        from share_report import load_config
+        return load_config()["offer"]
+    except Exception:
+        return True
+
+
 def probe_capabilities() -> list[str]:
     """What this machine can run, so the skill offers the local fallback only
-    where it works (025 R6/S5).
+    where it works (025 R6/S5), plus `share` when the share offer is on.
 
     `whisper` means mlx-whisper can run here, installed or not; `mlx-whisper`
     that it is installed. The yt-dlp version is checked only where the fallback
@@ -215,6 +229,8 @@ def probe_capabilities() -> list[str]:
     if shutil.which("yt-dlp"):
         found = ytdlp_version() if whisper else None
         caps.append("yt-dlp-outdated" if found and found[0] < MIN_YTDLP else "yt-dlp")
+    if share_offer_on():
+        caps.append("share")
     return caps
 
 

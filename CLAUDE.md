@@ -35,15 +35,17 @@ video-lens/
     raycast-video-lens.sh  ← Raycast script (source of truth)
     yt_template_dev.py     ← dev server helper
   evals/
-    fixtures.json          ← real fixture videos + expected branch behaviour
-    checks.py              ← report/trace gates and metrics
-    run_eval.py            ← agent eval on real videos (task eval), A/B compare
+    fixtures.json          ← real fixture videos + expected branch behaviour (SET=share: share cases)
+    checks.py              ← report/trace/share gates and metrics
+    run_eval.py            ← agent eval on real videos (task eval), A/B compare; one fake share service per case
     replay.py              ← records the fetch scripts' output once, replays it (evals/cache/)
     run_recs_eval.py       ← video-lens-recs eval (task eval-recs); fixtures in gitignored evals/recs_fixtures/
   skills/
     video-lens/
       SKILL.md             ← skill prompt (source of truth)
       template.html        ← HTML report template (source of truth)
+      scripts/
+        share_report.py    ← share client: the only script that uploads, and only on request
     video-lens-gallery/
       SKILL.md             ← gallery skill prompt (source of truth)
       index.html           ← gallery viewer (source of truth)
@@ -55,6 +57,9 @@ video-lens/
       template.html        ← Discover page template
       references/setup.md  ← first-run setup flow
       scripts/             ← recs.py CLI + collect, scoring, yt_sources, page, store, takeout
+  tests/
+    share_contract.json    ← share service API contract
+    fake_share_service.py  ← stdlib fake of the share service (tests and evals)
 ```
 
 ## Dev

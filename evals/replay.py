@@ -8,6 +8,10 @@ records its own inputs, and arms with the same fetcher see byte-identical transc
 
 Only outputs that will not change on retry are recorded: successes and the per-video errors
 below. Blocks, timeouts and network errors always run live.
+
+A fixture's "inject" text (VIDEO_LENS_REPLAY_INJECT) is added to the transcript as one more
+line in its middle, after recording, so the cache always holds the real transcript. It is
+how the eval plants a prompt injection (033 E4).
 """
 import datetime
 import hashlib
@@ -22,6 +26,8 @@ CACHE_DIR = pathlib.Path(__file__).resolve().parent / "cache"
 NETWORK_SCRIPTS = ("fetch_transcript.py", "fetch_metadata.py")
 STABLE_ERRORS = re.compile(r"^ERROR:(CAPTIONS_DISABLED|NO_TRANSCRIPT|VIDEO_UNAVAILABLE|AGE_RESTRICTED|INVALID_VIDEO_ID)\b", re.M)
 LOG_ENV = "VIDEO_LENS_REPLAY_LOG"
+INJECT_ENV = "VIDEO_LENS_REPLAY_INJECT"
+TIMED_LINE_RE = re.compile(r"^\[(\d+(?::\d{2}){1,2})\] ")
 
 SHIM = '''#!/usr/bin/env python3
 """Eval replay shim for {name} (evals/replay.py). Not part of the skill."""
@@ -56,6 +62,18 @@ def is_cached(scripts_dir: pathlib.Path, name, argv, cache_dir=CACHE_DIR) -> boo
     return live.exists() and cache_path(cache_dir, live, argv).exists()
 
 
+def inject(stdout: str, text: str) -> str:
+    """Insert `text` as a transcript line in the middle, with its neighbour's timestamp."""
+    lines = stdout.split("\n")
+    timed = [i for i, line in enumerate(lines) if TIMED_LINE_RE.match(line)]
+    if not timed:
+        return stdout
+    at = timed[len(timed) // 2]
+    stamp = TIMED_LINE_RE.match(lines[at]).group(1)
+    lines.insert(at + 1, f"[{stamp}] {text}")
+    return "\n".join(lines)
+
+
 def main(name, live, cache_dir) -> int:
     argv = sys.argv[1:]
     path = cache_path(cache_dir, live, argv)
@@ -74,6 +92,8 @@ def main(name, live, cache_dir) -> int:
             path.write_text(json.dumps({"argv": argv, "stdout": stdout, "stderr": stderr, "returncode": code,
                                         "recorded": datetime.datetime.now().isoformat(timespec="seconds")},
                                        ensure_ascii=False), encoding="utf-8")
+    if name == "fetch_transcript.py" and code == 0 and os.environ.get(INJECT_ENV):
+        stdout = inject(stdout, os.environ[INJECT_ENV])
     log = os.environ.get(LOG_ENV)
     if log:
         with open(log, "a", encoding="utf-8") as f:

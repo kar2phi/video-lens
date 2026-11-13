@@ -17,11 +17,19 @@ The two network scripts are replayed from evals/cache/ (see replay.py): each fix
 fetched from YouTube once, and both A/B arms then read the same transcript. --live fetches
 everything fresh; the network tier (task test-real) always does.
 
+Sharing: each case gets its own fake share service (tests/fake_share_service.py, through
+VIDEO_LENS_SHARE_URL) and its own share config and registry (XDG_CONFIG_HOME and
+XDG_DATA_HOME in a temp dir), so no case can reach a real service or see another's links.
+A fixture's "share" sets the config ("offer": false, "terms": true); its "turns" are
+follow-up messages in the same conversation, each optionally with a fake "fault" set first
+(--set share runs the share cases E1–E5).
+
 Output: evals/results/<stamp>-<agent>-<arm>/ with, per case, trace.jsonl, the report and
 result.json, plus scorecard.json. Exit status 1 when any gate failed, 2 when the only
 problem was YouTube blocking transcript requests (those cases are not scored).
 """
 import argparse
+import fcntl
 import hashlib
 import io
 import json
@@ -30,6 +38,7 @@ import pathlib
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tarfile
@@ -42,6 +51,9 @@ from datetime import datetime
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import checks  # noqa: E402
 import replay  # noqa: E402
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "tests"))
+from fake_share_service import TERMS as SHARE_TERMS, FakeShareService  # noqa: E402
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 FIXTURES_PATH = REPO_ROOT / "evals" / "fixtures.json"
@@ -153,14 +165,83 @@ def agent_command(agent, skill_dir: pathlib.Path, work: pathlib.Path, prompt_arg
     return cmd + extra + prompt
 
 
-def run_agent(cmd, work: pathlib.Path, case: pathlib.Path, trace_name: str, args):
+def share_state(fixture, state_dir: pathlib.Path, service_url: str) -> dict:
+    """The share config a case starts with, and the environment that points the client at
+    it and at the fake: offer on and terms not accepted unless the fixture says otherwise."""
+    share = fixture.get("share") or {}
+    cfg = {}
+    if share.get("offer") is False:
+        cfg["offer"] = False
+    if share.get("terms"):
+        cfg["terms_accepted"] = SHARE_TERMS
+    env = {"XDG_CONFIG_HOME": str(state_dir / "config"), "XDG_DATA_HOME": str(state_dir / "data"),
+           "VIDEO_LENS_SHARE_URL": service_url}
+    if cfg:
+        path = state_dir / "config" / "video-lens" / "share.json"
+        path.parent.mkdir(parents=True, mode=0o700)
+        path.write_text(json.dumps(cfg), encoding="utf-8")
+        path.chmod(0o600)
+    return env
+
+
+PI_HIDDEN = (".agents", ".pi")
+PI_AGENT_FILES = ("auth.json", "models.json", "extensions")
+
+
+def pi_home(state_dir: pathlib.Path, real_home: pathlib.Path | None = None) -> pathlib.Path:
+    """A HOME for pi without the installed skills. pi discovers ~/.agents/skills and
+    ~/.pi/agent/skills even with --no-skills (and then drops the --skill copy under test
+    on the name collision), so pi gets a home that links every entry of the real one except
+    those two, plus a ~/.pi/agent with its auth, models, settings and extensions only.
+    The settings add a shell prefix that restores the real HOME, so every command the model
+    runs (preflight, serve_report.sh, share_report.py) sees the same paths as a user's run."""
+    real_home = real_home or pathlib.Path.home()
+    home = state_dir / "pi-home"
+    home.mkdir()
+    for entry in real_home.iterdir():
+        if entry.name not in PI_HIDDEN:
+            (home / entry.name).symlink_to(entry)
+    agent = home / ".pi" / "agent"
+    agent.mkdir(parents=True)
+    for name in PI_AGENT_FILES:
+        if (real_home / ".pi" / "agent" / name).exists():
+            (agent / name).symlink_to(real_home / ".pi" / "agent" / name)
+    try:
+        settings = json.loads((real_home / ".pi" / "agent" / "settings.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        settings = {}
+    prefix = f"export HOME={shlex.quote(str(real_home))};"
+    settings["shellCommandPrefix"] = " ".join(filter(None, [prefix, settings.get("shellCommandPrefix")]))
+    (agent / "settings.json").write_text(json.dumps(settings, indent=2), encoding="utf-8")
+    return home
+
+
+def case_turns(fixture) -> list:
+    """The follow-up turns after the video-lens run: `turns`, or the revision's `followup`."""
+    if fixture.get("turns"):
+        return fixture["turns"]
+    return [{"say": fixture["followup"]}] if fixture.get("followup") else []
+
+
+def _kill_tree(proc):
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        proc.kill()
+
+
+def run_agent(cmd, work: pathlib.Path, case: pathlib.Path, trace_name: str, args, env=None):
     """Run one agent turn; the trace goes to case/trace_name. Returns (returncode, timed_out)."""
     timed_out = threading.Event()
     with open(case / trace_name, "w", encoding="utf-8") as trace_file, \
             open(case / "stderr.txt", "a", encoding="utf-8") as err_file:
-        proc = subprocess.Popen(cmd, cwd=work, stdout=subprocess.PIPE, stderr=err_file, text=True,
-                                env={**os.environ, "NO_BROWSER": "1", replay.LOG_ENV: str(case / "replay.jsonl")})
-        watchdog = threading.Timer(args.timeout, lambda: (timed_out.set(), proc.kill()))
+        # stdin=DEVNULL: pi blocks forever reading an open stdin pipe. Own session so the
+        # watchdog can kill the whole tree (children otherwise hold stdout open past the timeout).
+        proc = subprocess.Popen(cmd, cwd=work, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=err_file, text=True, start_new_session=True,
+                                env={**os.environ, "NO_BROWSER": "1", replay.LOG_ENV: str(case / "replay.jsonl"),
+                                     **(env or {})})
+        watchdog = threading.Timer(args.timeout, lambda: (timed_out.set(), _kill_tree(proc)))
         watchdog.start()
         for line in proc.stdout:
             if not (args.agent == "pi" and line.startswith(PI_NOISE)):
@@ -179,15 +260,34 @@ def new_reports(video: str, since: float) -> list:
 def run_case(fixture, run_idx, args, skill, out: pathlib.Path) -> dict:
     case = out / f"{fixture['name']}-{run_idx}"
     case.mkdir(parents=True)
+    with FakeShareService() as fake:
+        state_dir = pathlib.Path(tempfile.mkdtemp(prefix="video-lens-eval-share-"))
+        try:
+            return _run_case(fixture, run_idx, args, skill, case, fake, state_dir)
+        finally:
+            shutil.rmtree(state_dir, ignore_errors=True)
+
+
+def _fake_log(fake, start: int) -> list:
+    with fake.state.lock:
+        return [dict(e) for e in fake.state.log[start:]]
+
+
+def _run_case(fixture, run_idx, args, skill, case: pathlib.Path, fake, state_dir: pathlib.Path) -> dict:
     # cwd outside any git repo: inside this one, Claude Code attaches the repo's CLAUDE.md
     # and auto-memory to the session, which no real user run would have.
     work = pathlib.Path(tempfile.mkdtemp(prefix=f"video-lens-eval-{fixture['name']}-"))
     url = f"https://www.youtube.com/watch?v={fixture['video']}"
     # `request` is what the user typed after the URL; `lang` alone is the short form of it.
     prompt_args = f"{url} {fixture.get('request') or fixture.get('lang', '')}".strip()
-    followup = fixture.get("followup")
+    followups = case_turns(fixture)
+    env = share_state(fixture, state_dir, fake.url)
+    if fixture.get("inject"):
+        env[replay.INJECT_ENV] = fixture["inject"]
+    if args.agent == "pi":
+        env["HOME"] = str(pi_home(state_dir))
     session = None
-    if followup:   # a revision: a second turn in the same conversation
+    if followups:   # follow-up turns continue the same conversation
         session = str(uuid.uuid4()) if args.agent == "claude" else str(work / ".pi-sessions")
     agent = (args.agent, pathlib.Path(skill["path"]), work, prompt_args, args.model,
              shlex.split(args.agent_args or ""))
@@ -195,15 +295,26 @@ def run_case(fixture, run_idx, args, skill, out: pathlib.Path) -> dict:
 
     truth = ground_truth(fixture["video"], use_cache=not args.live)
     started = time.time()
-    returncode, timed_out = run_agent(commands[0], work, case, "trace.jsonl", args)
+    returncode, timed_out = run_agent(commands[0], work, case, "trace.jsonl", args, env)
+    turn_logs = [_fake_log(fake, 0)]
     first_report = None
-    if followup and returncode == 0 and not timed_out and new_reports(fixture["video"], started):
-        # Keep the first turn's report in the library: the revision must --replace it there.
+    if followups and returncode == 0 and not timed_out and new_reports(fixture["video"], started):
+        # Keep the first turn's report in the library: a revision must --replace it there,
+        # and a share must read it from there.
         first_report = new_reports(fixture["video"], started)[-1]
         shutil.copy(first_report, case / f"turn1-{first_report.name}")
-        commands.append(agent_command(*agent, session=session, followup=followup))
-        returncode, timed_out = run_agent(commands[1], work, case, "trace-2.jsonl", args)
+        for n, turn in enumerate(followups, start=2):
+            if turn.get("fault"):
+                with fake.state.lock:
+                    fake.state.faults.append({"times": 1, "match": "", **turn["fault"]})
+            start = len(_fake_log(fake, 0))
+            commands.append(agent_command(*agent, session=session, followup=turn["say"]))
+            returncode, timed_out = run_agent(commands[-1], work, case, f"trace-{n}.jsonl", args, env)
+            turn_logs.append(_fake_log(fake, start))
+            if returncode != 0 or timed_out:
+                break
     (case / "command.txt").write_text("".join(shlex.join(c) + "\n" for c in commands), encoding="utf-8")
+    (case / "share-log.json").write_text(json.dumps(turn_logs, indent=1), encoding="utf-8")
     wall = round(time.time() - started, 1)
     shutil.rmtree(work, ignore_errors=True)
 
@@ -214,11 +325,14 @@ def run_case(fixture, run_idx, args, skill, out: pathlib.Path) -> dict:
         shutil.move(str(p), dest)
         moved.append(dest)
 
-    trace = checks.load_trace((case / "trace.jsonl").read_text(encoding="utf-8").splitlines(), args.agent)
-    turn2 = None
-    if (case / "trace-2.jsonl").exists():
-        turn2 = checks.load_trace((case / "trace-2.jsonl").read_text(encoding="utf-8").splitlines(), args.agent)
-        trace = checks.merge_traces(trace, turn2)
+    turn_traces = [checks.load_trace((case / "trace.jsonl").read_text(encoding="utf-8").splitlines(), args.agent)]
+    for n in range(2, len(followups) + 2):
+        if (case / f"trace-{n}.jsonl").exists():
+            turn_traces.append(checks.load_trace(
+                (case / f"trace-{n}.jsonl").read_text(encoding="utf-8").splitlines(), args.agent))
+    trace = turn_traces[0]
+    for later in turn_traces[1:]:
+        trace = checks.merge_traces(trace, later)
     report = checks.parse_report(moved[-1].read_text(encoding="utf-8")) if moved else None
     replay_log = case / "replay.jsonl"
     fetches = [json.loads(l) for l in replay_log.read_text(encoding="utf-8").splitlines()] if replay_log.exists() else []
@@ -227,14 +341,20 @@ def run_case(fixture, run_idx, args, skill, out: pathlib.Path) -> dict:
     existing_tags = [t.strip() for t in existing_tags.group(1).split(",")] if existing_tags else None
 
     gates = checks.gates(fixture, trace, report, len(moved), chapters=truth["chapters"])
+    turns = [{"trace": t, "log": log, **(followups[i - 1] if i else {})}
+             for i, (t, log) in enumerate(zip(turn_traces, turn_logs))]
+    gates.update(checks.share_gates(turns))
     metrics = {"wall_s": wall, **checks.trace_metrics(trace)}
-    if followup:
+    if fixture.get("followup"):
         before = None
         if first_report is not None:
             before = checks.parse_report((case / f"turn1-{first_report.name}").read_text(encoding="utf-8"))
+        turn2 = turn_traces[1] if len(turn_traces) > 1 else None
         gates.update(checks.revision_gates(before, first_report and first_report.name, report,
                                            [p.name for p in moved], turn2 or {"calls": []}))
         metrics.update(checks.revision_metrics(before, report))
+    elif followups:
+        gates["turns_ran"] = len(turn_traces) == len(followups) + 1
     gates["finished"] = not timed_out and returncode == 0
     if report:
         focus = fixture["expect"].get("focus") or fixture["expect"].get("focus_control")
@@ -244,11 +364,15 @@ def run_case(fixture, run_idx, args, skill, out: pathlib.Path) -> dict:
         "fixture": fixture["name"], "video": fixture["video"], "run": run_idx,
         "agent": args.agent, "model": trace["model"] or args.model or "", "exit_code": returncode,
         "timed_out": timed_out, "reports": [p.name for p in moved],
-        "blocked": any(BLOCKED_RE.search(c["output"]) for c in trace["calls"]
-                       if "fetch_transcript.py" in c["target"]),
+        # A block hit through an installed copy (no replay shim) is the model's stray, not
+        # YouTube's: score it, so skill_under_test_used fails instead of hiding as blocked.
+        "blocked": gates.get("skill_under_test_used") is not False
+                   and any(BLOCKED_RE.search(c["output"]) for c in trace["calls"]
+                           if "fetch_transcript.py" in c["target"]),
         "inputs": {"replayed": sum(f["replayed"] for f in fetches),
                    "live": sum(not f["replayed"] for f in fetches)},
         "gates": gates, "metrics": metrics, "final": trace["final"][-600:],
+        "finals": [t["final"][-600:] for t in turn_traces],
     }
     (case / "result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
     return result
@@ -394,7 +518,7 @@ def main(argv=None) -> int:
     ap.add_argument("--agent", choices=("claude", "pi"), default="claude")
     ap.add_argument("--model", help="passed through as --model (default: the CLI's own default)")
     ap.add_argument("--ref", help="git ref of the skill to test (default: the working tree)")
-    ap.add_argument("--set", default="slim", choices=("slim", "full"))
+    ap.add_argument("--set", default="slim", choices=("slim", "full", "share"))
     ap.add_argument("--only", help="comma-separated fixture names (overrides --set)")
     ap.add_argument("--runs", type=int, default=1, help="runs per fixture (2+ to see sampling noise)")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds per case")
@@ -408,7 +532,16 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     if args.compare:
         return compare(*args.compare)
-    return run(args)
+    # One run at a time: every run writes to and moves reports out of the same live library,
+    # so a second run takes the other's reports of a shared fixture video.
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    with open(RESULTS_DIR / ".run.lock", "w") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            sys.exit("Another eval run is in progress (evals/results/.run.lock); "
+                     "runs share the live report library, so wait for it to finish.")
+        return run(args)
 
 
 if __name__ == "__main__":

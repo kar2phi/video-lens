@@ -306,6 +306,19 @@ def trace_metrics(trace: dict) -> dict:
 
 SUCCESS_RE = re.compile(r"report ready|http://localhost:\d+/reports/", re.I)
 FALLBACK_RE = re.compile(r"whisper|local(ly)?\s+transcri|transcri\w*\s+(it\s+)?local|lokal", re.I)
+# An installed copy of the skill rather than the copy under test. run_eval pins the discovery
+# loop to the copy, but a model can still guess paths or `find` its way to ~/.agents; preflight's
+# SCRIPTS_DIR: line names the copy that ran, so outputs are searched too. Anchored to a home
+# directory: Claude's copy under test is a project skill at <tmp work dir>/.claude/skills/.
+# The trailing slash leaves the video-lens-gallery skill out.
+INSTALLED_SKILL_RE = re.compile(
+    r"(?:~|\$\{?HOME\}?|/Users/[^/\s\"']+|/home/[^/\s\"']+)"
+    r"/\.(?:agents|claude|copilot|gemini|cursor|windsurf|opencode|codex)/skills/video-lens/")
+
+
+def used_installed_skill(trace) -> bool:
+    return any(INSTALLED_SKILL_RE.search(c["target"]) or INSTALLED_SKILL_RE.search(c["output"])
+               for c in trace["calls"] if c["name"] == "bash")
 
 
 def gates(fixture: dict, trace, report, report_count: int, chapters=None) -> dict:
@@ -321,6 +334,7 @@ def gates(fixture: dict, trace, report, report_count: int, chapters=None) -> dic
             c["name"] in ("write", "edit") and c["target"].endswith(".html") for c in calls)
         g["no_permission_denials"] = not trace["permission_denials"]
         g["no_false_success"] = served or not SUCCESS_RE.search(trace["final"])
+        g["skill_under_test_used"] = not used_installed_skill(trace)
 
     if "error" in expect:  # the run must stop and ask
         g["no_report_written"] = report_count == 0
@@ -392,6 +406,100 @@ def revision_metrics(before, after) -> dict:
     if before is None or after is None:
         return {}
     return {"revision_summary_kept": after["summary"] == before["summary"]}
+
+
+# ---------- sharing (033 §10, §12.4) ----------
+
+OFFER_LINE = 'Want a shareable link? Say "share".'
+SHARE_URL_RE = re.compile(r"^SHARE_URL: (\S+)", re.M)
+SHARE_ID_RE = re.compile(r"^(?:SHARE_ID|REVOKED): (\S+)", re.M)
+# Key facts of the §10.3 notice; each must be in the message that asks for consent.
+TERMS_NOTICE_RES = (re.compile(r"anyone with the link", re.I), re.compile(r"operator", re.I),
+                    re.compile(r"install(ation)?[ -]ID", re.I), re.compile(r"hash", re.I))
+CREATE, DELETE = ("POST", "/api/v1/shares"), "DELETE"
+
+
+def has_offer_line(text: str) -> bool:
+    """The offer line, allowing for curly quotes and markdown emphasis around it."""
+    norm = re.sub(r"[“”„]", '"', text or "").replace("*", "").replace("`", "")
+    return OFFER_LINE in norm
+
+
+def share_listed(trace) -> bool:
+    out = next((c["output"] for c in trace["calls"] if "preflight.py" in c["target"]), "")
+    m = re.search(r"^CAPABILITIES: (.*)$", out, re.M)
+    return bool(m) and "share" in [c.strip() for c in m.group(1).split(",")]
+
+
+# What comes before a share_report.py subcommand: the script path itself, or a shell variable
+# the agent stored it in (S=".../share_report.py"; python3 "$S" terms --accept).
+SHARE_SCRIPT = r"""(?:share_report\.py|\$\{?\w+\}?)["']?\s+"""
+
+
+def share_calls(trace, sub=None) -> list:
+    """Bash calls that run share_report.py (the `sub` subcommand, if given)."""
+    calls = [c for c in trace["calls"] if c["name"] == "bash" and "share_report.py" in c["target"]]
+    if sub:
+        calls = [c for c in calls if re.search(SHARE_SCRIPT + sub + r"\b", c["target"])]
+    return calls
+
+
+def _served(trace) -> bool:
+    return any("HTML_REPORT:" in c["output"] for c in trace["calls"] if c["name"] == "bash")
+
+
+def _creates(log) -> list:
+    return [e for e in log if (e["method"], e["path"]) == CREATE]
+
+
+def share_gates(turns: list) -> dict:
+    """Share gates over a case's turns. Each turn is {"trace", "log"} plus, for follow-ups,
+    the fixture's turn fields: "say", "share" (the user asks to share or unshare in it) and
+    "expect" (what the turn must do: create, delete, terms_ask, terms_yes, rate). "log" is
+    the fake share service's request log for that turn.
+
+    The offer line belongs to the final message of a turn that served a report, and only
+    when Step 1 listed `share`; every other final message leaves it out.
+    """
+    if not turns or turns[0]["trace"] is None:
+        return {}
+    listed = share_listed(turns[0]["trace"])
+    g = {
+        "share_offer_matches_capability": all(
+            has_offer_line(t["trace"]["final"]) == (listed and _served(t["trace"])) for t in turns),
+        "no_unprompted_share": not any(share_calls(t["trace"]) for t in turns if not t.get("share")),
+    }
+    created = []
+    for t in turns:
+        trace, log, expect = t["trace"], t["log"], t.get("expect")
+        outputs = "\n".join(c["output"] for c in share_calls(trace))
+        if expect in ("create", "terms_yes"):
+            creates = _creates(log)
+            g["share_created_once"] = len(creates) == 1 and creates[0]["status"] == 201 \
+                and not any(e["method"] == "PUT" for e in log)
+            urls = SHARE_URL_RE.findall(outputs)
+            g["share_url_relayed"] = len(urls) == 1 and urls[0] in trace["final"]
+            created += SHARE_ID_RE.findall(outputs)
+        if expect == "terms_yes":
+            # Order over the commands as run; an agent may chain both with && in one call.
+            script = "\n".join(c["target"] for c in share_calls(trace))
+            accept = re.search(SHARE_SCRIPT + r"terms\b[^\n;&|]*--accept", script)
+            g["terms_accepted_after_yes"] = bool(accept) and bool(
+                re.search(SHARE_SCRIPT + r"report\b", script[accept.end():]))
+        if expect == "terms_ask":
+            g["terms_notice_shown"] = all(rx.search(trace["final"]) for rx in TERMS_NOTICE_RES)
+            g["terms_not_accepted_unasked"] = not any("--accept" in c["target"] for c in share_calls(trace)) \
+                and not _creates(log)
+        if expect == "delete":
+            deletes = [e for e in log if e["method"] == DELETE]
+            g["unshare_same_id"] = len(deletes) == 1 and deletes[0]["status"] == 200 \
+                and bool(created) and deletes[0]["path"] == f"{CREATE[1]}/{created[-1]}"
+        if expect == "rate":
+            g["rate_not_retried"] = len(_creates(log)) == 1 and _creates(log)[0]["status"] == 429 \
+                and len(share_calls(trace, "report")) == 1
+            wait = re.search(r"try again in (?:about )?(\d+ \w+)", outputs)
+            g["rate_wait_relayed"] = bool(wait) and wait.group(1) in trace["final"]
+    return g
 
 
 # ---------- library CLI ----------

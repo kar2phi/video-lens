@@ -134,6 +134,22 @@ takeaway") and the same report is re-rendered in place.
 
 If captions are unavailable, video-lens can ask to run local transcription instead. The fallback downloads the video's audio with `yt-dlp`, transcribes it with `mlx-whisper`, and then generates the same report format. It is slower than captions and may download a Whisper model the first time it runs.
 
+### Sharing a report
+
+After a report is ready, say "share" to get an unlisted link to it. Nothing is uploaded unless
+you ask. Before the first share you see the terms and agree to them: anyone with the link can
+read the summary, the service operator can read it too and may remove it, and a random install
+ID plus a hashed IP address are used to limit abuse. What is uploaded is the summary itself
+(summary, takeaway, key points, outline, tags) and the video's facts (title, channel, duration,
+date, language), never the transcript or the video description.
+
+Say "unshare" to revoke the link, "which reports are shared" to list your links with their
+views, and "stop offering links" to drop the closing "Want a shareable link?" line. The key that
+revokes a link stays on your machine (`~/.local/share/video-lens/share/`); without it, a link
+can only be removed through the notice form on the service's site. Reports made before this
+release cannot be shared; run the video again. The client is
+`skills/video-lens/scripts/share_report.py` (stdlib only).
+
 ### Gallery
 
 Browse, search, and filter all your saved reports by title, channel, tag, or keyword:
@@ -213,6 +229,10 @@ task eval AGENT=pi MODEL=qwen3.6:27b
 The fixtures in `evals/fixtures.json` each cover one branch: the happy path with chapters, a
 German video, a language request, a missing language (`LANG_WARN`), a captions-disabled video
 that must stop and ask before transcribing locally, and (with `SET=full`) a 1h36m talk.
+`SET=share` runs the sharing cases: share and unshare, the terms notice before the first share,
+a transcript that asks the agent to share, and a rate limit. Every case talks to its own fake
+share service (`tests/fake_share_service.py`) with its own share config, so no eval run reaches a
+real service.
 `task eval` loads the skill from the working tree (or `REF=<git ref>`) into a throwaway
 directory, so your installed copy is never touched. Each report is moved out of
 `~/Downloads/video-lens` right after its run, and the gallery index is rebuilt at the end.
@@ -221,7 +241,9 @@ Each case is checked against **gates**: report served, no `template.html` read, 
 HTML, first render accepted or fixed on the one retry, written in the transcript's language,
 outline links to this video, chapters anchored, `⚠` suffix after `LANG_WARN`, no claimed
 success without `HTML_REPORT:`, and for the captions-disabled video: no report and no
-transcription without consent. It also records **metrics**: key-point count and paragraph
+transcription without consent. Two sharing gates hold on every case: the closing share offer
+appears exactly when preflight listed `share` (half the fixtures turn the offer off), and no
+share happens unless the user asked for it. It also records **metrics**: key-point count and paragraph
 share, timestamp mismatches, outline and summary length against the SKILL.md bands, tag reuse,
 Takeaway/Summary overlap, tool calls, wall time and cost.
 
@@ -282,6 +304,7 @@ video-lens/
         preflight.py
         render_report.py
         serve_report.sh
+        share_report.py   ← turns a report into an unlisted link, only on request
         transcribe_local.py ← local Whisper fallback (optional deps: mlx-whisper + ffmpeg)
     video-lens-gallery/
       SKILL.md          ← gallery skill prompt (source of truth)
@@ -310,7 +333,8 @@ video-lens/
     run_eval.py       ← runs an agent on the fixtures; --compare for A/B
     replay.py         ← records each fixture's fetch once, replays it after
     run_recs_eval.py  ← video-lens-recs eval: record, label, prior, run, compare
-  tests/              ← fast suite, network tier (test_real_videos.py), slow e2e
+  tests/              ← fast suite, network tier (test_real_videos.py), slow e2e,
+                        share contract and fake share service
   Taskfile.yml
   requirements.txt
 ```

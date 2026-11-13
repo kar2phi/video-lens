@@ -35,7 +35,7 @@ tasks:
     cmd: python3 -m pytest tests/ -v -m network
 
   eval:
-    desc: "Run an agent on the fixture videos and validate every report (AGENT=claude|pi MODEL= REF=<git ref> SET=slim|full ONLY=a,b RUNS=1 LIVE=1)"
+    desc: "Run an agent on the fixture videos and validate every report (AGENT=claude|pi MODEL= REF=<git ref> SET=slim|full|share ONLY=a,b RUNS=1 LIVE=1); share cases use a fake share service"
     vars:
       AGENT: '{{.AGENT | default "claude"}}'
       SET: '{{.SET | default "slim"}}'

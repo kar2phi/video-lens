@@ -843,8 +843,11 @@ def test_preflight_main_omits_extra_request_for_a_language(monkeypatch, capsys, 
 
 
 def _fake_machine(monkeypatch, tmp_path, *, apple_silicon, tools=(), mlx=False,
-                  ytdlp="2026.08.19"):
+                  ytdlp="2026.08.19", share_offer=False):
     import preflight  # type: ignore
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    if not share_offer:
+        _write_share_config(tmp_path, {"offer": False})
     monkeypatch.setattr(preflight, "whisper_platform_supported", lambda: apple_silicon)
     monkeypatch.setattr(preflight.shutil, "which",
                         lambda name: f"/bin/{name}" if name in tools else None)
@@ -878,6 +881,48 @@ def test_capabilities_without_apple_silicon_omit_whisper(monkeypatch, tmp_path):
                           tools=("ffmpeg", "yt-dlp"), mlx=True, ytdlp="2026.03.17")
     assert probe_capabilities() == ["ffmpeg", "yt-dlp"]
     assert calls == []
+
+
+def _write_share_config(tmp_path, cfg):
+    path = tmp_path / "config" / "video-lens" / "share.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(cfg if isinstance(cfg, str) else json.dumps(cfg), encoding="utf-8")
+
+
+def test_capabilities_list_share_without_a_share_config(monkeypatch, tmp_path):
+    """033 §10.1: the offer is on by default, so a fresh install lists `share`."""
+    _fake_machine(monkeypatch, tmp_path, apple_silicon=False, tools=("yt-dlp",), share_offer=True)
+    assert probe_capabilities() == ["yt-dlp", "share"]
+
+
+@pytest.mark.parametrize("cfg,listed", [
+    ({"offer": False}, False),
+    ({"offer": True, "terms_accepted": "2026-11-01"}, True),
+    ({"service_url": "https://example.com"}, True),
+    ("{not json", True),
+    ("[]", True),
+])
+def test_capabilities_follow_the_share_offer_setting(monkeypatch, tmp_path, cfg, listed):
+    """Only `"offer": false` turns the offer off; a broken config never fails the preflight."""
+    _fake_machine(monkeypatch, tmp_path, apple_silicon=False, share_offer=True)
+    _write_share_config(tmp_path, cfg)
+    assert ("share" in probe_capabilities()) is listed
+
+
+def test_capabilities_never_touch_the_network_for_share(monkeypatch, tmp_path):
+    import socket
+    _fake_machine(monkeypatch, tmp_path, apple_silicon=False, share_offer=True)
+    monkeypatch.setenv("VIDEO_LENS_SHARE_URL", "http://127.0.0.1:9")
+    monkeypatch.setattr(socket, "create_connection",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("network call")))
+    assert probe_capabilities() == ["share"]
+
+
+def test_capabilities_survive_an_unreadable_share_client(monkeypatch, tmp_path):
+    import preflight  # type: ignore
+    _fake_machine(monkeypatch, tmp_path, apple_silicon=False, share_offer=True)
+    monkeypatch.setitem(sys.modules, "share_report", None)   # import fails
+    assert preflight.share_offer_on() is True
 
 
 def test_preflight_main_emits_capabilities_even_when_empty(monkeypatch, capsys, tmp_path):
@@ -1782,6 +1827,18 @@ def test_download_audio_times_out_with_a_structured_error(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "ERROR:AUDIO_DOWNLOAD_FAILED" in out
     assert "timed out" in out
+
+
+@pytest.mark.parametrize("name", sorted(p.name for p in (REPO_ROOT / "skills").iterdir()
+                                         if (p / "SKILL.md").is_file()))
+def test_skill_frontmatter_is_strict_yaml(name):
+    """Strict YAML parsers (pi) drop a skill whose frontmatter fails to parse, without
+    an error; Claude Code tolerates it. A ': ' inside a plain description did that once."""
+    yaml = pytest.importorskip("yaml")
+    skill = (REPO_ROOT / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
+    meta = yaml.safe_load(skill.split("---", 2)[1])
+    assert meta["name"] == name
+    assert isinstance(meta["description"], str) and len(meta["description"]) <= 1024
 
 
 def test_skill_md_contract_matches_the_repo():

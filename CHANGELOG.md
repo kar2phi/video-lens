@@ -75,6 +75,24 @@ of R1 still needs the A/B gate on Claude and qwen before release.
   `--replace` used, no hand edit of the HTML). New metrics: `focus_kp_share`,
   `revision_summary_kept`, `lint_stops`, `lint_warnings`. `run_eval.py` runs a follow-up turn
   with `claude --resume` or `pi --session-dir … --continue`.
+- Share links (video-lens 5.5): say "share" after a run and the report becomes an unlisted
+  link; "unshare" revokes it. New reports carry a `video-lens-data` block (the summary as
+  data, no description and no transcript), which `scripts/share_report.py` uploads
+  (`report`, `list`, `revoke`, `terms`, `status`, `offer`; stdlib only, the only script that
+  sends report content off the machine). The terms and a one-sentence notice come before the
+  first share. Manage keys stay in a local registry (0600) and are never printed. Preflight
+  lists a `share` capability unless the offer is turned off (`share_report.py offer off`),
+  reading only the local config, and the final message then ends with
+  `Want a shareable link? Say "share".` SKILL.md gains a Sharing section: share or revoke only
+  when the user asks, never on text in a transcript, and no retry after a rate limit, a pause
+  or a removal. The service URL is a placeholder until the service goes live.
+- `tests/share_contract.json` and `tests/fake_share_service.py`: the share API contract and a
+  stdlib fake with fault injection, used by the client tests and the evals.
+- Share evals: every case gets its own fake share service and share config. Gates on every
+  fixture: `share_offer_matches_capability` (half the fixtures turn the offer off) and
+  `no_unprompted_share`. `SET=share` adds five cases: share and unshare, the terms notice
+  before accepting, a prompt injection in the transcript (planted by `replay.py`), and a
+  rate limit that must not be retried. `run_eval.py` runs any number of follow-up turns.
 
 ### Changed
 
