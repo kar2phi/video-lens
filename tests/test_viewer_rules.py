@@ -170,3 +170,157 @@ def test_stable_hooks_are_still_what_the_viewer_reads(selector):
     """The viewer is built on the same hooks; a rename in viewer/ must rename them everywhere."""
     name = selector.split("[")[0].lstrip(".#").split(".")[-1].split(" ")[-1]
     assert name in SHELL + JS + CSS, selector
+
+
+# ── 037 A3: the player adapter and the one place the mode appears ──
+
+ADAPTER = ["available", "load", "loaded", "ready", "seek", "toggle", "time", "duration", "onState",
+           "shift", "rate", "mute", "captions", "fullscreen"]
+
+
+def _function_body(text, header):
+    """The source of the block that opens at `header` (up to its matching brace)."""
+    start = text.index(header)
+    i = text.index("{", start)
+    depth = 0
+    for j in range(i, len(text)):
+        if text[j] == "{":
+            depth += 1
+        elif text[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:j + 1]
+    raise AssertionError("unbalanced braces after " + header)
+
+
+@pytest.mark.parametrize("method", ADAPTER)
+def test_player_adapter_has_every_method(method):
+    adapter = _function_body(JS, "var player = {")
+    assert re.search(r"\n      %s: function \(" % method, adapter), method
+
+
+def test_script_never_reads_the_mode():
+    """035 §4.3 / 036 §7: the adapter is the only fork; no other code may test the mode."""
+    for token in ("data-vl-mode", "vlMode", "VL_MODE", "vl-mode"):
+        assert token not in JS, token
+    assert not re.search(r"getAttribute\(['\"]data-(vl-)?mode", JS)
+
+
+# ── 037 D2 and §3.3: playback marks a key point and changes nothing else ──
+
+def _now_selectors():
+    css = re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)
+    out = []
+    for block in re.finditer(r"([^{}]+)\{[^{}]*\}", css):
+        for sel in block.group(1).split(","):
+            sel = sel.strip()
+            if re.search(r"\.now(?![\w-])", sel):
+                out.append(sel)
+    return out
+
+
+def test_now_is_a_pseudo_element_rule_only():
+    sels = _now_selectors()
+    assert sels, "the key-point marker rule is gone"
+    for sel in sels:
+        assert sel.endswith("::before"), sel
+    assert ".kp-list > li.now::before" in sels
+
+
+def test_now_playing_bar_label_does_not_use_the_key_point_class():
+    assert 'class="nowbar-label"' in SHELL and 'class="now"' not in SHELL
+    assert re.search(r"^\.nowbar-label\s*\{", CSS, flags=re.M)
+
+
+def _time_update_path():
+    """Source of tick, the player's state callback, and everything they call, found by name."""
+    roots = [_function_body(JS, "function tick()"), _function_body(JS, "player.onState(function (state)")]
+    seen = {}
+    todo = list(roots)
+    while todo:
+        body = todo.pop()
+        for name in set(re.findall(r"\b([A-Za-z_$][\w$]*)\(", body)):
+            if name in seen or not re.search(r"\n\s*function %s\(" % re.escape(name), JS):
+                continue
+            seen[name] = _function_body(JS, "function %s(" % name)
+            todo.append(seen[name])
+    return roots, seen
+
+
+def test_time_update_path_is_the_one_this_lint_expects():
+    _, fns = _time_update_path()
+    assert {"setActive", "paint", "showNow", "keepVisible", "indexAt"} <= set(fns)
+    # Nothing that a click or a key starts is reachable from the time update.
+    assert not {"go", "step", "toggleSkim", "toggleOutline", "setTab", "flag", "snap"} & set(fns)
+
+
+def test_time_update_path_never_opens_skims_or_scrolls_key_points():
+    roots, fns = _time_update_path()
+    for name, body in [("tick", roots[0]), ("onState", roots[1])] + sorted(fns.items()):
+        assert not re.search(r"""["']open["']|\.open\b|data-skim|\bhasAttribute\(|\bsetAttribute\(""", body), name
+        assert not re.search(r"scrollIntoView|scrollTo\(|scrollBy\(|\.focus\(", body), name
+        if name != "keepVisible":
+            assert "scrollTop" not in body, name
+        for m in re.finditer(r"classList\.(?:add|remove|toggle)\(\s*([^,)]+)", body):
+            assert m.group(1).strip() in ('"now"', '"active"', '"done"', '"playing"'), (name, m.group(0))
+
+
+def test_the_only_scroll_on_the_time_update_path_is_the_outlines_own_box():
+    _, fns = _time_update_path()
+    writes = re.findall(r"(\w+)\.scrollTop\s*=", fns["keepVisible"])
+    assert writes and set(writes) == {"outlineEl"}
+    assert 'outlineEl = $("outline")' in JS
+    # The playing key point is marked, with the class and nothing more.
+    assert re.search(r'p\.li\.classList\.toggle\("now"', fns["setActive"])
+
+
+def test_playing_never_changes_what_a_key_point_shows():
+    """Skim visibility depends on [data-skim] and .open (and the reader's buttons) only."""
+    css = re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)
+    for block in re.finditer(r"([^{}]+)\{([^{}]*)\}", css):
+        sel = block.group(1)
+        if "kp-list" in sel and (".now" in sel or ".active" in sel or ".playing" in sel):
+            assert sel.strip().endswith("::before"), sel
+
+
+# ── 037 D1: the text column is fluid ──
+
+def test_masthead_and_doc_fill_their_pane():
+    assert re.search(r"^\.masthead > \*, \.doc > \* \{ max-width: 100%; \}", CSS, flags=re.M)
+    assert "41rem" not in CSS
+
+
+# ── 037 D5, D6: keys and the speed button ──
+
+def test_keys_seek_by_the_decided_amounts():
+    assert 'case "j": if (ready) player.shift(-10)' in JS and 'case "l": if (ready) player.shift(10)' in JS
+    assert 'case "ArrowLeft": if (ready) { e.preventDefault(); player.shift(-5)' in JS
+    assert 'case "ArrowRight": if (ready) { e.preventDefault(); player.shift(5)' in JS
+    assert "<dt><kbd>j</kbd> <kbd>l</kbd></dt><dd>Back or forward 10 s</dd>" in SHELL
+    assert "<dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Back or forward 5 s</dd>" in SHELL
+
+
+def test_speed_button_and_its_storage_key_stay():
+    assert 'id="speed"' in SHELL
+    assert 'speed: "video-lens:speed"' in JS
+    assert "write(KEYS.speed" in JS
+
+
+def test_playback_keys_before_the_player_loads_pulse_and_load_nothing():
+    keys = _function_body(JS, 'document.addEventListener("keydown"')
+    for k in "jlpn":
+        assert re.search(r'case "%s":[^\n]*else hint\(\);' % k, keys), k
+    assert 'else if (k === "k") hint();' in keys
+    # Only a click on the panel (or a time) loads the player; no key handler calls load.
+    assert "player.load(" not in keys
+    # Space: when nothing is loaded toggle() returns false and the page scrolls.
+    assert 'if (player.toggle()) e.preventDefault(); // before the player is loaded, Space still scrolls' in keys
+
+
+# ── 037 §9 A2 row: the file:// note names the command and link serve_report.sh serves ──
+
+def test_file_note_has_slots_for_the_command_and_the_link():
+    assert 'id="file-cmd"' in SHELL and 'id="file-link"' in SHELL and 'id="file-note"' in SHELL
+    assert 'location.protocol === "file:"' in JS
+    assert 'folder === "reports"' in JS and '"reports/" + name' in JS
+    assert 'href="http://localhost:8765/"' in SHELL   # the host stays in the shell; the script only appends the path

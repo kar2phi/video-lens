@@ -400,10 +400,21 @@
       if (facade.hasAttribute("data-autoload")) {
         var note = $("file-note");
         if (location.protocol === "file:" && note) {
-          // YouTube refuses to play from file://. The shell holds the text; add this file's name.
-          var here = note.querySelector("a");
-          var name = location.pathname.split("/").pop();
-          if (here) { here.href += name; here.textContent += "/" + name; }
+          // YouTube refuses to play from file://. The shell holds the text; fill in the command
+          // and the link the way serve_report.sh serves this file: a report in a folder named
+          // "reports" is served from the parent folder at /reports/<file>, any other from its own folder.
+          var parts = location.pathname.split("/");
+          var name = parts.pop();
+          var folder = parts[parts.length - 1];
+          var dir = parts.join("/");
+          var urlPath = name;
+          if (folder === "reports") { parts.pop(); dir = parts.join("/"); urlPath = "reports/" + name; }
+          try { dir = decodeURIComponent(dir); } catch (e) { /* keep the encoded path */ }
+          dir = dir.replace(/^\/([A-Za-z]:)/, "$1"); // file:///C:/Users/… on Windows
+          var cmd = $("file-cmd");
+          var here = $("file-link");
+          if (cmd && dir) cmd.textContent = 'cd "' + dir + '" && python3 -m http.server 8765';
+          if (here) { here.href += urlPath; here.textContent += "/" + urlPath; } // the shell holds the host
           note.hidden = false;
         } else {
           player.load(0, false);

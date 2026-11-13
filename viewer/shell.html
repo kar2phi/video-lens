@@ -37,7 +37,7 @@
 <!-- @local -->
 <div id="yt-facade" class="player" data-video-id="{{VIDEO_ID}}" data-autoload>
 <a class="watch-link" href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer">Watch on YouTube ↗</a>
-<p class="player-note" id="file-note" hidden>YouTube does not play from a file. Start a server in the folder of this report (<code>python3 -m http.server 8765</code>), then open <a href="http://localhost:8765/">localhost:8765</a>.</p>
+<p class="player-note" id="file-note" hidden>YouTube does not play from a file. Start a server (<code id="file-cmd">python3 -m http.server 8765</code>), then open <a id="file-link" href="http://localhost:8765/">localhost:8765</a>.</p>
 </div>
 <!-- @end -->
 <!-- @share -->
@@ -46,7 +46,7 @@
 <div class="nowbar" hidden>
 <button type="button" class="tool icon" id="sec-prev" aria-label="Previous section" title="Previous section [p]"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3 2v12M13 2 6 8l7 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
 <button type="button" class="tool icon" id="sec-next" aria-label="Next section" title="Next section [n]"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M13 2v12M3 2l7 6-7 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
-<p class="now"><span id="now-idx"></span><span id="now-title"></span></p>
+<p class="nowbar-label"><span id="now-idx"></span><span id="now-title"></span></p>
 <span class="clock" id="clock"></span>
 <button type="button" class="tool" id="speed" title="Playback speed [, and .]">1×</button>
 </div>
