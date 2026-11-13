@@ -82,7 +82,10 @@ def test_both_arms_find_the_copied_scripts_not_the_installed_skill(tmp_path):
     # 5.2 (c3f42be) has only the ~/.agents… discovery loop; left alone it runs the installed
     # skill's scripts and bypasses the replay shim.
     import run_eval
-    for ref in ("c3f42be", None):
+    # c3f42be predates the public history rewrite and may be missing; then only the worktree arm runs.
+    have = subprocess.run(["git", "-C", str(run_eval.REPO_ROOT), "cat-file", "-e", "c3f42be^{commit}"],
+                          capture_output=True).returncode == 0
+    for ref in (("c3f42be",) if have else ()) + (None,):
         dest = tmp_path / (ref or "worktree")
         dest.mkdir()
         target = Path(run_eval.materialise_skill(ref, dest)["path"])
