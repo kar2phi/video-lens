@@ -1,171 +1,153 @@
-<!DOCTYPE html>
-<html lang="en">
-
+<!doctype html>
+<html lang="{{LANG}}" data-vl-mode="{{VL_MODE}}">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{VIDEO_TITLE}}</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23c0392b'/><text x='16' y='21' font-family='sans-serif' font-size='13' font-weight='700' fill='%23ffd700' text-anchor='middle' letter-spacing='-0.5'>VL</text></svg>">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap"
-    rel="stylesheet">
-  <style>
-{{VL_CSS}}  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{VIDEO_TITLE}} · video-lens</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23c0392b'/><text x='16' y='21' font-family='sans-serif' font-size='13' font-weight='700' fill='%23ffd700' text-anchor='middle' letter-spacing='-0.5'>VL</text></svg>">
+<!-- @local -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap">
+<style>
+{{VL_CSS}}
+</style>
+<script>
+{{VL_JS}}
+</script>
+<!-- @end -->
+<!-- @share -->
+{{HEAD_EXTRA}}
+<link rel="stylesheet" href="{{ASSET_FONTS}}">
+<link rel="stylesheet" href="{{ASSET_CSS}}">
+<script src="{{ASSET_JS}}"></script>
+<!-- @end -->
 </head>
-
 <body>
+<div class="layout">
 
+<header class="masthead">
+<p class="meta-line"><span class="meta-facts">{{META_LINE}}</span></p>
+<h1>{{VIDEO_TITLE}}</h1>
+<p class="links"><a class="yt-link" href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a></p>
+</header>
 
-  <!-- Help modal -->
-  <div id="help-overlay" role="dialog" aria-modal="true" aria-label="Help">
-    <div id="help-modal">
-      <button id="help-close" aria-label="Close">×</button>
-      <div style="text-align:center;margin-bottom:16px">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="40" height="40" style="border-radius:50%"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg>
-      </div>
-      <h3>About</h3>
-      <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player.</p>
-      <p>video-lens gallery lets you browse and search your saved reports. Click any card or row to open the full report.</p>
-      <p><a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a></p>
-      <h3>Shortcuts</h3>
-      <div class="help-shortcuts">
-        <span class="help-key">k / Space</span><span class="help-desc">play / pause</span>
-        <span class="help-key">j / ←</span><span class="help-desc">seek back 5 s</span>
-        <span class="help-key">l / →</span><span class="help-desc">seek forward 5 s</span>
-        <span class="help-key">, / &lt;</span><span class="help-desc">slower speed</span>
-        <span class="help-key">. / &gt;</span><span class="help-desc">faster speed</span>
-        <span class="help-key">c</span><span class="help-desc">captions on/off</span>
-        <span class="help-key">f</span><span class="help-desc">fullscreen</span>
-        <span class="help-key">1</span><span class="help-desc">small layout (30%)</span>
-        <span class="help-key">2</span><span class="help-desc">medium layout (45%)</span>
-        <span class="help-key">3</span><span class="help-desc">large layout</span>
-        <span class="help-key">Esc</span><span class="help-desc">close help</span>
-      </div>
-    </div>
-  </div>
+<div class="watch">
 
-  <!-- Generation info modal -->
-  <div id="info-overlay" role="dialog" aria-modal="true" aria-label="Generation info">
-    <div id="info-modal">
-      <button id="info-close" aria-label="Close">×</button>
-      <h3>Generation info</h3>
-      <dl>
-        <dt>Model</dt><dd id="info-model">—</dd>
-        <dt>Generated</dt><dd id="info-generated">—</dd>
-        <dt>Duration</dt><dd id="info-duration">—</dd>
-      </dl>
-    </div>
-  </div>
+<div class="stage">
+<!-- @local -->
+<div id="yt-facade" class="player" data-video-id="{{VIDEO_ID}}" data-autoload>
+<a class="watch-link" href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer">Watch on YouTube ↗</a>
+<p class="player-note" id="file-note" hidden>YouTube does not play from a file. Start a server in the folder of this report (<code>python3 -m http.server 8765</code>), then open <a href="http://localhost:8765/">localhost:8765</a>.</p>
+</div>
+<!-- @end -->
+<!-- @share -->
+{{PLAYER_PANEL}}
+<!-- @end -->
+<div class="nowbar" hidden>
+<button type="button" class="tool icon" id="sec-prev" aria-label="Previous section" title="Previous section [p]"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3 2v12M13 2 6 8l7 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
+<button type="button" class="tool icon" id="sec-next" aria-label="Next section" title="Next section [n]"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M13 2v12M3 2l7 6-7 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
+<p class="now"><span id="now-idx"></span><span id="now-title"></span></p>
+<span class="clock" id="clock"></span>
+<button type="button" class="tool" id="speed" title="Playback speed [, and .]">1×</button>
+</div>
+<div class="tabs" role="tablist" aria-label="Report" hidden>
+<button type="button" role="tab" id="tab-read" data-tab="read" aria-selected="true" aria-controls="read">Read</button>
+<button type="button" role="tab" id="tab-outline" data-tab="outline" aria-selected="false" aria-controls="outline">Outline</button>
+</div>
+</div>
 
-  <div class="layout">
+<section class="outline" id="outline" aria-labelledby="outline-h">
+<div class="sec-head">
+<h2 id="outline-h">Outline</h2>
+<button type="button" class="tool quiet" id="outline-btn" aria-pressed="false" title="Show every section's description [o]" hidden>Details</button>
+</div>
+<ol class="topics" data-duration="{{DURATION_S}}">
+{{OUTLINE}}
+</ol>
+</section>
 
-    <!-- Left: sticky video + outline -->
-    <div class="left">
-      <div class="video-wrap">
-        <iframe id="yt-player" src="https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&rel=0&controls=0&iv_load_policy=3"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen>
-        </iframe>
-        <div id="yt-overlay" aria-hidden="true"></div>
-      </div>
-      <div id="progress-track">
-        <div id="progress-fill"></div>
-      </div>
-      <div class="ctrl-bar">
-        <button id="play-pause-btn" title="Play / pause [k / Space]"><svg width="10" height="12" viewBox="0 0 10 12"
-            fill="currentColor">
-            <polygon points="0,0 10,6 0,12" />
-          </svg></button>
-        <span id="time-display">–:–– / –:––</span>
-        <div class="ctrl-divider"></div>
-        <div class="seek-group">
-          <button id="seek-back" title="Seek back 5 s [j / ←]">← -5s</button>
-          <button id="seek-fwd" title="Seek forward 5 s [l / →]">+5s →</button>
-        </div>
-        <div class="ctrl-divider"></div>
-        <div class="speed-group">
-          <button class="speed-btn active" data-speed="1" title="1× speed [, / .]">1×</button>
-          <button class="speed-btn" data-speed="1.25" title="1.25× speed [, / .]">1.25×</button>
-          <button class="speed-btn" data-speed="1.5" title="1.5× speed [, / .]">1.5×</button>
-          <button class="speed-btn" data-speed="1.75" title="1.75× speed [, / .]">1.75×</button>
-          <button class="speed-btn" data-speed="2" title="2× speed [, / .]">2×</button>
-        </div>
-        <button id="controls-toggle-btn" class="ctrl-bar-icon-btn" title="Toggle YouTube controls [YT]">YT</button>
-      </div>
-      <div class="video-meta">
-        <h1>{{VIDEO_TITLE}}</h1>
-        <p class="meta-line"><span class="meta-facts">{{META_LINE}}</span><a href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a></p>
-      </div>
-      <div class="left-scroll">
-        <div class="outline-section">
-          <h2>Outline</h2>
-          <ol class="topics">
-            {{OUTLINE}}
-          </ol>
-        </div>
-      </div>
-    </div>
+<div class="rail">
+<!-- @local -->
+<a class="brand" href="../index.html" title="Back to your gallery"><svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg><span>Gallery</span></a>
+<!-- @end -->
+<!-- @share -->
+<a class="brand" href="/" title="What is video-lens?"><svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg><span>video-lens</span></a>
+<!-- @end -->
+<span class="rail-gap"></span>
+<button type="button" class="tool" id="md-copy" title="Copy the report as Markdown [e]" hidden>Copy Markdown</button>
+<button type="button" class="tool icon" id="md-save" aria-label="Download as Markdown file" title="Download as Markdown file" hidden><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg></button>
+<button type="button" class="tool icon" id="help-btn" aria-label="Keyboard shortcuts and info" title="Keyboard shortcuts and info [?]" hidden>?</button>
+<button type="button" class="tool icon" id="theme-btn" aria-label="Switch between light and dark" title="Light or dark [t]" hidden><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+</div>
 
-    <div id="resizer" title="Drag to resize · double-click to reset"></div>
+</div>
 
-    <!-- Right: scrollable summary -->
-    <div class="right">
+<div class="divider" id="divider" role="separator" aria-orientation="vertical" aria-label="Width of the video pane" tabindex="0" title="Drag to resize · double-click to reset"></div>
 
-      <nav class="section-nav">
-        <a href="#summary" class="active">Summary</a>
-        <a href="#takeaway">Takeaway</a>
-        <a href="#key-points">Key Points</a>
-        <div class="nav-actions">
-          <button id="md-export-btn" class="icon-btn" aria-label="Export as Markdown" title="Export as Markdown">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-          </button>
-          <button id="info-btn" class="icon-btn" aria-label="Generation info" title="Generation info">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="16" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12.01" y2="8" />
-            </svg>
-          </button>
-          <button id="help-btn" class="icon-btn" aria-label="Help" title="Help">?</button>
-          <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme" title="Toggle theme">
-            <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
-          </button>
-        </div>
-      </nav>
+<div class="doc">
+<main id="read">
 
-      <section id="summary">
-        <h2>Summary</h2>
-        <p>{{SUMMARY}}</p>
-        {{DESCRIPTION_SECTION}}
-      </section>
+<section id="summary" aria-labelledby="summary-h">
+<h2 id="summary-h">Summary</h2>
+{{SUMMARY}}
+</section>
 
-      <section id="takeaway">
-        <h2>Takeaway</h2>
-        <p>{{TAKEAWAY}}</p>
-      </section>
+<section id="takeaway" aria-labelledby="takeaway-h">
+<h2 id="takeaway-h">Takeaway</h2>
+{{TAKEAWAY}}
+</section>
 
-      <section id="key-points">
-        <h2>Key Points</h2>
-        <ul>
-          {{KEY_POINTS}}
-        </ul>
-      </section>
+<section id="key-points" aria-labelledby="key-points-h">
+<div class="sec-head">
+<h2 id="key-points-h">Key points</h2>
+<button type="button" class="tool quiet" id="skim-btn" aria-pressed="false" title="Headline and first sentence only; open a point to read on [s]" hidden>Skim</button>
+</div>
+<ol class="kp-list">
+{{KEY_POINTS}}
+</ol>
+</section>
 
-    </div>
-  </div>
+<!-- @local -->
+{{DESCRIPTION_SECTION}}
+<!-- @end -->
+</main>
 
-  <script type="application/json" id="video-lens-meta">{{VIDEO_LENS_META}}</script>{{VIDEO_LENS_DATA}}
+<footer class="colophon">
+<!-- @local -->
+<p class="gen">Written by an AI model with <a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">video-lens</a><span id="gen-facts"></span>. It can be wrong; the video is the source.</p>
+<!-- @end -->
+<!-- @share -->
+<p>Summary written by a video-lens user with an AI model. Video © its creator, played from YouTube only after you click. <a href="https://www.youtube.com/t/terms">YouTube Terms</a> · <a href="https://policies.google.com/privacy">Google Privacy Policy</a></p>
+<p><a href="/">Made with video-lens</a> · <a href="{{REPORT_URL}}">Report this page</a> · <a href="/legal/imprint">Imprint</a> · <a href="/legal/privacy">Privacy</a> · <a href="/legal/terms">Terms</a></p>
+<!-- @end -->
+</footer>
+</div>
 
-  <script src="https://www.youtube.com/iframe_api"></script>
-  <script>
-{{VL_JS}}    </script>
+</div>
+
+<dialog id="help" aria-labelledby="help-h" tabindex="-1">
+<button type="button" class="tool icon" id="help-close" aria-label="Close">×</button>
+<h2 id="help-h">Keyboard</h2>
+<dl class="keys">
+<dt><kbd>k</kbd> <kbd>Space</kbd></dt><dd>Play or pause</dd>
+<dt><kbd>j</kbd> <kbd>l</kbd></dt><dd>Back or forward 10 s</dd>
+<dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Back or forward 5 s</dd>
+<dt><kbd>p</kbd> <kbd>n</kbd></dt><dd>Previous or next section</dd>
+<dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>Slower or faster</dd>
+<dt><kbd>c</kbd> <kbd>m</kbd> <kbd>f</kbd></dt><dd>Captions, mute, fullscreen</dd>
+<dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Video pane small, medium, large</dd>
+<dt><kbd>o</kbd></dt><dd>Outline: show every description</dd>
+<dt><kbd>s</kbd></dt><dd>Key points: skim or full</dd>
+<dt><kbd>e</kbd></dt><dd>Copy the report as Markdown</dd>
+<dt><kbd>t</kbd></dt><dd>Light or dark</dd>
+<dt><kbd>?</kbd></dt><dd>This help</dd>
+</dl>
+<h2>About</h2>
+<p>video-lens turns a YouTube video into this report: a summary, the takeaway, key points and a timed outline beside the player. <a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">video-lens on GitHub ↗</a></p>
+</dialog>
+
+<!-- @local -->
+<script type="application/json" id="video-lens-meta">{{VIDEO_LENS_META}}</script>{{VIDEO_LENS_DATA}}
+<!-- @end -->
 </body>
-
 </html>

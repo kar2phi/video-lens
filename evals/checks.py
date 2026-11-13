@@ -20,7 +20,8 @@ from collections import defaultdict
 from urllib.parse import parse_qs, urlparse
 
 TEMPLATE_TOKENS = ("VIDEO_ID", "VIDEO_TITLE", "VIDEO_URL", "META_LINE", "SUMMARY",
-                   "TAKEAWAY", "KEY_POINTS", "OUTLINE", "DESCRIPTION_SECTION", "VIDEO_LENS_META")
+                   "TAKEAWAY", "KEY_POINTS", "OUTLINE", "DESCRIPTION_SECTION", "VIDEO_LENS_META",
+                   "LANG", "VL_MODE", "DURATION_S")
 
 # Function words only: frequent, topic-neutral, and rarely shared between these languages.
 STOPWORDS = {
@@ -54,6 +55,15 @@ def ts_to_seconds(display: str):
     return int(h or 0) * 3600 + int(mins) * 60 + int(s)
 
 
+def _section_text(section_id: str, html: str) -> str:
+    """The paragraphs of #summary or #takeaway, in both shapes: `<section id=x><h2>` (before
+    037 A2) and `<section id=x aria-labelledby=…><h2 id=…>`. A description inside the section
+    (the old shape put it in #summary) is not part of the text."""
+    body = _grab(r'<section id="%s"[^>]*>\s*<h2\b[^>]*>[^<]*</h2>(.*?)</section>' % section_id, html)
+    body = re.sub(r"<details\b.*?</details>", "", body, flags=re.S)
+    return _text(" ".join(re.findall(r"<p>(.*?)</p>", body, re.S)))
+
+
 def parse_report(html: str) -> dict:
     meta_raw = _grab(r'<script type="application/json" id="video-lens-meta">(.*?)</script>', html)
     try:
@@ -62,7 +72,9 @@ def parse_report(html: str) -> dict:
         meta = None
 
     key_points = []
-    kp_html = _grab(r'<section id="key-points">.*?<ul>(.*?)</ul>\s*</section>', html)
+    # Both report shapes: <ul> in reports before 037 A2 (HEAD arms of eval-compare keep it),
+    # <ol class="kp-list"> after.
+    kp_html = _grab(r'<section id="key-points"[^>]*>.*?<(?:ul|ol)\b[^>]*>(.*?)</(?:ul|ol)>\s*</section>', html)
     for li in re.findall(r"<li>(.*?)</li>", kp_html, re.S):
         key_points.append({
             "headline": _text(_grab(r"<strong>(.*?)</strong>", li)),
@@ -71,7 +83,7 @@ def parse_report(html: str) -> dict:
         })
 
     outline = []
-    for li in re.findall(r"<li>(.*?)</li>", _grab(r'<ol class="topics">(.*?)</ol>', html), re.S):
+    for li in re.findall(r"<li>(.*?)</li>", _grab(r'<ol class="topics"[^>]*>(.*?)</ol>', html), re.S):
         a = re.search(r"<a\b([^>]*)>(.*?)</a>", li, re.S)
         attrs = a.group(1) if a else ""
         data_t = re.search(r'data-t="(\d+)"', attrs)
@@ -90,8 +102,8 @@ def parse_report(html: str) -> dict:
     return {
         "title": _text(_grab(r"<h1>(.*?)</h1>", html)),
         "meta_line": _text(_grab(r'<span class="meta-facts">(.*?)</span>', html)),
-        "summary": _text(_grab(r'<section id="summary">\s*<h2>[^<]*</h2>\s*<p>(.*?)</p>', html)),
-        "takeaway": _text(_grab(r'<section id="takeaway">\s*<h2>[^<]*</h2>\s*<p>(.*?)</p>', html)),
+        "summary": _section_text("summary", html),
+        "takeaway": _section_text("takeaway", html),
         "has_description": 'class="description-details"' in html,
         "key_points": key_points,
         "outline": outline,

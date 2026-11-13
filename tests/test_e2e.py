@@ -732,6 +732,33 @@ def test_backfill_meta_escapes_script_closers(tmp_path):
     assert "</script>" in manifest["reports"][0]["title"]
 
 
+def test_backfill_meta_reads_the_037_report_shape(tmp_path):
+    """037 A2: a report in the new shell (ol.kp-list, <h2 id=…>, facts line on its own,
+    no embed iframe) still backfills. A rendered report with its meta block removed."""
+    report = tmp_path / "2025-01-01-000000-video-lens_bjdBVZa66oU_x.html"
+    render_from_payload(sample_render_payload(
+        KEY_POINTS=[{"point": "First **point**", "why": "w", "detail": "d"},
+                    {"point": "Second", "why": "w2"}],
+        OUTLINE=[{"t": 0, "title": "Intro"}, {"t": 60, "title": "Next"}]),
+        str(report), template_path=TEMPLATE)
+    html = report.read_text(encoding="utf-8")
+    assert '<ol class="kp-list">' in html and '<h2 id="summary-h">Summary</h2>' in html
+    html = re.sub(r'<script type="application/json" id="video-lens-(meta|data)">.*?</script>', "",
+                  html, flags=re.S)
+    report.write_text(html, encoding="utf-8")
+
+    r = subprocess.run([sys.executable, str(GALLERY_SCRIPT_DIR / "backfill_meta.py"), "--dir", str(tmp_path)],
+                       capture_output=True, text=True)
+    assert r.returncode == 0 and "updated:" in r.stdout, r.stderr
+    raw = re.search(r'id="video-lens-meta">(.*?)</script>', report.read_text(encoding="utf-8"), re.S).group(1)
+    meta = json.loads(raw.replace("<\\/", "</"))
+    assert meta["videoId"] == VIDEO_ID
+    assert (meta["channel"], meta["duration"], meta["publishDate"]) == ("Test Channel", "10 min", "Jan 01 2025")
+    assert meta["summary"] == "E2E test summary."
+    assert meta["keywords"] == ["First point", "Second"]
+    assert meta["title"].startswith("Test Video Title")
+
+
 # --- preflight ---
 
 from preflight import (  # noqa: E402
@@ -1665,7 +1692,8 @@ def test_meta_line_separator_present_and_spaced_when_facts_are(tmp_path):
     meta = re.search(r'<p class="meta-line">(.*?)</p>',
                      out.read_text(encoding="utf-8"), re.DOTALL).group(1)
     assert '<span class="meta-facts">Test Channel · 10 min</span>' in meta
-    assert 'content: " · ";' in TEMPLATE.read_text(encoding="utf-8")
+    # 037 A2: "Open on YouTube" has its own line (.links), so no separator joins it to the facts.
+    assert 'class="yt-link"' not in meta
 
 
 def test_build_index_sorts_by_date_not_storage_location(tmp_path):
@@ -1703,8 +1731,9 @@ def test_template_honours_os_colour_scheme_on_first_visit():
     """024-B6: the gallery falls back to prefers-color-scheme, the report did not,
     so a dark-mode user's first visit showed a white report beside a dark gallery."""
     tpl = TEMPLATE.read_text(encoding="utf-8")
-    assert "prefers-color-scheme: dark" in tpl
-    assert "localStorage.getItem('theme')" in tpl
+    assert "@media (prefers-color-scheme: dark)" in tpl
+    assert ':root:not([data-theme="light"])' in tpl
+    assert 'theme: "theme", // shared with the gallery' in tpl
 
 
 def test_markdown_export_defers_blob_revoke_and_keeps_emphasis():
@@ -1713,21 +1742,20 @@ def test_markdown_export_defers_blob_revoke_and_keeps_emphasis():
     SKILL.md spends three rules specifying."""
     tpl = TEMPLATE.read_text(encoding="utf-8")
     assert "document.body.appendChild(a)" in tpl
-    assert re.search(r"setTimeout\(function \(\) \{\s*document\.body\.removeChild\(a\);"
-                     r"\s*URL\.revokeObjectURL\(url\);", tpl)
+    assert "setTimeout(function () { a.remove(); URL.revokeObjectURL(url); }, 0);" in tpl
     assert "function mdInline(node)" in tpl
-    assert "'**' + inner.trim() + '**'" in tpl
+    assert '"**" + inner.trim() + "**"' in tpl
 
 
 def test_outline_entries_are_keyboard_reachable():
     """024-U4: expansion was bound to a click on a <li> with no tabindex, role or
-    aria-expanded, so outline-detail was unreachable by keyboard entirely."""
+    aria-expanded, so outline-detail was unreachable by keyboard entirely.
+    037 A2: every row's time link is a real link, and the "Details" button (key o)
+    shows every description; both are reachable by keyboard."""
     tpl = TEMPLATE.read_text(encoding="utf-8")
-    assert "item.li.setAttribute('role', 'button')" in tpl
-    assert "item.li.setAttribute('tabindex', '0')" in tpl
-    assert "aria-expanded" in tpl
-    assert "addEventListener('keydown'" in tpl
-    assert "ol.topics li:focus-visible" in tpl
+    assert '<button type="button" class="tool quiet" id="outline-btn" aria-pressed="false"' in tpl
+    assert 'case "o": if (outlineBtn && !outlineBtn.hidden) toggleOutline(); break;' in tpl
+    assert ":focus-visible { outline: 2px solid var(--accent)" in tpl
 
 
 def test_raycast_accepts_mobile_youtube_and_defaults_to_haiku_5_5():

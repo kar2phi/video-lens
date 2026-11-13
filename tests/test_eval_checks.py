@@ -575,3 +575,30 @@ def test_installed_skill_fails_the_skill_under_test_gate():
     project = ('python3 "/private/var/folders/zw/x/T/video-lens-eval-smoke-ab/.claude/skills/video-lens/'
                'scripts/preflight.py" -- u', "")
     assert checks.gates(FIXTURE, trace(project), None, 0)["skill_under_test_used"] is True
+
+
+GOLDEN = REPO_ROOT / "tests" / "golden"
+
+
+def test_parse_report_reads_both_report_shapes_alike():
+    """037 §3.2 item 1: the report before A2 (`<ul>`, `<h2>`, description inside #summary;
+    tests/golden/pre_a2_report.html) and after it (`<ol class="kp-list">`, `<h2 id=…>`;
+    tests/golden/share_report.html) come from one payload and must parse to the same fields.
+    HEAD arms of eval-compare still produce the old shape."""
+    old = checks.parse_report((GOLDEN / "pre_a2_report.html").read_text(encoding="utf-8"))
+    new = checks.parse_report((GOLDEN / "share_report.html").read_text(encoding="utf-8"))
+    assert '<ol class="kp-list">' not in (GOLDEN / "pre_a2_report.html").read_text(encoding="utf-8")
+    assert old == new
+    assert new["summary"].startswith("Skills load **on demand**. A second paragraph")
+    assert new["takeaway"] == "Keep the *context* small."
+    assert [k["headline"] for k in new["key_points"]] == ["Progressive disclosure", "Scripts", "A & B <tags>"]
+    assert new["key_points"][0]["paragraph"].startswith("Bodies load on demand")
+    assert [o["t"] for o in new["outline"]] == [0, 65, 600]
+    assert new["meta_line"].startswith("Anthropic · 12 min") and new["unreplaced"] == []
+
+
+def test_description_is_not_part_of_the_old_summary():
+    old_shape = ('<section id="summary">\n<h2>Summary</h2>\n<p>Text.</p>\n'
+                 '<details class="description-details"><summary>YouTube Description</summary>'
+                 '<div class="video-description"><p>Not summary.</p></div></details>\n</section>')
+    assert checks.parse_report(old_shape)["summary"] == "Text."

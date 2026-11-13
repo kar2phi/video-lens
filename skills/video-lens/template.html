@@ -1,2040 +1,1268 @@
-<!DOCTYPE html>
-<html lang="en">
-
+<!doctype html>
+<html lang="{{LANG}}" data-vl-mode="{{VL_MODE}}">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{VIDEO_TITLE}}</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23c0392b'/><text x='16' y='21' font-family='sans-serif' font-size='13' font-weight='700' fill='%23ffd700' text-anchor='middle' letter-spacing='-0.5'>VL</text></svg>">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap"
-    rel="stylesheet">
-  <style>
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    :root {
-      --left-bg: #f0f0ee;
-      --left-text: #1a1a1a;
-      --left-heading: #999;
-      --left-meta: #555;
-      --left-link: #c0392b;
-      --left-border: #ddd;
-      --video-bg: #d8d8d6;
-      --right-bg: #f9f9f7;
-      --right-text: #1a1a1a;
-      --right-border: #e0e0e0;
-      --panel-divider: #ccc;
-      --ts-active-bg: #ffeaea;
-      --strong-color: #1a1a1a;
-      --toggle-bg: #ddd;
-      --toggle-text: #444;
-    }
-
-    [data-theme="dark"] {
-      --left-bg: #14110f;
-      --left-text: #f0ede8;
-      --left-heading: #6a6460;
-      --left-meta: #8a8480;
-      --left-link: #e05a4a;
-      --left-border: #2a2520;
-      --video-bg: #000;
-      --right-bg: #1c1916;
-      --right-text: #d0cdc8;
-      --right-border: #2c2925;
-      --panel-divider: #2a2520;
-      --ts-active-bg: #3a1a1a;
-      --strong-color: #f0ede8;
-      --toggle-bg: #2a2520;
-      --toggle-text: #c0bdb8;
-    }
-
-    body {
-      background: var(--right-bg);
-      color: var(--right-text);
-      font-family: Georgia, 'Times New Roman', serif;
-      font-size: 16px;
-      line-height: 1.75;
-      min-height: 100vh;
-      transition: background-color 0.2s ease, color 0.2s ease;
-    }
-
-    .left,
-    .right {
-      transition: background-color 0.2s ease, color 0.2s ease;
-    }
-
-    /* ── Layout ── */
-    .layout {
-      display: grid;
-      grid-template-columns: var(--left-w, 45%) 6px 1fr;
-      grid-template-rows: 1fr;
-      min-height: 100vh;
-    }
-
-    /* Smooth transition only when snapping to a preset (not during drag) */
-    .layout.snapping {
-      transition: grid-template-columns 0.2s ease;
-    }
-
-    /* Resizer */
-    #resizer {
-      grid-column: 2;
-      grid-row: 1;
-      cursor: col-resize;
-      background: var(--panel-divider);
-      width: 6px;
-      position: relative;
-      flex-shrink: 0;
-      z-index: 10;
-    }
-
-    #resizer:hover,
-    #resizer.dragging {
-      background: var(--left-link);
-    }
-
-    #resizer::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 2px;
-      height: 32px;
-      border-radius: 1px;
-      background: var(--panel-divider);
-      opacity: 0.5;
-    }
-
-    #resizer:hover::after,
-    #resizer.dragging::after {
-      opacity: 1;
-      background: rgba(255, 255, 255, 0.7);
-    }
-
-    /* Left col: sticky video + outline */
-    .left {
-      grid-column: 1;
-      grid-row: 1;
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      background: var(--left-bg);
-      color: var(--left-text);
-      overflow: hidden;
-    }
-
-    .video-wrap {
-      position: relative;
-      width: 100%;
-      /* Cap height so the video never overflows the panel; YouTube letterboxes when height-constrained */
-      padding-top: min(56.25%, calc(100vh - 220px));
-      flex-shrink: 0;
-      background: var(--video-bg);
-    }
-
-    .video-wrap iframe {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-      display: block;
-    }
-
-    #yt-overlay {
-      position: absolute;
-      inset: 0;
-      cursor: pointer;
-      z-index: 2;
-    }
-
-    .video-meta {
-      padding: 0.9rem 1.2rem;
-      overflow-y: visible;
-      flex-shrink: 0;
-    }
-
-    .left-scroll {
-      flex: 1;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .outline-section {
-      padding: 0.9rem 1.2rem 1.2rem;
-      border-top: 1px solid var(--left-border);
-      flex: 1;
-    }
-
-    .outline-section h2 {
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--left-heading);
-      margin-bottom: 0.9rem;
-    }
-
-    .video-meta h1 {
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--left-text);
-      line-height: 1.4;
-      margin-bottom: 0.35rem;
-    }
-
-    .video-meta .meta-line {
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 0.75rem;
-      color: var(--left-meta);
-    }
-
-    /* Separator belongs to the facts, not the link: no facts, no dangling "·". */
-    .video-meta .meta-line .meta-facts:not(:empty)::after {
-      content: " · ";
-    }
-
-    .video-meta .meta-line a {
-      color: var(--left-link);
-      text-decoration: none;
-    }
-
-    /* Right col: scrollable content */
-    .right {
-      grid-column: 3;
-      grid-row: 1;
-      overflow-y: auto;
-      height: 100vh;
-      padding: 0 2rem 70vh;
-      background: var(--right-bg);
-      color: var(--right-text);
-    }
-
-    section {
-      scroll-margin-top: 3.5rem;
-      padding-bottom: 1.8rem;
-      margin-bottom: 1.8rem;
-      border-bottom: 1px solid var(--right-border);
-    }
-
-    section:last-child {
-      border-bottom: none;
-      margin-bottom: 0;
-    }
-
-    h2 {
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 0.7rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--left-heading);
-      margin-bottom: 0.9rem;
-    }
-
-    p {
-      margin-bottom: 0.9rem;
-    }
-
-    p:last-child {
-      margin-bottom: 0;
-    }
-
-    ul {
-      padding-left: 1.3rem;
-    }
-
-    ul li {
-      margin-bottom: 0.5rem;
-    }
-
-    #key-points li {
-      margin-bottom: 1.1rem;
-    }
-
-    #key-points li:last-child {
-      margin-bottom: 0;
-    }
-
-    #key-points li,
-    #takeaway li {
-      font-family: 'DM Sans', system-ui, sans-serif;
-      line-height: 1.65;
-    }
-
-    #key-points li p {
-      margin-top: 0.45rem;
-      margin-bottom: 0;
-      font-size: 0.93rem;
-      line-height: 1.75;
-      color: var(--right-text);
-      opacity: 0.82;
-    }
-
-    strong {
-      color: var(--strong-color);
-    }
-
-    /* Topics / Outline list */
-    ol.topics {
-      list-style: none;
-      padding: 0;
-      display: grid;
-      grid-template-columns: max-content auto 1fr;
-      column-gap: 0.4rem;
-    }
-
-    ol.topics li {
-      position: relative;
-      display: grid;
-      grid-template-columns: subgrid;
-      grid-column: 1 / -1;
-      align-items: baseline;
-      margin-bottom: 0;
-      font-size: 0.92rem;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      color: var(--left-text);
-      line-height: 1.5;
-      padding-left: 1rem;
-      padding-block: 0.3rem;
-      cursor: pointer;
-      transition: background-color 0.15s;
-    }
-
-    .outline-title {
-      grid-column: 3;
-    }
-
-    ol.topics li.expanded .outline-title,
-    ol.topics li.active .outline-title {
-      font-weight: 600;
-    }
-
-    .outline-detail {
-      display: block;
-      max-height: 0;
-      overflow: hidden;
-      opacity: 0;
-      pointer-events: none;
-      transition: max-height 0.18s ease, opacity 0.18s ease;
-      grid-column: 3;
-      font-size: 0.84rem;
-      line-height: 1.45;
-      color: var(--left-meta);
-      padding-bottom: 0.15rem;
-    }
-
-    ol.topics li.expanded .outline-detail,
-    ol.topics li.active .outline-detail {
-      max-height: 150px;
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    ol.topics li:focus-visible {
-      outline: 2px solid var(--left-link);
-      outline-offset: 2px;
-    }
-
-    ol.topics li:hover {
-      background-color: color-mix(in srgb, var(--left-link) 6%, transparent);
-    }
-
-    [data-theme="dark"] ol.topics li:hover {
-      background-color: color-mix(in srgb, var(--left-link) 12%, transparent);
-    }
-
-    a.ts {
-      color: var(--left-link);
-      text-decoration: none;
-      font-variant-numeric: tabular-nums;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 0.82rem;
-      white-space: nowrap;
-      cursor: pointer;
-    }
-
-    a.ts:hover {
-      text-decoration: underline;
-    }
-
-    ol.topics li.active {
-      border-left-color: transparent;
-      box-shadow: inset 2px 0 0 0 var(--left-link);
-      transition: box-shadow 0.5s ease;
-    }
-
-    ol.topics li.active a.ts {
-      color: var(--left-link);
-    }
-
-    /* Icon buttons (help + theme) — live inside section-nav */
-    .nav-actions {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 0.45rem;
-      flex-shrink: 0;
-    }
-
-    .icon-btn {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      border: 1.5px solid rgba(0, 0, 0, 0.13);
-      background: transparent;
-      color: #666;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 0.88rem;
-      font-weight: 500;
-      flex-shrink: 0;
-      transition: opacity 0.15s, border-color 0.15s;
-    }
-
-    .icon-btn:hover {
-      opacity: 0.65;
-    }
-
-    [data-theme="dark"] .icon-btn {
-      border-color: rgba(255, 255, 255, 0.15);
-      color: #c0bdb8;
-    }
-
-    /* Help modal */
-    #help-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      background: rgba(0, 0, 0, 0.38);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
-      align-items: center;
-      justify-content: center;
-    }
-
-    #help-overlay.open {
-      display: flex;
-    }
-
-    #help-modal {
-      background: var(--right-bg);
-      color: var(--right-text);
-      border: 1px solid var(--right-border);
-      border-radius: 12px;
-      padding: 1.75rem 2rem 1.5rem;
-      max-width: 400px;
-      width: calc(100% - 3rem);
-      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
-      font-family: 'DM Sans', system-ui, sans-serif;
-      position: relative;
-      max-height: calc(100vh - 4rem);
-      overflow-y: auto;
-    }
-
-    #help-modal h3 {
-      font-size: 0.68rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--left-heading);
-      margin-bottom: 0.6rem;
-      margin-top: 1.2rem;
-    }
-
-    #help-modal h3:first-child {
-      margin-top: 0;
-    }
-
-    #help-modal p {
-      font-size: 0.88rem;
-      line-height: 1.65;
-      color: var(--right-text);
-      margin-bottom: 0;
-      font-family: 'DM Sans', system-ui, sans-serif;
-    }
-
-    #help-modal a {
-      color: var(--left-link);
-      text-decoration: none;
-    }
-
-    #help-modal a:hover {
-      text-decoration: underline;
-    }
-
-    .help-shortcuts {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 0.45rem 1rem;
-      font-size: 0.85rem;
-    }
-
-    /* Info modal — reuses help-modal visual language */
-    #info-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      background: rgba(0, 0, 0, 0.38);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
-      align-items: center;
-      justify-content: center;
-    }
-
-    #info-overlay.open {
-      display: flex;
-    }
-
-    #info-modal {
-      background: var(--right-bg);
-      color: var(--right-text);
-      border: 1px solid var(--right-border);
-      border-radius: 12px;
-      padding: 1.75rem 2rem 1.5rem;
-      max-width: 380px;
-      width: calc(100% - 3rem);
-      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
-      font-family: 'DM Sans', system-ui, sans-serif;
-      position: relative;
-      max-height: calc(100vh - 4rem);
-      overflow-y: auto;
-    }
-
-    #info-modal h3 {
-      font-size: 0.68rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--left-heading);
-      margin: 0 0 0.75rem;
-    }
-
-    #info-modal dl {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 0.5rem 1rem;
-      margin: 0;
-      font-size: 0.88rem;
-      line-height: 1.5;
-    }
-
-    #info-modal dt {
-      color: var(--left-heading);
-      font-weight: 500;
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      padding-top: 0.1rem;
-    }
-
-    #info-modal dd {
-      margin: 0;
-      color: var(--right-text);
-      font-variant-numeric: tabular-nums;
-      word-break: break-word;
-    }
-
-    #info-close {
-      position: absolute;
-      top: 0.6rem;
-      right: 0.75rem;
-      background: transparent;
-      border: 0;
-      font-size: 1.4rem;
-      line-height: 1;
-      color: var(--right-text);
-      cursor: pointer;
-      padding: 0.25rem 0.5rem;
-      opacity: 0.6;
-    }
-
-    #info-close:hover {
-      opacity: 1;
-    }
-
-    .help-key {
-      font-family: 'DM Mono', 'SF Mono', 'Menlo', monospace;
-      background: var(--toggle-bg);
-      color: var(--left-text);
-      border-radius: 4px;
-      padding: 0.15rem 0.5rem;
-      font-size: 0.78rem;
-      white-space: nowrap;
-      align-self: center;
-      text-align: center;
-    }
-
-    .help-desc {
-      color: var(--left-meta);
-      align-self: center;
-      font-size: 0.85rem;
-    }
-
-    #help-close {
-      position: absolute;
-      top: 0.75rem;
-      right: 0.75rem;
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      border: none;
-      background: transparent;
-      color: var(--left-meta);
-      cursor: pointer;
-      font-size: 1.1rem;
-      line-height: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0.5;
-      transition: opacity 0.15s;
-    }
-
-    #help-close:hover {
-      opacity: 1;
-    }
-
-    .ctrl-bar {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      padding: 0.45rem 1.2rem;
-      border-top: 1px solid var(--left-border);
-      flex-shrink: 0;
-      flex-wrap: wrap;
-    }
-
-    .ctrl-bar button {
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 0.75rem;
-      font-weight: 500;
-      padding: 0.55rem 0.75rem;
-      border: 1px solid var(--left-border);
-      border-radius: 4px;
-      background: transparent;
-      color: var(--left-text);
-      cursor: pointer;
-      line-height: 1;
-      transition: background 0.15s, color 0.15s, border-color 0.15s;
-    }
-
-    .ctrl-bar button:hover {
-      opacity: 0.75;
-    }
-
-    #play-pause-btn {
-      width: 2rem;
-      height: 2rem;
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #fff;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      color: #111;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-      flex-shrink: 0;
-    }
-
-    #play-pause-btn:hover {
-      opacity: 0.75;
-    }
-
-    #time-display {
-      font-family: 'DM Mono', 'Fira Code', ui-monospace, monospace;
-      font-size: 0.72rem;
-      font-variant-numeric: tabular-nums;
-      opacity: 0.65;
-      white-space: nowrap;
-      color: var(--left-text);
-      padding: 0 0.2rem;
-      flex-shrink: 0;
-    }
-
-    [data-theme="dark"] #play-pause-btn {
-      background: var(--left-border);
-      border-color: var(--left-border);
-      color: var(--left-text);
-    }
-
-    /* Speed button segmented control */
-    .speed-group {
-      display: flex;
-      border: 1px solid var(--left-border);
-      border-radius: 5px;
-      overflow: hidden;
-    }
-
-    .speed-group .speed-btn {
-      border: none;
-      border-right: 1px solid var(--left-border);
-      border-radius: 0;
-      padding: 0.55rem 0.5rem;
-    }
-
-    .speed-group .speed-btn:last-child {
-      border-right: none;
-    }
-
-    .speed-group .speed-btn.active {
-      background: var(--left-link);
-      color: #fff;
-      border-color: var(--left-link);
-    }
-
-    .speed-group .speed-btn:hover:not(.active) {
-      opacity: 0.75;
-    }
-
-    /* Split button segmented control */
-    .split-group {
-      display: flex;
-      border: 1px solid var(--left-border);
-      border-radius: 5px;
-      overflow: hidden;
-    }
-
-    .split-group .split-btn {
-      border: none;
-      border-right: 1px solid var(--left-border);
-      border-radius: 0;
-      padding: 0.55rem 0.6rem;
-    }
-
-    .split-group .split-btn:last-child {
-      border-right: none;
-    }
-
-    .split-group .split-btn:hover {
-      opacity: 0.75;
-    }
-
-    /* Seek button segmented control */
-    .seek-group {
-      display: flex;
-      border: 1px solid var(--left-border);
-      border-radius: 5px;
-      overflow: hidden;
-    }
-
-    .seek-group button {
-      border: none;
-      border-right: 1px solid var(--left-border);
-      border-radius: 0;
-      padding: 0.55rem 0.6rem;
-    }
-
-    .seek-group button:last-child {
-      border-right: none;
-    }
-
-    .ctrl-bar-icon-btn {
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-      padding: 0.45rem 0.55rem;
-      border: 1px solid var(--left-border);
-      border-radius: 4px;
-      background: transparent;
-      color: var(--left-text);
-      cursor: pointer;
-      line-height: 1;
-      opacity: 0.55;
-      transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
-    }
-
-    .ctrl-bar-icon-btn:hover {
-      opacity: 0.85;
-    }
-
-    .ctrl-bar-icon-btn.active {
-      background: var(--left-link);
-      color: #fff;
-      border-color: var(--left-link);
-      opacity: 1;
-    }
-
-    .ctrl-bar.yt-native .seek-group,
-    .ctrl-bar.yt-native #play-pause-btn,
-    .ctrl-bar.yt-native #time-display,
-    .ctrl-bar.yt-native .speed-group {
-      display: none;
-    }
-
-    .ctrl-bar.yt-native .ctrl-divider:not(:last-of-type) {
-      display: none;
-    }
-
-    #controls-toggle-btn {
-      margin-left: auto;
-    }
-
-    .ctrl-divider {
-      width: 1px;
-      height: 1rem;
-      background: var(--left-border);
-      flex-shrink: 0;
-      margin: 0 0.1rem;
-    }
-
-    /* Custom scrollbars */
-    .left-scroll::-webkit-scrollbar,
-    .right::-webkit-scrollbar {
-      width: 5px;
-    }
-
-    .left-scroll::-webkit-scrollbar-track,
-    .right::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    .left-scroll::-webkit-scrollbar-thumb,
-    .right::-webkit-scrollbar-thumb {
-      background: var(--left-border);
-      border-radius: 3px;
-    }
-
-    /* Progress bar */
-    #progress-track {
-      height: 3px;
-      background: var(--left-border);
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: height 0.15s ease;
-    }
-
-    #progress-track:hover {
-      height: 5px;
-    }
-
-    #progress-fill {
-      height: 100%;
-      background: var(--left-link);
-      width: 0%;
-      transition: width 0.8s linear;
-      pointer-events: none;
-    }
-
-    /* Now playing border pulse */
-    @keyframes border-breathe {
-
-      0%,
-      100% {
-        border-left-color: transparent;
-        box-shadow: inset 2px 0 0 0 var(--left-link);
-      }
-
-      50% {
-        border-left-color: transparent;
-        box-shadow: inset 4px 0 0 0 var(--left-link);
-      }
-    }
-
-    body.is-playing ol.topics li.active {
-      animation: border-breathe 2.5s ease-in-out infinite;
-    }
-
-    /* Section nav */
-    .section-nav {
-      position: sticky;
-      top: 0;
-      margin: 0 -2rem 1.5rem;
-      padding: 0.6rem 1.25rem 0.6rem 2.5rem;
-      background: var(--right-bg);
-      border-bottom: 1px solid var(--right-border);
-      display: flex;
-      gap: 1.2rem;
-      z-index: 10;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 0.72rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      transition: background-color 0.2s ease;
-    }
-
-    .section-nav a {
-      color: var(--left-meta);
-      text-decoration: none;
-      padding-bottom: 1px;
-      border-bottom: 3px solid transparent;
-      transition: color 0.15s, border-color 0.15s;
-    }
-
-    .section-nav a.active {
-      color: var(--left-link);
-      border-bottom-color: var(--left-link);
-    }
-
-    .section-nav a:hover {
-      color: var(--right-text);
-    }
-
-    .video-description {
-      white-space: pre-wrap;
-      font-size: 0.88rem;
-      line-height: 1.65;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      color: var(--left-meta);
-    }
-
-    .video-description a {
-      color: var(--left-link);
-      text-decoration: underline;
-      text-underline-offset: 2px;
-    }
-
-    .video-description a:hover {
-      opacity: 0.8;
-    }
-
-    /* ── Section info button + tooltip ── */
-    .section-info {
-      position: relative;
-      background: none;
-      border: none;
-      cursor: help;
-      color: var(--left-meta);
-      font-size: 0.65rem;
-      padding: 0 0.2rem;
-      vertical-align: middle;
-      line-height: 1;
-      opacity: 0.6;
-      transition: opacity 0.15s;
-    }
-
-    .section-info:hover,
-    .section-info:focus {
-      opacity: 1;
-      outline: none;
-    }
-
-    .right section:hover .section-info {
-      opacity: 0.85;
-    }
-
-    .section-info::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      top: 0;
-      left: calc(100% + 6px);
-      bottom: auto;
-      transform: none;
-      background: var(--left-text);
-      color: var(--left-bg);
-      font-size: 0.72rem;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-weight: 400;
-      letter-spacing: 0;
-      text-transform: none;
-      white-space: normal;
-      width: 200px;
-      padding: 5px 9px;
-      border-radius: 5px;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.15s;
-      z-index: 100;
-    }
-
-    .section-info:hover::after,
-    .section-info:focus::after {
-      opacity: 1;
-    }
-
-    /* ── YouTube Description subsection (inside Summary) ── */
-    .description-details {
-      margin-top: 1.4rem;
-      padding-top: 0;
-    }
-
-    .description-details>summary {
-      list-style: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 0.8rem;
-      font-weight: 400;
-      color: var(--left-link);
-      text-decoration: underline;
-      text-underline-offset: 2px;
-      user-select: none;
-      margin-bottom: 0;
-    }
-
-    .description-details>summary::-webkit-details-marker {
-      display: none;
-    }
-
-    .description-details>summary::before {
-      content: '';
-      display: inline-block;
-      width: 0;
-      height: 0;
-      border-style: solid;
-      border-width: 4px 0 4px 6px;
-      border-color: transparent transparent transparent var(--left-link);
-      transition: transform 0.2s;
-      flex-shrink: 0;
-    }
-
-    .description-details[open]>summary::before {
-      transform: rotate(90deg);
-    }
-
-    .description-details>summary:hover {
-      color: var(--left-text);
-    }
-
-    .description-details>summary:hover::before {
-      border-color: transparent transparent transparent var(--left-text);
-    }
-
-    .description-details .video-description {
-      margin-top: 0.8rem;
-    }
-
-    /* Mobile: single column */
-    @media (max-width: 800px) {
-      .layout {
-        display: block;
-      }
-
-      .left {
-        position: static;
-        height: auto;
-      }
-
-      #resizer {
-        display: none;
-      }
-
-      .right {
-        height: auto;
-        overflow-y: visible;
-        border-top: 1px solid var(--panel-divider);
-      }
-    }
-  </style>
-</head>
-
-<body>
-
-
-  <!-- Help modal -->
-  <div id="help-overlay" role="dialog" aria-modal="true" aria-label="Help">
-    <div id="help-modal">
-      <button id="help-close" aria-label="Close">×</button>
-      <div style="text-align:center;margin-bottom:16px">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="40" height="40" style="border-radius:50%"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg>
-      </div>
-      <h3>About</h3>
-      <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player.</p>
-      <p>video-lens gallery lets you browse and search your saved reports. Click any card or row to open the full report.</p>
-      <p><a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a></p>
-      <h3>Shortcuts</h3>
-      <div class="help-shortcuts">
-        <span class="help-key">k / Space</span><span class="help-desc">play / pause</span>
-        <span class="help-key">j / ←</span><span class="help-desc">seek back 5 s</span>
-        <span class="help-key">l / →</span><span class="help-desc">seek forward 5 s</span>
-        <span class="help-key">, / &lt;</span><span class="help-desc">slower speed</span>
-        <span class="help-key">. / &gt;</span><span class="help-desc">faster speed</span>
-        <span class="help-key">c</span><span class="help-desc">captions on/off</span>
-        <span class="help-key">f</span><span class="help-desc">fullscreen</span>
-        <span class="help-key">1</span><span class="help-desc">small layout (30%)</span>
-        <span class="help-key">2</span><span class="help-desc">medium layout (45%)</span>
-        <span class="help-key">3</span><span class="help-desc">large layout</span>
-        <span class="help-key">Esc</span><span class="help-desc">close help</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Generation info modal -->
-  <div id="info-overlay" role="dialog" aria-modal="true" aria-label="Generation info">
-    <div id="info-modal">
-      <button id="info-close" aria-label="Close">×</button>
-      <h3>Generation info</h3>
-      <dl>
-        <dt>Model</dt><dd id="info-model">—</dd>
-        <dt>Generated</dt><dd id="info-generated">—</dd>
-        <dt>Duration</dt><dd id="info-duration">—</dd>
-      </dl>
-    </div>
-  </div>
-
-  <div class="layout">
-
-    <!-- Left: sticky video + outline -->
-    <div class="left">
-      <div class="video-wrap">
-        <iframe id="yt-player" src="https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&rel=0&controls=0&iv_load_policy=3"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen>
-        </iframe>
-        <div id="yt-overlay" aria-hidden="true"></div>
-      </div>
-      <div id="progress-track">
-        <div id="progress-fill"></div>
-      </div>
-      <div class="ctrl-bar">
-        <button id="play-pause-btn" title="Play / pause [k / Space]"><svg width="10" height="12" viewBox="0 0 10 12"
-            fill="currentColor">
-            <polygon points="0,0 10,6 0,12" />
-          </svg></button>
-        <span id="time-display">–:–– / –:––</span>
-        <div class="ctrl-divider"></div>
-        <div class="seek-group">
-          <button id="seek-back" title="Seek back 5 s [j / ←]">← -5s</button>
-          <button id="seek-fwd" title="Seek forward 5 s [l / →]">+5s →</button>
-        </div>
-        <div class="ctrl-divider"></div>
-        <div class="speed-group">
-          <button class="speed-btn active" data-speed="1" title="1× speed [, / .]">1×</button>
-          <button class="speed-btn" data-speed="1.25" title="1.25× speed [, / .]">1.25×</button>
-          <button class="speed-btn" data-speed="1.5" title="1.5× speed [, / .]">1.5×</button>
-          <button class="speed-btn" data-speed="1.75" title="1.75× speed [, / .]">1.75×</button>
-          <button class="speed-btn" data-speed="2" title="2× speed [, / .]">2×</button>
-        </div>
-        <button id="controls-toggle-btn" class="ctrl-bar-icon-btn" title="Toggle YouTube controls [YT]">YT</button>
-      </div>
-      <div class="video-meta">
-        <h1>{{VIDEO_TITLE}}</h1>
-        <p class="meta-line"><span class="meta-facts">{{META_LINE}}</span><a href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a></p>
-      </div>
-      <div class="left-scroll">
-        <div class="outline-section">
-          <h2>Outline</h2>
-          <ol class="topics">
-            {{OUTLINE}}
-          </ol>
-        </div>
-      </div>
-    </div>
-
-    <div id="resizer" title="Drag to resize · double-click to reset"></div>
-
-    <!-- Right: scrollable summary -->
-    <div class="right">
-
-      <nav class="section-nav">
-        <a href="#summary" class="active">Summary</a>
-        <a href="#takeaway">Takeaway</a>
-        <a href="#key-points">Key Points</a>
-        <div class="nav-actions">
-          <button id="md-export-btn" class="icon-btn" aria-label="Export as Markdown" title="Export as Markdown">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-          </button>
-          <button id="info-btn" class="icon-btn" aria-label="Generation info" title="Generation info">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="16" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12.01" y2="8" />
-            </svg>
-          </button>
-          <button id="help-btn" class="icon-btn" aria-label="Help" title="Help">?</button>
-          <button id="theme-toggle" class="icon-btn" aria-label="Toggle theme" title="Toggle theme">
-            <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
-          </button>
-        </div>
-      </nav>
-
-      <section id="summary">
-        <h2>Summary</h2>
-        <p>{{SUMMARY}}</p>
-        {{DESCRIPTION_SECTION}}
-      </section>
-
-      <section id="takeaway">
-        <h2>Takeaway</h2>
-        <p>{{TAKEAWAY}}</p>
-      </section>
-
-      <section id="key-points">
-        <h2>Key Points</h2>
-        <ul>
-          {{KEY_POINTS}}
-        </ul>
-      </section>
-
-    </div>
-  </div>
-
-  <script type="application/json" id="video-lens-meta">{{VIDEO_LENS_META}}</script>{{VIDEO_LENS_DATA}}
-
-  <script src="https://www.youtube.com/iframe_api"></script>
-  <script>
-    var VIDEO_ID = "{{VIDEO_ID}}";
-
-    // file:// fallback – YouTube embeds require HTTP; overlay instructions on the left panel
-    (function () {
-      if (window.location.protocol !== 'file:') return;
-      if (window.self !== window.top) return;  // suppress when loaded in iframe
-
-      var rawPath = window.location.pathname;
-      var dir = decodeURIComponent(rawPath.replace(/\/[^/]+$/, ''));
-      var parts = rawPath.split('/');
-      var file = parts[parts.length - 1];
-      var parent = parts[parts.length - 2];
-      var urlPath = (parent === 'reports') ? 'reports/' + file : file;
-      var localUrl = 'http://localhost:8765/' + urlPath;
-      var serveDir = (parent === 'reports') ? dir.replace(/\/reports$/, '') : dir;
-      var cmd = 'python3 -m http.server 8765 --directory "' + serveDir.replace(/"/g, '\\"') + '"';
-
-      function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-
-      var notice = document.createElement('div');
-      notice.id = 'fl-notice';
-      notice.setAttribute('style',
-        'position:absolute;inset:0;z-index:100;' +
-        'background:var(--left-bg);color:var(--left-text);' +
-        'display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow-y:auto;' +
-        'padding:2rem 1.5rem;' +
-        'font-family:"DM Sans",system-ui,sans-serif;'
-      );
-
-      notice.innerHTML =
-        '<div style="width:100%;max-width:360px;display:flex;flex-direction:column;gap:22px;margin:auto 0;">' +
-
-        // ── Header: icon + title + description ──────────────────────────────────
-        '<div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;">' +
-        '<div style="width:46px;height:46px;background:var(--video-bg);border:1px solid var(--left-border);border-radius:10px;display:flex;align-items:center;justify-content:center;">' +
-        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.55">' +
-        '<rect x="2" y="2" width="20" height="20" rx="5"/>' +
-        '<polygon points="10,7.5 17,12 10,16.5" fill="currentColor" stroke="none"/>' +
-        '</svg>' +
-        '</div>' +
-        '<div>' +
-        '<p style="font-size:15px;font-weight:600;color:var(--left-text);margin:0 0 6px;line-height:1.3;">Serve to enable video playback</p>' +
-        '<p style="font-size:12px;color:var(--left-meta);line-height:1.65;max-width:290px;margin:0 auto;">' +
-        'YouTube blocks embeds opened via\u00a0' +
-        '<code style="font-size:10.5px;background:var(--left-border);padding:1px 5px;border-radius:3px;font-family:monospace">file://</code>' +
-        '.\u00a0Start a local HTTP server to enable playback.' +
-        '</p>' +
-        '</div>' +
-        '</div>' +
-
-        // ── Step 1: Start server ─────────────────────────────────────────────────
-        '<div style="display:flex;flex-direction:column;gap:8px;">' +
-        '<p style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--left-heading);margin:0;">' +
-        '\u2460\u00a0Start server' +
-        '</p>' +
-        '<div style="background:var(--video-bg);border:1px solid var(--left-border);border-radius:8px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;">' +
-        '<code id="fl-cmd" style="flex:1;font-size:11px;font-family:\'SF Mono\',\'Fira Code\',\'Menlo\',monospace;line-height:1.65;word-break:break-all;user-select:all;color:var(--left-text);">' + esc(cmd) + '</code>' +
-        '<button id="fl-copy" style="flex-shrink:0;margin-top:2px;padding:5px 11px;font-size:11px;font-family:inherit;font-weight:500;background:var(--toggle-bg);color:var(--toggle-text);border:none;border-radius:5px;cursor:pointer;white-space:nowrap;">Copy</button>' +
-        '</div>' +
-        '</div>' +
-
-        // ── Step 2: Open report ──────────────────────────────────────────────────
-        '<div style="display:flex;flex-direction:column;gap:8px;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-        '<p style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--left-heading);margin:0;">' +
-        '\u2461\u00a0Open report' +
-        '</p>' +
-        '<div style="font-size:10.5px;color:var(--left-meta);display:flex;align-items:center;gap:4px;">' +
-        '<span id="fl-dot" style="font-size:8px;line-height:1">\u25cf</span>' +
-        '<span id="fl-stxt">Checking\u2026</span>' +
-        '</div>' +
-        '</div>' +
-        '<a id="fl-open" href="' + esc(localUrl) + '" style="display:flex;align-items:center;justify-content:center;padding:11px 16px;background:var(--left-link);color:#fff;text-decoration:none;border-radius:8px;font-size:13px;font-weight:500;opacity:0.3;pointer-events:none;transition:opacity 0.25s ease;">' +
-        'Open localhost:8765 \u2197' +
-        '</a>' +
-        '<div id="fl-cd" style="text-align:center;font-size:11px;color:var(--left-meta);min-height:18px;display:flex;align-items:center;justify-content:center;gap:8px;"></div>' +
-        '</div>' +
-
-        '</div>';
-
-      document.querySelector('.video-wrap').appendChild(notice);
-
-      // ── Copy to clipboard ────────────────────────────────────────────────────
-      var copyBtn = document.getElementById('fl-copy');
-      copyBtn.addEventListener('click', function () {
-        function onCopied() {
-          copyBtn.textContent = 'Copied \u2713';
-          copyBtn.style.background = 'rgba(39,174,96,0.15)';
-          copyBtn.style.color = '#27ae60';
-          setTimeout(function () {
-            copyBtn.textContent = 'Copy';
-            copyBtn.style.background = 'var(--toggle-bg)';
-            copyBtn.style.color = 'var(--toggle-text)';
-          }, 2000);
-        }
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(cmd).then(onCopied);
-        } else {
-          var r = document.createRange();
-          r.selectNode(document.getElementById('fl-cmd'));
-          window.getSelection().removeAllRanges();
-          window.getSelection().addRange(r);
-          try { document.execCommand('copy'); } catch (e) { }
-          onCopied();
-        }
-      });
-
-      // ── Localhost server detection ───────────────────────────────────────────
-      var dotEl = document.getElementById('fl-dot');
-      var stxtEl = document.getElementById('fl-stxt');
-      var openBtn = document.getElementById('fl-open');
-      var cdEl = document.getElementById('fl-cd');
-      var serverUp = false, cdTimer = null, pollTimer = null;
-
-      function enableOpen() {
-        openBtn.style.opacity = '1';
-        openBtn.style.pointerEvents = 'auto';
-      }
-
-      function setStatus(up) {
-        dotEl.style.color = up ? '#27ae60' : 'var(--left-meta)';
-        stxtEl.textContent = up ? 'Running \u2713' : 'Not running';
-      }
-
-      function startCountdown() {
-        if (cdTimer) return;
-        var s = 5;
-        function tick() {
-          if (s <= 0) { clearInterval(cdTimer); window.location.href = localUrl; return; }
-          cdEl.innerHTML =
-            'Opening in ' + s + 's\u2026\u00a0' +
-            '<button id="fl-stay" style="background:none;border:none;font:inherit;font-size:11px;color:var(--left-link);cursor:pointer;padding:0;text-decoration:underline;">Stay</button>';
-          document.getElementById('fl-stay').addEventListener('click', cancelCd);
-          s--;
-        }
-        tick();
-        cdTimer = setInterval(tick, 1000);
-      }
-
-      function cancelCd() {
-        if (cdTimer) { clearInterval(cdTimer); cdTimer = null; }
-        cdEl.innerHTML = '';
-      }
-
-      function checkServer() {
-        fetch('http://localhost:8765/', { mode: 'no-cors', cache: 'no-store' })
-          .then(function () {
-            if (serverUp) return;
-            serverUp = true;
-            clearInterval(pollTimer);
-            setStatus(true);
-            enableOpen();
-            startCountdown();
-          })
-          .catch(function () {
-            if (!serverUp) setStatus(false);
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{VIDEO_TITLE}} · video-lens</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23c0392b'/><text x='16' y='21' font-family='sans-serif' font-size='13' font-weight='700' fill='%23ffd700' text-anchor='middle' letter-spacing='-0.5'>VL</text></svg>">
+<!-- @local -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap">
+<style>
+/* video-lens viewer: one stylesheet for the local report and the share page (035 §4, 036).
+   It styles the fragment markup the renderers produce today (li > a.ts, .outline-title,
+   .outline-detail; li > strong, p), so reports written before 036 still render.
+   Sans (DM Sans) is the interface and the structure: title, headlines, labels, times, controls.
+   Serif (Georgia) is the prose the report says: summary, takeaway, key-point text. */
+
+:root {
+  --paper: #f9f9f7;
+  --pane: #f0f0ee;
+  --text: #1a1a1a;
+  --strong: #111;
+  --muted: #555;
+  --label: #696966;
+  --line: #e0e0dc;
+  --pane-line: #d6d6d2;
+  --accent: #c0392b;
+  --on-accent: #fff;
+  --accent-soft: rgba(192, 57, 43, 0.07);
+  --video: #101010;
+  --on-video: #f0ede8;
+  --sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: Georgia, 'Times New Roman', serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --pad: clamp(1.25rem, 8%, 3.5rem); /* of the pane, not of the window: the pane's width is the reader's choice */
+  --stage-h: 0px;
+  color-scheme: light;
+}
+
+/* Dark: the OS setting, unless the reader chose light. The same values again for a chosen dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1c1916;
+    --pane: #14110f;
+    --text: #d0cdc8;
+    --strong: #f0ede8;
+    --muted: #9a948f;
+    --label: #8f8983;
+    --line: #2c2925;
+    --pane-line: #2a2520;
+    --accent: #e05a4a;
+    --on-accent: #14110f;
+    --accent-soft: rgba(224, 90, 74, 0.1);
+    --video: #000;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #1c1916;
+  --pane: #14110f;
+  --text: #d0cdc8;
+  --strong: #f0ede8;
+  --muted: #9a948f;
+  --label: #8f8983;
+  --line: #2c2925;
+  --pane-line: #2a2520;
+  --accent: #e05a4a;
+  --on-accent: #14110f;
+  --accent-soft: rgba(224, 90, 74, 0.1);
+  --video: #000;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  overflow-wrap: break-word;
+}
+a { color: var(--accent); }
+strong { color: var(--strong); }
+code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  background: var(--pane);
+  padding: 0.05em 0.3em;
+  border-radius: 3px;
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+h2 {
+  font: 600 0.72rem/1.3 var(--sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--label);
+  margin: 0;
+}
+.sec-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+
+/* Small buttons: one look everywhere. */
+.tool {
+  font: 500 0.78rem/1 var(--sans);
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--pane-line);
+  border-radius: 6px;
+  min-height: 1.9rem;
+  padding: 0 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tool:hover { color: var(--strong); border-color: var(--muted); }
+.tool.icon { width: 1.9rem; padding: 0; display: inline-grid; place-items: center; font-size: 0.9rem; }
+.tool.quiet { min-height: 1.6rem; font-size: 0.72rem; }
+.tool[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+.ts { color: var(--accent); font: 500 0.8rem/1.4 var(--sans); font-variant-numeric: tabular-nums; text-decoration: none; }
+
+/* ── Layout: the video pane stays, the page scrolls beside it ── */
+.layout {
+  display: grid;
+  grid-template-columns: var(--split, 44%) 9px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+}
+.layout.snapping { transition: grid-template-columns 0.2s ease; }
+.watch {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--pane);
+}
+.divider {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  cursor: col-resize;
+  touch-action: none;
+  background: var(--pane);
+  border-right: 1px solid var(--pane-line);
+  display: grid;
+  place-items: center;
+}
+.divider::after { content: ''; width: 3px; height: 2.2rem; border-radius: 2px; background: var(--pane-line); }
+.divider:hover::after, .divider:focus-visible::after, .dragging .divider::after { background: var(--accent); height: 3.4rem; }
+.dragging { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+.dragging iframe { pointer-events: none; }
+.masthead { grid-column: 3; grid-row: 1; }
+.doc { grid-column: 3; grid-row: 2; }
+
+/* ── Stage: player, section timeline, now-playing bar ── */
+.stage { flex-shrink: 0; background: var(--pane); }
+.player {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
+  max-height: calc(100vh - 15rem);
+  max-height: calc(100dvh - 15rem);
+  background: var(--video);
+  color: var(--on-video);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 1rem;
+  text-align: center;
+}
+.player.loaded { display: block; padding: 0; }
+.player iframe { display: block; width: 100%; height: 100%; border: 0; }
+.load {
+  font: 600 1rem/1 var(--sans);
+  background: #c0392b;
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.8rem 1.2rem;
+  cursor: pointer;
+}
+.load:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.load.nudge { animation: nudge 0.5s ease; }
+@keyframes nudge { 30% { transform: scale(1.07); } 60% { transform: scale(0.98); } }
+.consent, .player-note { font: 400 0.8rem/1.5 var(--sans); margin: 0; max-width: 30rem; }
+.player a { color: inherit; }
+.player-note code { background: rgba(255, 255, 255, 0.12); user-select: all; -webkit-user-select: all; }
+.watch-link { font: 600 1rem var(--sans); }
+
+.timeline { display: flex; gap: 2px; cursor: pointer; background: var(--pane); }
+.seg { position: relative; flex: 1 1 0; min-width: 3px; height: 15px; }
+.seg::before, .seg > i { content: ''; position: absolute; left: 0; top: 4px; height: 5px; }
+.seg::before { right: 0; background: var(--pane-line); }
+.seg > i { width: 0; background: var(--accent); }
+.seg:hover::before { background: var(--label); }
+.seg.done > i { width: 100%; }
+
+.nowbar { display: flex; align-items: center; gap: 0.4rem; padding: 0.15rem 0.7rem 0.6rem; font: 500 0.8rem/1.3 var(--sans); }
+.now { flex: 1; min-width: 0; margin: 0 0.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--strong); }
+#now-idx { color: var(--label); font-variant-numeric: tabular-nums; margin-right: 0.6em; }
+.clock { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.76rem; }
+#speed { min-width: 3.1rem; font-variant-numeric: tabular-nums; }
+
+/* ── Outline ── */
+.outline { position: relative; flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--pane-line); padding-bottom: 1rem; }
+.outline .sec-head { position: sticky; top: 0; z-index: 1; background: var(--pane); padding: 0.65rem 0.7rem 0.5rem 1.1rem; }
+.topics { list-style: none; margin: 0; padding: 0; }
+.topics > li {
+  display: grid;
+  grid-template-columns: 3.6rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  padding: 0.4rem 0.8rem 0.4rem 1.1rem;
+  cursor: pointer;
+  font-size: 0; /* hides the bare " — " between time and title in reports written before 036 */
+}
+.topics > li:hover { background: var(--accent-soft); }
+.topics > li > a.ts { grid-area: 1 / 1; }
+.outline-title { grid-area: 1 / 2; font: 400 0.92rem/1.4 var(--sans); color: var(--text); }
+.outline-detail { grid-area: 2 / 2 / auto / span 2; margin: 0.2rem 0 0.15rem; font: 400 0.84rem/1.5 var(--sans); color: var(--muted); }
+.topics > li.active { background: var(--accent-soft); box-shadow: inset 3px 0 0 0 var(--accent); }
+.topics > li.active .outline-title { font-weight: 600; color: var(--strong); }
+/* With script: descriptions fold away, except the playing section, unless "Details" is on. */
+.js:not([data-outline="full"]) .topics > li:not(.active) .outline-detail { display: none; }
+.kp-refs { grid-area: 1 / 3; display: flex; gap: 0.2rem; margin-left: 0.5rem; }
+.kp-ref, .kp-list > li::before {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 600 0.66rem/1 var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  text-decoration: none;
+}
+.kp-ref:hover { background: var(--accent); color: var(--on-accent); }
+
+/* ── Rail: where you came from, and the tools ── */
+.rail { display: flex; align-items: center; gap: 0.35rem; padding: 0.45rem 0.7rem; border-top: 1px solid var(--pane-line); background: var(--pane); flex-shrink: 0; }
+.brand { display: inline-flex; align-items: center; gap: 0.45rem; font: 600 0.8rem/1 var(--sans); color: var(--muted); text-decoration: none; white-space: nowrap; }
+.brand:hover { color: var(--strong); }
+.rail-gap { flex: 1; }
+html:not(.js) .rail .tool { display: none; }
+
+/* ── The document ── */
+.masthead, .doc { padding-inline: var(--pad); }
+.masthead > *, .doc > * { max-width: 41rem; }
+.masthead { padding-top: 2.4rem; container-type: inline-size; }
+.meta-line, .links { font: 500 0.8rem/1.5 var(--sans); color: var(--muted); margin: 0; }
+h1 {
+  font: 600 1.6rem/1.18 var(--sans);
+  font-size: clamp(1.3rem, 0.85rem + 3.4cqi, 2.05rem); /* follows the pane as the divider moves */
+  letter-spacing: -0.015em;
+  color: var(--strong);
+  margin: 0.45rem 0 0.7rem;
+  text-wrap: balance;
+}
+.links a { text-decoration: none; }
+.links a:hover, .colophon a:hover, .ts:hover { text-decoration: underline; }
+
+.doc section { margin-top: 2.3rem; }
+.doc h2 { margin-bottom: 0.7rem; }
+.doc p { margin: 0 0 0.9rem; }
+.doc p:last-child { margin-bottom: 0; }
+/* Each of the three parts has its own shape, so the labels can stay small. */
+#summary p { font-size: 1.16rem; line-height: 1.62; color: var(--strong); }
+#takeaway { border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; padding: 1rem 1.25rem 1.15rem; }
+#takeaway h2 { color: var(--accent); }
+#key-points .sec-head { margin-bottom: 0.2rem; }
+#key-points h2 { margin: 0; }
+
+.kp-list { list-style: none; margin: 0; padding: 0; counter-reset: kp; }
+.kp-list > li { counter-increment: kp; position: relative; padding: 1.15rem 0 1.15rem 2.5rem; border-top: 1px solid var(--line); scroll-margin-top: calc(var(--stage-h) + 0.5rem); }
+.kp-list > li:first-child { border-top: 0; }
+.kp-list > li::before { content: counter(kp); position: absolute; left: 0; top: 1.15rem; width: 1.6rem; height: 1.6rem; font-size: 0.76rem; }
+.kp-list > li.now::before { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+/* Headline, then the "why" as the first paragraph, then the detail as the second. */
+.kp-list > li > strong:first-child { font: 600 1.05rem/1.4 var(--sans); color: var(--strong); }
+.kp-list > li > a.ts { display: inline-block; margin-left: 0.35rem; padding: 0 0.45rem; border-radius: 1rem; background: var(--accent-soft); font-size: 0.74rem; line-height: 1.6; vertical-align: 0.08em; white-space: nowrap; }
+.kp-list > li > p { margin: 0.35rem 0 0; }
+.kp-list > li > p + p { margin-top: 0.65rem; font-size: 0.97rem; color: var(--muted); }
+.kp-toggle { display: none; margin-top: 0.45rem; }
+.kp-toggle[aria-expanded="true"] { color: var(--strong); }
+[data-skim] .kp-list > li { padding-block: 0.85rem; }
+[data-skim] .kp-list > li::before { top: 0.85rem; }
+[data-skim] .kp-list > li:not(.open) > p + p { display: none; }
+[data-skim] .kp-toggle { display: inline-block; }
+.kp-list > li.flash { animation: flash 1.4s ease; }
+@keyframes flash { 0%, 40% { background: var(--accent-soft); } }
+
+.description-details { margin-top: 2.3rem; padding-top: 1rem; border-top: 1px solid var(--line); font: 400 0.86rem/1.6 var(--sans); color: var(--muted); }
+.description-details summary { cursor: pointer; font-weight: 500; }
+.video-description { margin-top: 0.7rem; }
+
+.colophon { margin-top: 3rem; padding-top: 1rem; padding-bottom: 3rem; border-top: 1px solid var(--line); font: 400 0.78rem/1.6 var(--sans); color: var(--muted); }
+.doc .colophon p { margin: 0 0 0.45rem; }
+
+/* ── Help ── */
+dialog {
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 1.5rem 1.6rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--text);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  font: 400 0.88rem/1.6 var(--sans);
+}
+dialog:focus { outline: none; }
+dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+dialog h2 { margin: 1.3rem 0 0.6rem; }
+dialog h2:first-of-type { margin-top: 0; }
+dialog p { margin: 0; }
+#help-close { position: absolute; top: 0.8rem; right: 0.8rem; border: 0; font-size: 1.2rem; }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1rem; margin: 0; align-items: center; }
+.keys dt { white-space: nowrap; }
+.keys dd { margin: 0; color: var(--muted); }
+kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px solid var(--pane-line); border-radius: 4px; padding: 0.2rem 0.4rem; color: var(--strong); }
+
+/* ── Tabs: only where the panes stack ── */
+.tabs { display: none; }
+.tabs button {
+  flex: 1;
+  font: 600 0.8rem/1 var(--sans);
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  padding: 0.75rem 0 0.6rem;
+  cursor: pointer;
+}
+.tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Narrow screens: the two panes become two tabs under a player that stays in view ── */
+@media (max-width: 800px) {
+  .layout { display: flex; flex-direction: column; }
+  .watch { display: contents; }
+  .divider { display: none; }
+  .rail { order: 0; border-top: 0; border-bottom: 1px solid var(--pane-line); }
+  .masthead { order: 1; padding-top: 1.2rem; padding-bottom: 1.1rem; }
+  .stage { order: 2; z-index: 5; border-bottom: 1px solid var(--pane-line); }
+  .outline { order: 3; flex: none; overflow: visible; border-top: 0; }
+  .outline .sec-head { position: static; background: transparent; padding-inline: var(--pad); }
+  .topics > li { padding-inline: var(--pad); }
+  .doc { order: 4; }
+  .player { max-height: none; }
+  .tabs:not([hidden]) { display: flex; }
+  .nowbar { padding-bottom: 0.3rem; }
+  .clock { display: none; }
+  .doc section:first-child { margin-top: 1.4rem; }
+  .js[data-tab="read"] .outline, .js[data-tab="outline"] #read { display: none; }
+  .js[data-tab="outline"] .colophon { margin-top: 1rem; }
+}
+@media (max-width: 360px) {
+  .brand span { display: none; }
+}
+/* The player stays in view only when the screen is tall enough to read under it. */
+@media (max-width: 800px) and (min-height: 560px) {
+  .stage { position: sticky; top: 0; }
+  .player { max-height: 40vh; max-height: 40dvh; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@media print {
+  .layout { display: block; }
+  .watch { position: static; height: auto; display: block; background: none; }
+  .stage, .rail, .divider, .tool, .kp-refs { display: none !important; }
+  .outline { overflow: visible; border: 0; }
+  .outline-detail, .kp-list > li > p { display: block !important; }
+}
+
+</style>
+<script>
+// video-lens viewer: one script for the local report and the share page (035 §4, 036).
+// The same bytes on every page. Everything it needs is in the markup:
+//   #yt-facade[data-video-id]   the player box; with data-autoload the player loads at once
+//   ol.topics[data-duration]    the outline: li > a.ts[data-t], .outline-title, .outline-detail
+//   ol.kp-list > li             key points: strong, p (why), p (detail); optional a.ts[data-t]
+// It never reads the mode. It creates no style attribute, style element or script text, so the
+// share page's CSP (style-src 'self') holds. Without it the page is fully readable and every
+// time link opens YouTube.
+(function () {
+  "use strict";
+
+  var root = document.documentElement;
+  var KEYS = {
+    theme: "theme", // shared with the gallery
+    split: "video-lens:split",
+    speed: "video-lens:speed",
+    skim: "video-lens:skim",
+    outline: "video-lens:outline",
+  };
+  var DEFAULT_SPLIT = 44;
+  var MIN_SPLIT = 22;
+  var RATES = [1, 1.25, 1.5, 1.75, 2];
+
+  function read(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function write(key, value) {
+    try {
+      if (value === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, value);
+    } catch (e) { /* private mode: the choice lasts for this page only */ }
+  }
+
+  // ── Before the first paint: saved choices, so nothing jumps after load ──
+  root.classList.add("js");
+  root.setAttribute("data-tab", "read");
+  var savedTheme = read(KEYS.theme);
+  if (savedTheme === "dark" || savedTheme === "light") root.setAttribute("data-theme", savedTheme);
+  var savedSplit = parseFloat(read(KEYS.split));
+  if (savedSplit >= MIN_SPLIT && savedSplit <= 80) root.style.setProperty("--split", savedSplit + "%");
+  if (read(KEYS.skim) === "1") root.setAttribute("data-skim", "");
+  if (read(KEYS.outline) === "full") root.setAttribute("data-outline", "full");
+
+  function $(id) { return document.getElementById(id); }
+  function all(selector, scope) { return Array.prototype.slice.call((scope || document).querySelectorAll(selector)); }
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text) node.textContent = text;
+    return node;
+  }
+  function clock(t) {
+    t = Math.max(0, Math.floor(t || 0));
+    var h = Math.floor(t / 3600);
+    var m = Math.floor((t % 3600) / 60);
+    var s = String(t % 60).padStart(2, "0");
+    return h ? h + ":" + String(m).padStart(2, "0") + ":" + s : m + ":" + s;
+  }
+
+  // ── The player adapter (035 §4.3): the only code that touches YouTube ──
+  // One implementation for both modes. The page decides with data-autoload whether the player
+  // loads at once (local) or on the first click on the panel or on a time (share).
+  function makePlayer(facade) {
+    var videoId = facade && facade.getAttribute("data-video-id");
+    if (videoId && !/^[A-Za-z0-9_-]{11}$/.test(videoId)) videoId = null;
+    var frame = null;
+    var api = null;
+    var ready = false;
+    var pending = null;
+    var captions = false;
+    var listeners = [];
+
+    function tell(state) { listeners.forEach(function (cb) { cb(state); }); }
+    function fail() {
+      // Embedding is off for this video, or the player cannot run here: the same box the share
+      // page renders for a "noembed" video. From here on every time link opens YouTube.
+      var id = videoId;
+      api = null; frame = null; ready = false; videoId = null;
+      facade.textContent = "";
+      facade.classList.remove("loaded");
+      facade.classList.add("noembed");
+      var link = el("a", "watch-link", "Watch on YouTube ↗");
+      link.href = "https://www.youtube.com/watch?v=" + id;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      facade.appendChild(link);
+      tell("failed");
+    }
+
+    var player = {
+      available: function () { return !!videoId; },
+      loaded: function () { return !!frame; },
+      ready: function () { return ready; },
+      frame: function () { return frame; },
+      onState: function (cb) { listeners.push(cb); },
+      load: function (start, autoplay) {
+        if (frame || !videoId) return;
+        var src = "https://www.youtube-nocookie.com/embed/" + videoId + "?enablejsapi=1&rel=0&playsinline=1";
+        if (/^https?:/.test(location.origin)) src += "&origin=" + encodeURIComponent(location.origin);
+        if (autoplay) src += "&autoplay=1";
+        if (start) src += "&start=" + start;
+        frame = document.createElement("iframe");
+        frame.id = "yt-player";
+        frame.title = "YouTube video player";
+        frame.src = src;
+        frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+        frame.setAttribute("allowfullscreen", "");
+        facade.textContent = "";
+        facade.classList.add("loaded");
+        facade.appendChild(frame);
+        function attach() {
+          api = new window.YT.Player(frame, {
+            events: {
+              onReady: function () {
+                ready = true;
+                tell("ready");
+                if (pending !== null) player.seek(pending);
+                pending = null;
+              },
+              onStateChange: function (e) { tell(e.data === 1 ? "playing" : "idle"); },
+              onError: fail,
+            },
           });
-      }
-
-      checkServer();
-      pollTimer = setInterval(checkServer, 2000);
-    })();
-
-    // Theme toggle
-    (function () {
-      var html = document.documentElement;
-      var btn = document.getElementById('theme-toggle');
-      var icon = document.getElementById('theme-icon');
-
-      var sunPath = '<circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.87" y2="5.87"/><line x1="18.13" y1="18.13" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.87" y2="18.13"/><line x1="18.13" y1="5.87" x2="19.78" y2="4.22"/>';
-      var moonPath = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
-
-      function applyTheme(dark) {
-        if (dark) {
-          html.setAttribute('data-theme', 'dark');
-          icon.innerHTML = sunPath;
+        }
+        if (window.YT && window.YT.Player) attach();
+        else {
+          window.onYouTubeIframeAPIReady = attach;
+          var script = document.createElement("script");
+          script.src = "https://www.youtube.com/iframe_api";
+          document.head.appendChild(script);
+        }
+      },
+      seek: function (t) {
+        if (ready) { api.seekTo(t, true); api.playVideo(); }
+        else if (frame) pending = t;
+        else player.load(t, true);
+      },
+      shift: function (dt) { if (ready) api.seekTo(Math.max(0, api.getCurrentTime() + dt), true); },
+      toggle: function () {
+        if (!ready) return false;
+        if (api.getPlayerState() === 1) api.pauseVideo(); else api.playVideo();
+        return true;
+      },
+      time: function () { return ready && api.getCurrentTime ? api.getCurrentTime() : 0; },
+      duration: function () { return ready && api.getDuration ? api.getDuration() : 0; },
+      rate: function (r) { if (ready) api.setPlaybackRate(r); },
+      mute: function () { if (ready) { if (api.isMuted()) api.unMute(); else api.mute(); } },
+      captions: function () {
+        if (!ready) return;
+        captions = !captions;
+        try {
+          if (captions) api.loadModule("captions"); else api.unloadModule("captions");
+        } catch (e) { /* the player's own CC button still works */ }
+      },
+      fullscreen: function () {
+        if (!frame) return;
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          (document.exitFullscreen || document.webkitExitFullscreen).call(document);
         } else {
-          html.removeAttribute('data-theme');
-          icon.innerHTML = moonPath;
+          (facade.requestFullscreen || facade.webkitRequestFullscreen).call(facade);
         }
-      }
+      },
+    };
+    return player;
+  }
 
-      // Fall back to the OS preference on a first visit, as the gallery does —
-      // otherwise a dark-mode user gets a white report beside a dark gallery.
-      var saved = localStorage.getItem('theme');
-      applyTheme(saved
-        ? saved === 'dark'
-        : window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.addEventListener("DOMContentLoaded", function () {
+    var layout = document.querySelector(".layout");
+    var facade = $("yt-facade");
+    var player = makePlayer(facade);
+    var outlineEl = $("outline");
+    var list = document.querySelector(".topics");
+    var knownDuration = list ? parseInt(list.getAttribute("data-duration"), 10) || 0 : 0;
 
-      btn.addEventListener('click', function () {
-        var isDark = html.getAttribute('data-theme') === 'dark';
-        var next = !isDark;
-        localStorage.setItem('theme', next ? 'dark' : 'light');
-        applyTheme(next);
-      });
-    })();
+    var sections = all(".topics > li").map(function (li) {
+      var link = li.querySelector("a.ts[data-t]");
+      var title = li.querySelector(".outline-title");
+      return { li: li, t: link ? parseInt(link.getAttribute("data-t"), 10) || 0 : 0, title: title ? title.textContent : "" };
+    });
+    var points = all(".kp-list > li").map(function (li, i) {
+      var link = li.querySelector(":scope > a.ts[data-t]");
+      var paras = all(":scope > p", li);
+      li.id = "kp-" + (i + 1);
+      // New fragments: strong, p (why), p (detail). Reports written before 036: strong, bare text, p (detail).
+      return { li: li, n: i + 1, t: link ? parseInt(link.getAttribute("data-t"), 10) : null,
+        why: paras.length > 1 ? paras[0] : null, detail: paras.length > 1 ? paras[1] : null, only: paras.length === 1 ? paras[0] : null };
+    });
 
-    // Help modal
-    (function () {
-      var overlay = document.getElementById('help-overlay');
-      var helpBtn = document.getElementById('help-btn');
-      var closeBtn = document.getElementById('help-close');
+    var active = -1;
+    var started = false; // no section is "playing" until the video has run or a time was chosen
+    var hold = null;     // a time just asked for; shown until the player reports it (or 5 s pass)
+    var holdUntil = 0;
+    var rate = parseFloat(read(KEYS.speed));
+    if (RATES.indexOf(rate) < 0) rate = 1;
 
-      function openHelp() { overlay.classList.add('open'); }
-      function closeHelp() { overlay.classList.remove('open'); }
-
-      helpBtn.addEventListener('click', openHelp);
-      closeBtn.addEventListener('click', closeHelp);
-      overlay.addEventListener('click', function (e) {
-        if (e.target === overlay) closeHelp();
-      });
-      document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeHelp();
-      });
-    })();
-
-    // Shared meta (parsed once; reused by info modal and markdown export)
-    var VL_META = (function () {
-      try {
-        var raw = document.getElementById('video-lens-meta').textContent;
-        return JSON.parse(raw) || {};
-      } catch (e) { return {}; }
-    })();
-
-    function formatDurationSeconds(s) {
-      if (typeof s !== 'number' || !isFinite(s) || s < 0) return null;
-      s = Math.round(s);
-      var h = Math.floor(s / 3600);
-      var m = Math.floor((s % 3600) / 60);
-      var sec = s % 60;
-      if (h > 0) return h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(sec).padStart(2, '0') + 's';
-      if (m > 0) return m + 'm ' + String(sec).padStart(2, '0') + 's';
-      return sec + 's';
+    function total() { return player.duration() || knownDuration; }
+    function inView() {
+      var r = facade.getBoundingClientRect();
+      var visible = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+      return visible >= r.height / 2;
+    }
+    function go(t) {
+      // The player must be in view before it starts (YouTube: autoplay only when visible).
+      if (!inView()) facade.scrollIntoView({ block: "start" });
+      player.seek(t);
+      started = true;
+      hold = t;
+      holdUntil = Date.now() + 5000;
+      setActive(indexAt(t));
+      paint(t);
+    }
+    function hint() {
+      // Playback keys before the click that loads the player: point at the button, load nothing.
+      var button = facade && facade.querySelector(".load");
+      if (!button) return;
+      button.classList.remove("nudge");
+      void button.offsetWidth;
+      button.classList.add("nudge");
     }
 
-    function formatGeneratedAtLocal(iso) {
-      if (!iso) return null;
-      var d = new Date(iso);
-      if (isNaN(d.getTime())) return null;
-      try {
-        return d.toLocaleString(undefined, {
-          year: 'numeric', month: 'short', day: '2-digit',
-          hour: '2-digit', minute: '2-digit'
-        });
-      } catch (e) { return iso; }
+    // ── Outline, timeline and the now-playing bar ──
+    function indexAt(t) {
+      var found = -1;
+      for (var i = 0; i < sections.length; i++) if (sections[i].t <= t) found = i;
+      return found;
+    }
+    function endOf(i) {
+      if (i + 1 < sections.length) return sections[i + 1].t;
+      var d = total();
+      if (d > sections[i].t) return d;
+      return sections[i].t + (i ? sections[i].t / i : 60); // unknown length: an average section
     }
 
-    // Info modal
-    (function () {
-      var overlay = document.getElementById('info-overlay');
-      var infoBtn = document.getElementById('info-btn');
-      var closeBtn = document.getElementById('info-close');
-
-      var model = VL_META.agentModel || VL_META.modelName || null;
-      var generated = formatGeneratedAtLocal(VL_META.generatedAt);
-      var duration = formatDurationSeconds(VL_META.durationSeconds);
-
-      if (model) document.getElementById('info-model').textContent = model;
-      if (generated) document.getElementById('info-generated').textContent = generated;
-      if (duration) document.getElementById('info-duration').textContent = duration;
-
-      function openInfo() { overlay.classList.add('open'); }
-      function closeInfo() { overlay.classList.remove('open'); }
-
-      infoBtn.addEventListener('click', openInfo);
-      closeBtn.addEventListener('click', closeInfo);
-      overlay.addEventListener('click', function (e) {
-        if (e.target === overlay) closeInfo();
+    var segs = [];
+    var timeline = null;
+    if (sections.length > 1 && player.available()) {
+      timeline = el("div", "timeline");
+      timeline.setAttribute("aria-hidden", "true"); // the outline is the accessible list
+      sections.forEach(function (sec, i) {
+        var seg = el("div", "seg");
+        seg.title = clock(sec.t) + "  " + sec.title;
+        seg.style.flexGrow = String(Math.max(1, endOf(i) - sec.t));
+        var fill = document.createElement("i");
+        seg.appendChild(fill);
+        timeline.appendChild(seg);
+        segs.push({ seg: seg, fill: fill });
+        seg.addEventListener("mouseenter", function () { showNow(i); });
+        seg.addEventListener("click", function (e) {
+          var r = seg.getBoundingClientRect();
+          var part = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+          go(Math.floor(sec.t + part * (endOf(i) - sec.t)));
+        });
       });
-      document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeInfo();
-      });
-    })();
-
-    // YT IFrame API
-    var ytPlayer;
-    var pendingSeek = null;
-    var ytControlsVisible = false;
-    var ccEnabled = false;
-
-    function toggleFullscreen() {
-      var el = document.querySelector('.video-wrap');
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-      } else {
-        (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
-      }
+      timeline.addEventListener("mouseleave", function () { showNow(active); });
+      facade.after(timeline);
     }
 
-    function syncFullscreenBtn() {
-      var active = !!(document.fullscreenElement || document.webkitFullscreenElement);
-      // In fullscreen give YouTube native controls; restore custom overlay when exiting
-      if (!ytControlsVisible) {
-        document.getElementById('yt-overlay').style.display = active ? 'none' : '';
-      }
+    var nowbar = document.querySelector(".nowbar");
+    var speedBtn = $("speed");
+    function showNow(i) {
+      var sec = sections[i < 0 ? 0 : i];
+      if (!sec) return;
+      $("now-idx").textContent = (i < 0 ? 1 : i + 1) + "/" + sections.length;
+      $("now-title").textContent = sec.title;
     }
-    document.addEventListener('fullscreenchange', syncFullscreenBtn);
-    document.addEventListener('webkitfullscreenchange', syncFullscreenBtn);
+    function setActive(i) {
+      if (i === active) return;
+      if (sections[active]) sections[active].li.classList.remove("active");
+      active = i;
+      var sec = sections[i];
+      if (sec) {
+        sec.li.classList.add("active");
+        keepVisible(sec.li);
+      }
+      points.forEach(function (p) { p.li.classList.toggle("now", !!sec && p.t === sec.t); });
+      showNow(i);
+    }
+    function keepVisible(li) {
+      // Only inside the outline's own scroll box (wide layout), and not while the reader is in it.
+      if (outlineEl.scrollHeight <= outlineEl.clientHeight || outlineEl.matches(":hover")) return;
+      var head = outlineEl.querySelector(".sec-head");
+      var top = li.offsetTop - (head ? head.offsetHeight : 0);
+      var bottom = li.offsetTop + li.offsetHeight;
+      if (top < outlineEl.scrollTop) outlineEl.scrollTop = top;
+      else if (bottom > outlineEl.scrollTop + outlineEl.clientHeight) outlineEl.scrollTop = bottom - outlineEl.clientHeight + 8;
+    }
+    function paint(t) {
+      var d = total();
+      $("clock").textContent = player.ready() ? clock(t) + " / " + clock(d) : (d ? clock(d) : "");
+      segs.forEach(function (s, i) {
+        var done = i < active;
+        s.seg.classList.toggle("done", done);
+        var part = i === active ? (t - sections[i].t) / Math.max(1, endOf(i) - sections[i].t) : 0;
+        s.fill.style.width = done ? "" : Math.min(100, Math.max(0, part * 100)) + "%";
+      });
+    }
+    function tick() {
+      if (!player.ready()) return;
+      var t = player.time();
+      if (hold !== null) {
+        if (Math.abs(t - hold) < 3 || Date.now() > holdUntil) hold = null;
+        else t = hold;
+      }
+      if (started) setActive(indexAt(t));
+      paint(t);
+    }
+    setInterval(tick, 400);
+    player.onState(function (state) {
+      if (state === "ready" && rate !== 1) player.rate(rate);
+      if (state === "playing") started = true;
+      if (state === "failed") {
+        if (timeline) timeline.remove();
+        if (nowbar) nowbar.hidden = true;
+        setActive(-1);
+        return;
+      }
+      root.classList.toggle("playing", state === "playing");
+      tick();
+    });
 
-    function buildIframeSrc() {
-      return 'https://www.youtube.com/embed/{{VIDEO_ID}}?enablejsapi=1&rel=0&controls='
-        + (ytControlsVisible ? '1' : '0')
-        + (ccEnabled ? '&cc_load_policy=1' : '');
+    function step(dir) {
+      if (!sections.length || !player.available()) return;
+      var i = active;
+      if (dir < 0) i = (i > 0 && player.time() - sections[i].t < 3) ? i - 1 : Math.max(0, i);
+      else i = Math.min(sections.length - 1, i + 1);
+      go(sections[i].t);
+    }
+    function setRate(next) {
+      rate = next;
+      write(KEYS.speed, rate === 1 ? null : String(rate));
+      speedBtn.textContent = rate + "×";
+      player.rate(rate);
+    }
+    function stepRate(dir) {
+      var i = RATES.indexOf(rate) + dir;
+      if (i >= 0 && i < RATES.length) setRate(RATES[i]);
     }
 
-    function rebuildIframe(savedTime) {
-      var oldIframe = document.getElementById('yt-player');
-      var wrap = oldIframe.parentNode;
-      var savedAllow = oldIframe.allow;
-      if (ytPlayer && ytPlayer.destroy) ytPlayer.destroy();
-      var newIframe = document.createElement('iframe');
-      newIframe.id = 'yt-player';
-      newIframe.allow = savedAllow;
-      newIframe.allowFullscreen = true;
-      newIframe.src = buildIframeSrc();
-      wrap.appendChild(newIframe);
-      pendingSeek = savedTime;
-      ytPlayer = new YT.Player('yt-player', {
-        events: {
-          onReady: onPlayerReady,
-          onStateChange: onPlayerStateChange,
-          onError: onPlayerError
-        }
-      });
+    if (nowbar && sections.length && player.available()) {
+      nowbar.hidden = false;
+      speedBtn.textContent = rate + "×";
+      showNow(-1);
+      paint(0);
+      $("sec-prev").addEventListener("click", function () { step(-1); });
+      $("sec-next").addEventListener("click", function () { step(1); });
+      speedBtn.addEventListener("click", function () { setRate(RATES[(RATES.indexOf(rate) + 1) % RATES.length]); });
     }
 
-    function toggleCaptions() {
-      if (!ytPlayer) return;
-      var savedTime = (ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : 0;
-      ccEnabled = !ccEnabled;
-      rebuildIframe(savedTime);
-    }
-
-    function onPlayerReady(e) {
-      if (pendingSeek !== null) {
-        e.target.seekTo(pendingSeek, true);
-        e.target.playVideo();
-        pendingSeek = null;
+    // A key point names its outline section; the section points back with the point's number.
+    points.forEach(function (p) {
+      if (p.t === null) return;
+      var sec = sections.filter(function (s) { return s.t === p.t; })[0];
+      if (!sec) return;
+      var box = sec.li.querySelector(".kp-refs");
+      if (!box) {
+        box = el("span", "kp-refs");
+        sec.li.appendChild(box);
       }
-    }
+      var a = el("a", "kp-ref", String(p.n));
+      a.href = "#" + p.li.id;
+      a.title = "Key point " + p.n;
+      box.appendChild(a);
+    });
 
-    function onPlayerStateChange(e) {
-      document.getElementById('play-pause-btn').innerHTML = e.data === 1
-        ? '<svg width="11" height="12" viewBox="0 0 11 12" fill="currentColor"><rect x="0" y="0" width="3.5" height="12" rx="1"/><rect x="7.5" y="0" width="3.5" height="12" rx="1"/></svg>'
-        : '<svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor"><polygon points="0,0 10,6 0,12"/></svg>';
-      document.body.classList.toggle('is-playing', e.data === 1);
-    }
-
-      function onPlayerError(e) {
-        if (e.data !== 101 && e.data !== 150) return;  // only handle embed-disabled
-        var wrap = document.querySelector('.video-wrap');
-        wrap.innerHTML =
-          '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-          'padding:24px;text-align:center;background:var(--video-bg);color:var(--left-text);gap:14px;">' +
-          '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">' +
-          '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-          '<strong style="font-size:15px;opacity:0.8">Embedding disabled by video owner</strong>' +
-          '<span style="font-size:12px;opacity:0.55;max-width:280px">This video cannot be played here. Watch it directly on YouTube.</span>' +
-          '<a href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:10px 20px;border-radius:6px;' +
-          'background:var(--left-link);color:#fff;font-size:13px;font-weight:600;text-decoration:none;">Watch on YouTube</a>' +
-          '</div>';
-        // Hide controls since they're useless without a player
-        document.getElementById('progress-track').style.display = 'none';
-        document.querySelector('.ctrl-bar').style.display = 'none';
-      }
-
-      function onYouTubeIframeAPIReady() {
-        ytPlayer = new YT.Player('yt-player', {
-          events: {
-            onReady: onPlayerReady,
-            onStateChange: onPlayerStateChange,
-            onError: onPlayerError
-          }
-        });
-      }
-
-      // Controls toggle
-      document.getElementById('controls-toggle-btn').addEventListener('click', function () {
-        var savedTime = (ytPlayer && ytPlayer.getCurrentTime) ? ytPlayer.getCurrentTime() : 0;
-        ytControlsVisible = !ytControlsVisible;
-        document.querySelector('.ctrl-bar').classList.toggle('yt-native', ytControlsVisible);
-        document.getElementById('controls-toggle-btn').classList.toggle('active', ytControlsVisible);
-        document.getElementById('yt-overlay').style.display = ytControlsVisible ? 'none' : '';
-        rebuildIframe(savedTime);
-      });
-
-      // Timestamp links — seek via API instead of reloading src
-      var links = document.querySelectorAll('a.ts');
-      var topicItems = Array.from(links).map(function (a) {
-        return { a: a, li: a.closest('li'), t: parseInt(a.getAttribute('data-t'), 10) };
-      });
-
-      function setActiveItem(li) {
-        topicItems.forEach(function (item) { item.li.classList.remove('active'); });
-        if (li) {
-          li.classList.add('active');
-          li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        }
-      }
-
-      function seekToTimestamp(t, li) {
-        if (ytPlayer && ytPlayer.seekTo) {
-          ytPlayer.seekTo(t, true);
-          ytPlayer.playVideo();
-        } else {
-          pendingSeek = t;
-        }
-        setActiveItem(li);
-        document.querySelector('.left').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-
-      links.forEach(function (a) {
-        a.addEventListener('click', function (e) {
-          e.preventDefault();
-          seekToTimestamp(parseInt(this.getAttribute('data-t'), 10), this.closest('li'));
-        });
-      });
-
-      function setExpanded(li, on) {
-        li.classList.toggle('expanded', on);
-        if (li.hasAttribute('aria-expanded')) {
-          li.setAttribute('aria-expanded', on ? 'true' : 'false');
-        }
-      }
-
-      function activateTopic(item) {
-        if (item.li.querySelector('.outline-detail')) {
-          var wasExpanded = item.li.classList.contains('expanded');
-          // Accordion: collapse all manually-expanded items
-          document.querySelectorAll('ol.topics li.expanded').forEach(function (li) {
-            setExpanded(li, false);
-          });
-          // Toggle this one (if it was already expanded, it stays collapsed)
-          if (!wasExpanded) setExpanded(item.li, true);
-        } else {
-          seekToTimestamp(item.t, item.li);
-        }
-      }
-
-      topicItems.forEach(function (item) {
-        // Disclosure semantics are added here rather than in the payload so the
-        // renderer's attribute allowlist does not have to admit them.
-        if (item.li.querySelector('.outline-detail')) {
-          item.li.setAttribute('role', 'button');
-          item.li.setAttribute('tabindex', '0');
-          item.li.setAttribute('aria-expanded', 'false');
-        }
-        item.li.addEventListener('click', function (e) {
-          if (e.target.closest('a.ts')) return; // timestamp click seeks via link handler
-          activateTopic(item);
-        });
-        item.li.addEventListener('keydown', function (e) {
-          if (e.target.closest('a.ts')) return; // let the timestamp link keep Enter
-          if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
-          e.preventDefault();  // Space would otherwise scroll the page
-          activateTopic(item);
-        });
-      });
-
-      // Auto-sync outline with video position
-      setInterval(function () {
-        if (!ytPlayer || !ytPlayer.getCurrentTime) return;
-        var cur = ytPlayer.getCurrentTime();
-        var active = null;
-        topicItems.forEach(function (item) {
-          if (item.t <= cur) active = item.li;
-        });
-        // Only update if it changed
-        var current = document.querySelector('ol.topics li.active');
-        if (active !== current) setActiveItem(active);
-        var dur = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
-        if (dur > 0) {
-          document.getElementById('progress-fill').style.width = (cur / dur * 100) + '%';
-        }
-      }, 1000);
-
-      // Speed buttons
-      var speedBtns = document.querySelectorAll('.speed-btn');
-      speedBtns.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var rate = parseFloat(this.getAttribute('data-speed'));
-          if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(rate);
-          speedBtns.forEach(function (b) { b.classList.remove('active'); });
-          this.classList.add('active');
-        });
-      });
-
-
-      document.getElementById('play-pause-btn').addEventListener('click', function () {
-        if (!ytPlayer || !ytPlayer.getPlayerState) return;
-        ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
-      });
-
-      // Overlay intercepts clicks on the video area so the iframe never steals keyboard focus
-      document.getElementById('yt-overlay').addEventListener('click', function () {
-        if (!ytPlayer || !ytPlayer.getPlayerState) return;
-        ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
-        document.body.focus();
-      });
-
-      // Seek ±5s
-      document.getElementById('seek-back').addEventListener('click', function () {
-        if (ytPlayer && ytPlayer.getCurrentTime)
-          ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
-      });
-      document.getElementById('seek-fwd').addEventListener('click', function () {
-        if (ytPlayer && ytPlayer.getCurrentTime)
-          ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
-      });
-
-      // Live time display
-      function formatTime(s) {
-        s = Math.floor(s || 0);
-        var h = Math.floor(s / 3600);
-        var m = Math.floor((s % 3600) / 60);
-        var sec = s % 60;
-        if (h > 0)
-          return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
-        return m + ':' + String(sec).padStart(2, '0');
-      }
-      setInterval(function () {
-        if (!ytPlayer || !ytPlayer.getCurrentTime) return;
-        var cur = ytPlayer.getCurrentTime();
-        var dur = ytPlayer.getDuration();
-        var el = document.getElementById('time-display');
-        if (el) el.textContent = formatTime(cur) + ' / ' + (dur > 0 ? formatTime(dur) : '–:––');
-      }, 500);
-
-      (function () {
-        var track = document.getElementById('progress-track');
-        var fill = document.getElementById('progress-fill');
-        var dragging = false;
-        var dragRect;
-
-        function seekByEvent(e) {
-          if (!ytPlayer || !ytPlayer.getDuration) return;
-          var pct = Math.min(1, Math.max(0, (e.clientX - dragRect.left) / dragRect.width));
-          ytPlayer.seekTo(ytPlayer.getDuration() * pct, true);
-          ytPlayer.playVideo();
-        }
-
-        track.addEventListener('mousedown', function (e) {
-          dragging = true;
-          dragRect = track.getBoundingClientRect();
-          fill.style.transition = 'none';
-          seekByEvent(e);
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
-        });
-
-        function onMove(e) {
-          if (!dragging) return;
-          seekByEvent(e);
-        }
-
-        function onUp() {
-          dragging = false;
-          fill.style.transition = '';
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-        }
-      })();
-
-      (function () {
-        var navLinks = document.querySelectorAll('.section-nav a');
-        var clicking = false;
-        var clickTimer = null;
-        navLinks.forEach(function (a) {
-          a.addEventListener('click', function () {
-            navLinks.forEach(function (l) { l.classList.remove('active'); });
-            this.classList.add('active');
-            clicking = true;
-            clearTimeout(clickTimer);
-            clickTimer = setTimeout(function () { clicking = false; }, 1000);
-          });
-        });
-        var rightEl = document.querySelector('.right');
-        var sections = Array.from(document.querySelectorAll('.right section'));
-        var hasScrolled = false;
-        rightEl.addEventListener('scroll', function () { hasScrolled = true; }, { once: true });
-        var io = new IntersectionObserver(function (entries) {
-          if (!hasScrolled || clicking) return;
-          entries.forEach(function (entry) {
-            if (entry.isIntersecting) {
-              var id = entry.target.id;
-              navLinks.forEach(function (a) {
-                a.classList.toggle('active', a.getAttribute('href') === '#' + id);
-              });
-            }
-          });
-        }, { root: rightEl, threshold: 0, rootMargin: '0px 0px -75% 0px' });
-        sections.forEach(function (s) { io.observe(s); });
-      })();
-
-      var SECTION_TOOLTIPS = {
-        'summary': 'A short overview of the video\'s core argument and conclusion.',
-        'takeaway': 'The one thing to take away — going further than the summary.',
-        'key-points': 'Key concepts and insights — each with analytical depth added.'
-      };
-
-      // Open all links in the YouTube description in a new tab
-      document.querySelectorAll('.video-description a').forEach(function (a) {
-        a.setAttribute('target', '_blank');
-        a.setAttribute('rel', 'noopener noreferrer');
-      });
-
-      document.querySelectorAll('.right section').forEach(function (sec) {
-        var h2 = sec.querySelector('h2');
-        if (!h2) return;
-
-        // Info button
-        var infoTooltip = SECTION_TOOLTIPS[sec.id];
-        if (infoTooltip) {
-          var infoBtn = document.createElement('button');
-          infoBtn.className = 'section-info';
-          infoBtn.textContent = 'ⓘ';
-          infoBtn.setAttribute('data-tooltip', infoTooltip);
-          infoBtn.setAttribute('aria-label', infoTooltip);
-          h2.appendChild(infoBtn);
-        }
-      });
-
-      // Walk a node to Markdown so the <strong>/<em>/<code> structure the skill
-      // is asked to produce survives the export instead of flattening to prose.
-      function mdInline(node) {
-        if (!node) return '';
-        return Array.from(node.childNodes).map(function (n) {
-          if (n.nodeType === 3) return n.textContent;
-          if (n.nodeType !== 1) return '';
-          var inner = mdInline(n);
-          switch (n.tagName) {
-            case 'STRONG': case 'B': return '**' + inner.trim() + '**';
-            case 'EM': case 'I':     return '*' + inner.trim() + '*';
-            case 'CODE':             return '`' + inner.trim() + '`';
-            case 'BR':               return '\n';
-            default:                 return inner;
-          }
-        }).join('').replace(/[ \t]+/g, ' ').trim();
-      }
-
-      document.getElementById('md-export-btn').addEventListener('click', function () {
-        // Title
-        var title = document.querySelector('h1').innerText;
-
-        // Meta line — strip the "Open on YouTube ↗" link text, keep the rest
-        var metaEl = document.querySelector('.meta-line');
-        var factsEl = metaEl.querySelector('.meta-facts');
-        var metaText = (factsEl ? factsEl.textContent : '').trim();
-        var videoUrl = metaEl.querySelector('a') ? metaEl.querySelector('a').href : '';
-
-        // Summary
-        var summary = mdInline(document.querySelector('#summary p'));
-
-        // Description (optional — only present when yt-dlp was used)
-        var descEl = document.querySelector('.description-details .video-description');
-        var description = descEl ? descEl.innerText.trim() : '';
-
-        // Key Points
-        var keyPoints = Array.from(document.querySelectorAll('#key-points li'))
-          .map(function (li) {
-            var detail = li.querySelector('p');
-            var headlineSrc = document.createElement('span');
-            Array.from(li.childNodes)
-              .filter(function (n) { return n.nodeType === 3 || (n.nodeType === 1 && n.tagName !== 'P'); })
-              .forEach(function (n) { headlineSrc.appendChild(n.cloneNode(true)); });
-            var line = '- ' + mdInline(headlineSrc);
-            if (detail) line += '\n  ' + mdInline(detail);
-            return line;
-          }).join('\n');
-
-        // Takeaway
-        var takeaway = mdInline(document.querySelector('#takeaway p'));
-
-        // Outline — each li has data-t (seconds), .outline-title and optional .outline-detail
-        var outline = Array.from(document.querySelectorAll('.topics li')).map(function (li) {
-          var tsEl = li.querySelector('a.ts');
-          var t = (tsEl ? tsEl.getAttribute('data-t') : null) || '0';
-          var tsText = tsEl ? tsEl.innerText : '0:00';
-          var titleEl = li.querySelector('.outline-title');
-          var detailEl = li.querySelector('.outline-detail');
-          var topicText = titleEl ? mdInline(titleEl) : li.innerText.replace(tsText, '').trim();
-          var detail = mdInline(detailEl);
-          var url = 'https://www.youtube.com/watch?v=' + VIDEO_ID + '&t=' + t;
-          var line = '- [' + tsText + '](' + url + ') ' + topicText;
-          if (detail) line += ' — ' + detail;
-          return line;
-        }).join('\n');
-
-        // Generation footer — model, timestamp, duration (any/all may be missing)
-        var genParts = [];
-        if (VL_META.generatedAt) {
-          var genStr = formatGeneratedAtLocal(VL_META.generatedAt);
-          if (genStr) genParts.push('Generated ' + genStr);
-        }
-        var modelStr = VL_META.agentModel || VL_META.modelName;
-        if (modelStr) genParts.push('with ' + modelStr);
-        var durStr = formatDurationSeconds(VL_META.durationSeconds);
-        if (durStr) genParts.push('in ' + durStr);
-        var genFooter = genParts.length
-          ? ['', '---', '', '*' + genParts.join(' · ') + ' · [video-lens](https://github.com/kar2phi/video-lens)*']
-          : [];
-
-        var md = [
-          '# ' + title,
-          '',
-          metaText,
-          videoUrl ? '[Watch on YouTube](' + videoUrl + ')' : '',
-          '',
-          '> Generated by the [video-lens](https://github.com/kar2phi/video-lens) Claude skill.',
-          '',
-          '---',
-          '',
-          '## Outline',
-          '',
-          outline,
-          '',
-          '## Summary',
-          '',
-          summary,
-          '',
-          '## Takeaway',
-          '',
-          takeaway,
-          '',
-          '## Key Points',
-          '',
-          keyPoints,
-        ].concat(description ? ['', '## YouTube Description', '', description] : [])
-         .concat(genFooter)
-         .join('\n');
-
-        // Trigger download
-        var blob = new Blob([md], { type: 'text/markdown' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = window.location.pathname.split('/').pop().replace(/\.html$/, '.md');
-        // Anchor must be in the document, and the URL must outlive the click —
-        // revoking synchronously cancels the download outside Chrome.
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function () {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, 0);
-      });
-
-      function cycleSpeed(dir) {
-        var speeds = [1, 1.25, 1.5, 1.75, 2];
-        var active = document.querySelector('.speed-btn.active');
-        if (!active) return;
-        var idx = speeds.indexOf(parseFloat(active.getAttribute('data-speed')));
-        var next = speeds[Math.max(0, Math.min(speeds.length - 1, idx + dir))];
-        if (ytPlayer && ytPlayer.setPlaybackRate) ytPlayer.setPlaybackRate(next);
-        speedBtns.forEach(function (b) { b.classList.remove('active'); });
-        document.querySelector('.speed-btn[data-speed="' + next + '"]').classList.add('active');
-      }
-
-      document.addEventListener('keydown', function (e) {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-        if (e.metaKey || e.ctrlKey || e.altKey) return;
-        if (e.key === ' ' || e.key === 'k') {
-          e.preventDefault();
-          if (ytPlayer && ytPlayer.getPlayerState) {
-            ytPlayer.getPlayerState() === 1 ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
-          }
-        } else if (e.key === 'j' || e.key === 'ArrowLeft') {
-          if (ytPlayer && ytPlayer.getCurrentTime)
-            ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() - 5), true);
-        } else if (e.key === 'l' || e.key === 'ArrowRight') {
-          if (ytPlayer && ytPlayer.getCurrentTime)
-            ytPlayer.seekTo(ytPlayer.getCurrentTime() + 5, true);
-        } else if (e.key === 'c') {
-          toggleCaptions();
-        } else if (e.key === 'f') {
-          e.preventDefault();
-          toggleFullscreen();
-        } else if (e.key === '<' || e.key === ',') {
-          cycleSpeed(-1);
-        } else if (e.key === '>' || e.key === '.') {
-          cycleSpeed(1);
-        } else if (e.key === '1') {
-          applySplit(30);
-        } else if (e.key === '2') {
-          applySplit(45);
-        } else if (e.key === '3') {
-          applySplit(maxVideoSplit());
-        }
-      });
-
-      // Draggable resizer + split presets
-      var resizer = document.getElementById('resizer');
-      var layout = document.querySelector('.layout');
-      var SPLIT_KEY = 'video-lens:split';
-      var DEFAULT_SPLIT = 45;
-
-      // Restore saved split on load
-      (function () {
-        var saved = localStorage.getItem(SPLIT_KEY);
-        if (saved) document.documentElement.style.setProperty('--left-w', saved + '%');
-      })();
-
-      resizer.addEventListener('mousedown', function (e) {
+    // One click handler for every time on the page.
+    document.addEventListener("click", function (e) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var target = e.target instanceof Element ? e.target : null;
+      if (!target) return;
+      var ref = target.closest(".kp-ref");
+      if (ref) {
         e.preventDefault();
-        resizer.classList.add('dragging');
-        document.addEventListener('mousemove', onDrag);
-        document.addEventListener('mouseup', stopDrag);
+        var kp = document.querySelector(ref.getAttribute("href"));
+        if (!kp) return;
+        setTab("read");
+        kp.scrollIntoView({ block: "start", behavior: "smooth" });
+        kp.classList.remove("flash");
+        void kp.offsetWidth;
+        kp.classList.add("flash");
+        return;
+      }
+      if (!player.available()) return; // no player: the links open YouTube
+      var timed = target.closest("a.ts[data-t]");
+      if (!timed) {
+        var row = target.closest(".topics > li");
+        timed = row && row.querySelector("a.ts[data-t]");
+      }
+      if (!timed) return;
+      var t = parseInt(timed.getAttribute("data-t"), 10);
+      if (!(t >= 0)) return;
+      e.preventDefault();
+      // A clicked link must not keep the focus: Space is play and pause, not "open the link".
+      if (e.detail > 0 && document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      go(t);
+    });
+
+    if (facade && player.available()) {
+      var loadButton = facade.querySelector(".load");
+      if (loadButton) loadButton.addEventListener("click", function () { player.load(0, true); });
+      if (facade.hasAttribute("data-autoload")) {
+        var note = $("file-note");
+        if (location.protocol === "file:" && note) {
+          // YouTube refuses to play from file://. The shell holds the text; add this file's name.
+          var here = note.querySelector("a");
+          var name = location.pathname.split("/").pop();
+          if (here) { here.href += name; here.textContent += "/" + name; }
+          note.hidden = false;
+        } else {
+          player.load(0, false);
+        }
+      }
+    }
+
+    // A click inside the player moves keyboard focus into YouTube's frame. Take it back when
+    // the pointer returns to the page, so the page's shortcuts work again.
+    document.addEventListener("mouseover", function () {
+      var frame = player.frame();
+      if (frame && document.activeElement === frame) frame.blur();
+    });
+
+    // ── Tabs (narrow screens) ──
+    var tabs = document.querySelector(".tabs");
+    var stage = document.querySelector(".stage");
+    function setTab(name) {
+      if (!tabs || root.getAttribute("data-tab") === name) return;
+      root.setAttribute("data-tab", name);
+      all("[data-tab]", tabs).forEach(function (b) {
+        b.setAttribute("aria-selected", b.getAttribute("data-tab") === name ? "true" : "false");
       });
-      resizer.addEventListener('dblclick', function () {
-        document.documentElement.style.setProperty('--left-w', DEFAULT_SPLIT + '%');
-        localStorage.removeItem(SPLIT_KEY);
+      // If the reader has scrolled into a tab, start the other one at its top, under the player.
+      if (getComputedStyle(tabs).display === "none") return;
+      var first = name === "read" ? $("read") : outlineEl;
+      var top = first.getBoundingClientRect().top + window.scrollY - stage.offsetHeight;
+      if (window.scrollY > top) window.scrollTo(0, top);
+    }
+    if (tabs && outlineEl && sections.length) {
+      tabs.hidden = false;
+      tabs.addEventListener("click", function (e) {
+        var b = e.target instanceof Element ? e.target.closest("[data-tab]") : null;
+        if (b) setTab(b.getAttribute("data-tab"));
       });
-
-      function onDrag(e) {
-        var pct = (e.clientX / window.innerWidth) * 100;
-        pct = Math.min(Math.max(pct, 20), maxVideoSplit());
-        document.documentElement.style.setProperty('--left-w', pct + '%');
+      if (window.ResizeObserver) {
+        new ResizeObserver(function () {
+          var sticky = getComputedStyle(stage).position === "sticky";
+          root.style.setProperty("--stage-h", (sticky ? stage.offsetHeight : 0) + "px");
+        }).observe(stage);
       }
+    }
 
-      function stopDrag() {
-        resizer.classList.remove('dragging');
-        document.removeEventListener('mousemove', onDrag);
-        document.removeEventListener('mouseup', stopDrag);
-        var cur = document.documentElement.style.getPropertyValue('--left-w');
-        if (cur) localStorage.setItem(SPLIT_KEY, parseFloat(cur).toFixed(1));
-      }
+    // ── Density: outline descriptions, key-point details ──
+    function flag(attr, key, on, onValue, button) {
+      if (on) root.setAttribute(attr, onValue); else root.removeAttribute(attr);
+      write(key, on ? (onValue || "1") : null);
+      if (button) button.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+    var outlineBtn = $("outline-btn");
+    var skimBtn = $("skim-btn");
+    function toggleOutline() {
+      flag("data-outline", KEYS.outline, root.getAttribute("data-outline") !== "full", "full", outlineBtn);
+    }
+    function toggleSkim() {
+      flag("data-skim", KEYS.skim, !root.hasAttribute("data-skim"), "", skimBtn);
+    }
+    if (outlineBtn && sections.some(function (s) { return s.li.querySelector(".outline-detail"); })) {
+      outlineBtn.hidden = false;
+      outlineBtn.setAttribute("aria-pressed", root.getAttribute("data-outline") === "full" ? "true" : "false");
+      outlineBtn.addEventListener("click", toggleOutline);
+    }
+    if (skimBtn && points.some(function (p) { return p.detail; })) {
+      skimBtn.hidden = false;
+      skimBtn.setAttribute("aria-pressed", root.hasAttribute("data-skim") ? "true" : "false");
+      skimBtn.addEventListener("click", toggleSkim);
+      points.forEach(function (p) {
+        if (!p.detail) return;
+        var more = el("button", "tool quiet kp-toggle", "Detail");
+        more.type = "button";
+        more.setAttribute("aria-expanded", "false");
+        more.addEventListener("click", function () {
+          var open = p.li.classList.toggle("open");
+          more.setAttribute("aria-expanded", open ? "true" : "false");
+          more.textContent = open ? "Less" : "Detail";
+        });
+        p.li.appendChild(more);
+      });
+    }
 
-      // Split preset buttons
-      // L is dynamic: the exact panel % where the video fills height without letterboxing
-      function maxVideoSplit() {
-        var maxH = window.innerHeight - 220; // matches the calc(100vh - 220px) cap in CSS
-        var maxW = maxH * 16 / 9;
-        return Math.min(80, Math.max(20, (maxW / window.innerWidth) * 100));
-      }
+    // ── Theme ──
+    function toggleTheme() {
+      var dark = root.getAttribute("data-theme")
+        ? root.getAttribute("data-theme") === "dark"
+        : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var next = dark ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      write(KEYS.theme, next);
+    }
 
-      function applySplit(pct) {
-        layout.classList.add('snapping');
-        document.documentElement.style.setProperty('--left-w', pct + '%');
-        localStorage.setItem(SPLIT_KEY, pct.toFixed(1));
-        setTimeout(function () { layout.classList.remove('snapping'); }, 250);
+    // ── Generation facts (local report): date, model and time taken, from the meta block ──
+    var facts = $("gen-facts");
+    var metaBlock = $("video-lens-meta");
+    if (facts && metaBlock) {
+      try {
+        var meta = JSON.parse(metaBlock.textContent) || {};
+        var when = meta.generatedAt ? new Date(meta.generatedAt) : null;
+        var text = "";
+        if (when && !isNaN(when.getTime())) {
+          text += " on " + when.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+        }
+        var extra = [meta.agentModel || meta.modelName, typeof meta.durationSeconds === "number" ? Math.round(meta.durationSeconds) + " s" : ""]
+          .filter(Boolean).join(", ");
+        if (extra) text += " (" + extra + ")";
+        facts.textContent = text;
+      } catch (e) { /* the sentence reads fine without the facts */ }
+    }
+
+    // ── Markdown: built from the page, no network ──
+    function mdInline(node) {
+      if (!node) return "";
+      return Array.prototype.map.call(node.childNodes, function (n) {
+        if (n.nodeType === 3) return n.textContent;
+        if (n.nodeType !== 1 || n.classList.contains("ts") || n.tagName === "BUTTON") return "";
+        var inner = mdInline(n);
+        switch (n.tagName) {
+          case "STRONG": case "B": return "**" + inner.trim() + "**";
+          case "EM": case "I": return "*" + inner.trim() + "*";
+          case "CODE": return "`" + inner.trim() + "`";
+          case "BR": return "\n";
+          default: return inner;
+        }
+      }).join("").replace(/[ \t]+/g, " ").trim();
+    }
+    function paras(selector) {
+      return all(selector).map(mdInline).join("\n\n");
+    }
+    function bareText(li) {
+      // Reports written before 036: the "why" is text directly in the li, after a dash.
+      return Array.prototype.filter.call(li.childNodes, function (n) { return n.nodeType === 3; })
+        .map(function (n) { return n.textContent; }).join(" ").replace(/\s+/g, " ").replace(/^\s*—\s*/, "").trim();
+    }
+    function markdown() {
+      var watch = "https://www.youtube.com/watch?v=" + (facade ? facade.getAttribute("data-video-id") : "");
+      var title = document.querySelector("h1").textContent.trim();
+      var metaLine = document.querySelector(".meta-facts");
+      var lines = ["# " + title, ""];
+      if (metaLine && metaLine.textContent.trim()) lines.push(metaLine.textContent.trim());
+      lines.push("[Watch on YouTube](" + watch + ")", "", "## Summary", "", paras("#summary > p"),
+        "", "## Takeaway", "", paras("#takeaway > p"), "", "## Key Points", "");
+      points.forEach(function (p) {
+        var head = p.li.querySelector(":scope > strong");
+        var line = "- **" + (head ? head.textContent.trim() : "") + "**";
+        var why = p.why ? mdInline(p.why) : (bareText(p.li) || mdInline(p.only));
+        var detail = p.detail ? mdInline(p.detail) : (bareText(p.li) ? mdInline(p.only) : "");
+        if (why) line += " — " + why;
+        if (p.t !== null) line += " ([" + clock(p.t) + "](" + watch + "&t=" + p.t + "s))";
+        if (detail) line += "\n  " + detail;
+        lines.push(line);
+      });
+      lines.push("", "## Outline", "");
+      sections.forEach(function (sec) {
+        var detail = mdInline(sec.li.querySelector(".outline-detail"));
+        lines.push("- [" + clock(sec.t) + "](" + watch + "&t=" + sec.t + "s) " + sec.title + (detail ? " — " + detail : ""));
+      });
+      var description = document.querySelector(".video-description");
+      if (description) lines.push("", "## YouTube Description", "", description.innerText.trim());
+      var gen = document.querySelector(".colophon .gen");
+      lines.push("", "---", "", "*" + (gen ? gen.textContent.trim() : "Made with video-lens") + "*");
+      return lines.join("\n") + "\n";
+    }
+    function said(button, text) {
+      var old = button.textContent;
+      button.textContent = text;
+      setTimeout(function () { button.textContent = old; }, 1600);
+    }
+    function copyMarkdown() {
+      var button = $("md-copy");
+      var md = markdown();
+      function fallback() {
+        var area = document.createElement("textarea");
+        area.value = md;
+        document.body.appendChild(area);
+        area.select();
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (e) { /* nothing more to try */ }
+        area.remove();
+        said(button, ok ? "Copied ✓" : "Copy failed");
       }
-    </script>
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(md).then(function () { said(button, "Copied ✓"); }, fallback);
+      } else {
+        fallback();
+      }
+    }
+    function saveMarkdown() {
+      var file = location.pathname.split("/").pop().replace(/\.html$/, "");
+      if (!file || /^[A-Za-z0-9_-]{22}$/.test(file)) file = "video-lens-report"; // never the share ID
+      var url = URL.createObjectURL(new Blob([markdown()], { type: "text/markdown" }));
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = file + ".md";
+      a.hidden = true;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { a.remove(); URL.revokeObjectURL(url); }, 0);
+    }
+
+    // ── Help ──
+    var help = $("help");
+    function toggleHelp() {
+      if (!help || !help.showModal) return;
+      if (help.open) help.close(); else { help.showModal(); help.focus(); }
+    }
+    if (help) {
+      help.addEventListener("click", function (e) { if (e.target === help) help.close(); });
+      $("help-close").addEventListener("click", function () { help.close(); });
+    }
+
+    [["md-copy", copyMarkdown], ["md-save", saveMarkdown], ["help-btn", toggleHelp], ["theme-btn", toggleTheme]]
+      .forEach(function (pair) {
+        var b = $(pair[0]);
+        if (!b) return;
+        b.hidden = false;
+        b.addEventListener("click", pair[1]);
+      });
+    // A button clicked with the mouse must not keep Space for itself: Space is play and pause.
+    document.addEventListener("click", function (e) {
+      var b = e.target instanceof Element ? e.target.closest("button") : null;
+      if (b && e.detail > 0 && !b.closest("dialog")) b.blur();
+    });
+
+    // ── Divider and the three sizes ──
+    var divider = $("divider");
+    function maxSplit() {
+      // The widest pane where the video still fits the height without black bars.
+      // The text keeps at least 22rem.
+      var w = (window.innerHeight - 240) * 16 / 9;
+      var room = 100 - (22 * 16 + 9) / window.innerWidth * 100;
+      return Math.max(MIN_SPLIT, Math.min(75, room, (w / window.innerWidth) * 100));
+    }
+    function setSplit(pct, save) {
+      pct = Math.min(Math.max(pct, MIN_SPLIT), maxSplit());
+      root.style.setProperty("--split", pct + "%");
+      if (divider) divider.setAttribute("aria-valuenow", String(Math.round(pct)));
+      if (save) write(KEYS.split, pct.toFixed(1));
+    }
+    function snap(pct) {
+      layout.classList.add("snapping");
+      if (pct === DEFAULT_SPLIT) {
+        root.style.removeProperty("--split");
+        write(KEYS.split, null);
+        divider.setAttribute("aria-valuenow", String(DEFAULT_SPLIT));
+      } else {
+        setSplit(pct, true);
+      }
+      setTimeout(function () { layout.classList.remove("snapping"); }, 250);
+    }
+    function currentSplit() {
+      return parseFloat(root.style.getPropertyValue("--split")) || DEFAULT_SPLIT;
+    }
+    if (divider && layout) {
+      divider.setAttribute("aria-valuemin", String(MIN_SPLIT));
+      divider.setAttribute("aria-valuemax", "75");
+      divider.setAttribute("aria-valuenow", String(Math.round(currentSplit())));
+      var drop = function (e) {
+        if (!root.classList.contains("dragging")) return;
+        root.classList.remove("dragging");
+        if (divider.hasPointerCapture(e.pointerId)) divider.releasePointerCapture(e.pointerId);
+        write(KEYS.split, currentSplit().toFixed(1));
+      };
+      divider.addEventListener("pointerdown", function (e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        divider.setPointerCapture(e.pointerId); // keeps the drag alive over the player's frame
+        root.classList.add("dragging");
+      });
+      divider.addEventListener("pointermove", function (e) {
+        if (!divider.hasPointerCapture(e.pointerId)) return;
+        setSplit((e.clientX / window.innerWidth) * 100, false);
+      });
+      divider.addEventListener("pointerup", drop);
+      divider.addEventListener("pointercancel", drop);
+      divider.addEventListener("dblclick", function () { snap(DEFAULT_SPLIT); });
+      divider.addEventListener("keydown", function (e) {
+        var k = e.key;
+        if (k === "ArrowLeft") setSplit(currentSplit() - 2, true);
+        else if (k === "ArrowRight") setSplit(currentSplit() + 2, true);
+        else if (k === "Home") setSplit(MIN_SPLIT, true);
+        else if (k === "End") setSplit(maxSplit(), true);
+        else if (k === "Enter") snap(DEFAULT_SPLIT);
+        else return;
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    }
+
+    // ── Keyboard: the same keys as inside the YouTube player, plus the page's own ──
+    document.addEventListener("keydown", function (e) {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      var target = e.target instanceof Element ? e.target : null;
+      if (target && target.closest("input, textarea, select, [contenteditable]")) return;
+      var k = e.key;
+      if (help && help.open) {
+        if (k === "?") { e.preventDefault(); help.close(); }
+        return;
+      }
+      // A focused link or button keeps Enter and Space.
+      if ((k === " " || k === "Enter") && target && target.closest("a, button, summary")) return;
+      var ready = player.ready();
+      switch (k) {
+        case " ": case "k":
+          if (player.toggle()) e.preventDefault(); // before the player is loaded, Space still scrolls
+          else if (k === "k") hint();
+          break;
+        case "j": if (ready) player.shift(-10); else hint(); break;
+        case "l": if (ready) player.shift(10); else hint(); break;
+        case "ArrowLeft": if (ready) { e.preventDefault(); player.shift(-5); } break;
+        case "ArrowRight": if (ready) { e.preventDefault(); player.shift(5); } break;
+        case "p": if (player.loaded()) step(-1); else hint(); break;
+        case "n": if (player.loaded()) step(1); else hint(); break;
+        case ",": case "<": if (speedBtn) stepRate(-1); break;
+        case ".": case ">": if (speedBtn) stepRate(1); break;
+        case "m": player.mute(); break;
+        case "c": player.captions(); break;
+        case "f": player.fullscreen(); break;
+        case "1": if (divider) snap(30); break;
+        case "2": if (divider) snap(DEFAULT_SPLIT); break;
+        case "3": if (divider) snap(maxSplit()); break;
+        case "o": if (outlineBtn && !outlineBtn.hidden) toggleOutline(); break;
+        case "s": if (skimBtn && !skimBtn.hidden) toggleSkim(); break;
+        case "e": copyMarkdown(); break;
+        case "t": toggleTheme(); break;
+        case "?": toggleHelp(); break;
+        default: return;
+      }
+    });
+  });
+})();
+
+</script>
+<!-- @end -->
+<!-- @share -->
+{{HEAD_EXTRA}}
+<link rel="stylesheet" href="{{ASSET_FONTS}}">
+<link rel="stylesheet" href="{{ASSET_CSS}}">
+<script src="{{ASSET_JS}}"></script>
+<!-- @end -->
+</head>
+<body>
+<div class="layout">
+
+<header class="masthead">
+<p class="meta-line"><span class="meta-facts">{{META_LINE}}</span></p>
+<h1>{{VIDEO_TITLE}}</h1>
+<p class="links"><a class="yt-link" href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer">Open on YouTube ↗</a></p>
+</header>
+
+<div class="watch">
+
+<div class="stage">
+<!-- @local -->
+<div id="yt-facade" class="player" data-video-id="{{VIDEO_ID}}" data-autoload>
+<a class="watch-link" href="{{VIDEO_URL}}" target="_blank" rel="noopener noreferrer">Watch on YouTube ↗</a>
+<p class="player-note" id="file-note" hidden>YouTube does not play from a file. Start a server in the folder of this report (<code>python3 -m http.server 8765</code>), then open <a href="http://localhost:8765/">localhost:8765</a>.</p>
+</div>
+<!-- @end -->
+<!-- @share -->
+{{PLAYER_PANEL}}
+<!-- @end -->
+<div class="nowbar" hidden>
+<button type="button" class="tool icon" id="sec-prev" aria-label="Previous section" title="Previous section [p]"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3 2v12M13 2 6 8l7 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
+<button type="button" class="tool icon" id="sec-next" aria-label="Next section" title="Next section [n]"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M13 2v12M3 2l7 6-7 6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
+<p class="now"><span id="now-idx"></span><span id="now-title"></span></p>
+<span class="clock" id="clock"></span>
+<button type="button" class="tool" id="speed" title="Playback speed [, and .]">1×</button>
+</div>
+<div class="tabs" role="tablist" aria-label="Report" hidden>
+<button type="button" role="tab" id="tab-read" data-tab="read" aria-selected="true" aria-controls="read">Read</button>
+<button type="button" role="tab" id="tab-outline" data-tab="outline" aria-selected="false" aria-controls="outline">Outline</button>
+</div>
+</div>
+
+<section class="outline" id="outline" aria-labelledby="outline-h">
+<div class="sec-head">
+<h2 id="outline-h">Outline</h2>
+<button type="button" class="tool quiet" id="outline-btn" aria-pressed="false" title="Show every section's description [o]" hidden>Details</button>
+</div>
+<ol class="topics" data-duration="{{DURATION_S}}">
+{{OUTLINE}}
+</ol>
+</section>
+
+<div class="rail">
+<!-- @local -->
+<a class="brand" href="../index.html" title="Back to your gallery"><svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg><span>Gallery</span></a>
+<!-- @end -->
+<!-- @share -->
+<a class="brand" href="/" title="What is video-lens?"><svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg><span>video-lens</span></a>
+<!-- @end -->
+<span class="rail-gap"></span>
+<button type="button" class="tool" id="md-copy" title="Copy the report as Markdown [e]" hidden>Copy Markdown</button>
+<button type="button" class="tool icon" id="md-save" aria-label="Download as Markdown file" title="Download as Markdown file" hidden><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg></button>
+<button type="button" class="tool icon" id="help-btn" aria-label="Keyboard shortcuts and info" title="Keyboard shortcuts and info [?]" hidden>?</button>
+<button type="button" class="tool icon" id="theme-btn" aria-label="Switch between light and dark" title="Light or dark [t]" hidden><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+</div>
+
+</div>
+
+<div class="divider" id="divider" role="separator" aria-orientation="vertical" aria-label="Width of the video pane" tabindex="0" title="Drag to resize · double-click to reset"></div>
+
+<div class="doc">
+<main id="read">
+
+<section id="summary" aria-labelledby="summary-h">
+<h2 id="summary-h">Summary</h2>
+{{SUMMARY}}
+</section>
+
+<section id="takeaway" aria-labelledby="takeaway-h">
+<h2 id="takeaway-h">Takeaway</h2>
+{{TAKEAWAY}}
+</section>
+
+<section id="key-points" aria-labelledby="key-points-h">
+<div class="sec-head">
+<h2 id="key-points-h">Key points</h2>
+<button type="button" class="tool quiet" id="skim-btn" aria-pressed="false" title="Headline and first sentence only; open a point to read on [s]" hidden>Skim</button>
+</div>
+<ol class="kp-list">
+{{KEY_POINTS}}
+</ol>
+</section>
+
+<!-- @local -->
+{{DESCRIPTION_SECTION}}
+<!-- @end -->
+</main>
+
+<footer class="colophon">
+<!-- @local -->
+<p class="gen">Written by an AI model with <a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">video-lens</a><span id="gen-facts"></span>. It can be wrong; the video is the source.</p>
+<!-- @end -->
+<!-- @share -->
+<p>Summary written by a video-lens user with an AI model. Video © its creator, played from YouTube only after you click. <a href="https://www.youtube.com/t/terms">YouTube Terms</a> · <a href="https://policies.google.com/privacy">Google Privacy Policy</a></p>
+<p><a href="/">Made with video-lens</a> · <a href="{{REPORT_URL}}">Report this page</a> · <a href="/legal/imprint">Imprint</a> · <a href="/legal/privacy">Privacy</a> · <a href="/legal/terms">Terms</a></p>
+<!-- @end -->
+</footer>
+</div>
+
+</div>
+
+<dialog id="help" aria-labelledby="help-h" tabindex="-1">
+<button type="button" class="tool icon" id="help-close" aria-label="Close">×</button>
+<h2 id="help-h">Keyboard</h2>
+<dl class="keys">
+<dt><kbd>k</kbd> <kbd>Space</kbd></dt><dd>Play or pause</dd>
+<dt><kbd>j</kbd> <kbd>l</kbd></dt><dd>Back or forward 10 s</dd>
+<dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Back or forward 5 s</dd>
+<dt><kbd>p</kbd> <kbd>n</kbd></dt><dd>Previous or next section</dd>
+<dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>Slower or faster</dd>
+<dt><kbd>c</kbd> <kbd>m</kbd> <kbd>f</kbd></dt><dd>Captions, mute, fullscreen</dd>
+<dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Video pane small, medium, large</dd>
+<dt><kbd>o</kbd></dt><dd>Outline: show every description</dd>
+<dt><kbd>s</kbd></dt><dd>Key points: skim or full</dd>
+<dt><kbd>e</kbd></dt><dd>Copy the report as Markdown</dd>
+<dt><kbd>t</kbd></dt><dd>Light or dark</dd>
+<dt><kbd>?</kbd></dt><dd>This help</dd>
+</dl>
+<h2>About</h2>
+<p>video-lens turns a YouTube video into this report: a summary, the takeaway, key points and a timed outline beside the player. <a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">video-lens on GitHub ↗</a></p>
+</dialog>
+
+<!-- @local -->
+<script type="application/json" id="video-lens-meta">{{VIDEO_LENS_META}}</script>{{VIDEO_LENS_DATA}}
+<!-- @end -->
 </body>
-
 </html>

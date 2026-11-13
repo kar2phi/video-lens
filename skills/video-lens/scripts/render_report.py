@@ -551,6 +551,31 @@ def _build_share_data(data: dict, meta: dict, items: dict) -> dict:
     }
 
 
+def _page_lang(data: dict, video_id: str) -> str:
+    """`<html lang>`: the report is written in the transcript's language. The sidecar names
+    the audio's language, which is the transcript's unless the language fell back; else ""."""
+    lang = str(_sidecar(video_id).get("lang", ""))
+    fallback = SHARE_NOTES[0][0] in str(data.get("META_LINE", ""))
+    return lang if SHARE_LANG_RE.fullmatch(lang) and not fallback else ""
+
+
+def _duration_seconds(data: dict, video_id: str) -> int:
+    """`ol.topics[data-duration]`: the sidecar's seconds, else DURATION ("12:34", "1h 36m",
+    floored to the minute), else 0. The viewer uses the player's own duration once loaded."""
+    seconds = _sidecar(video_id).get("durationS")
+    if not isinstance(seconds, bool) and isinstance(seconds, int) and 0 <= seconds <= 86400:
+        return seconds
+    text = str(data.get("DURATION", "")).strip()
+    clock = CLOCK_RE.fullmatch(text)
+    if clock:
+        h, m, s = clock.groups()
+        return int(h or 0) * 3600 + int(m) * 60 + int(s)
+    match = DURATION_RE.fullmatch(text)
+    if match:
+        return (int(match.group(1) or 0) * 60 + int(match.group(2))) * 60
+    return 0
+
+
 def _serialize_share_data(share: dict | None) -> str:
     """The data block appended after the meta block, or "" (the report is then not shareable)."""
     if share is None:
@@ -832,6 +857,8 @@ def sanitise_payload(data: dict, output_path: str = "") -> dict:
 
     meta = _build_meta_dict(data, clean["KEY_POINTS"], output_path)
     clean["VIDEO_LENS_META"] = _serialize_meta(meta)
+    clean["LANG"] = _page_lang(data, meta["videoId"])
+    clean["DURATION_S"] = str(_duration_seconds(data, meta["videoId"]))
     clean["VIDEO_LENS_DATA"] = _serialize_share_data(
         _build_share_data(data, meta, share_items) if share_items else None)
 
@@ -854,6 +881,18 @@ def validate_output_path(path: str) -> pathlib.Path:
     return resolved
 
 
+GENERATED_LINE_RE = re.compile(r"\A<!-- GENERATED[^\n]*-->\n")
+OTHER_MODE_RE = re.compile(r"<!-- @share -->.*?<!-- @end -->\n?", re.S)
+MODE_MARKER_RE = re.compile(r"<!-- @local -->\n?|<!-- @end -->\n?")
+
+
+def _local_build(template: str) -> str:
+    """The local page from template.html: without the build's "generated" line, and with
+    any share-mode block of the viewer source (035 §4.4 rule 4) dropped."""
+    template = GENERATED_LINE_RE.sub("", template)
+    return MODE_MARKER_RE.sub("", OTHER_MODE_RE.sub("", template))
+
+
 def _render_clean(data: dict, output_path: str, template_path: pathlib.Path | None = None) -> str:
     """Substitute pre-sanitised data into template and write to output_path.
 
@@ -863,8 +902,13 @@ def _render_clean(data: dict, output_path: str, template_path: pathlib.Path | No
     if template_path is None:
         template_path = find_template()
 
-    html = template_path.read_text(encoding="utf-8")
-    data = {"VIDEO_LENS_DATA": "", **data}   # pre-built clean dicts from older callers
+    html = _local_build(template_path.read_text(encoding="utf-8"))
+    # Defaults for pre-built clean dicts from older callers. The Python renderer only ever
+    # writes the local report. SUMMARY and TAKEAWAY are one paragraph each: the shell's
+    # slot has no wrapper.
+    data = {"VIDEO_LENS_DATA": "", "LANG": "", "DURATION_S": "0", **data, "VL_MODE": "local"}
+    for key in ("SUMMARY", "TAKEAWAY"):
+        data[key] = f"<p>{data.get(key, '')}</p>"
 
     # Collect the template's own placeholders *before* substituting: agent content
     # may legitimately quote a `{{TOKEN}}` (videos about Jinja, Handlebars, GitHub
