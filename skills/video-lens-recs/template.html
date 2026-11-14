@@ -6,7 +6,7 @@
   <title>{{PAGE_TITLE}}</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23c0392b'/><text x='16' y='21' font-family='sans-serif' font-size='13' font-weight='700' fill='%23ffffff' text-anchor='middle' letter-spacing='-0.5'>VL</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <script>
     // Same localStorage key as the gallery and the reports, so the theme carries over.
     (function () {
@@ -104,7 +104,7 @@
     body {
       background: var(--paper);
       color: var(--text);
-      font-family: 'DM Sans', system-ui, sans-serif;
+      font-family: var(--sans);
       font-size: 15px;
       line-height: 1.6;
       min-height: 100vh;
@@ -121,19 +121,20 @@
     }
     .head-row { display: flex; align-items: center; gap: 16px; max-width: 980px; margin: 0 auto; }
     .logo {
-      font-family: 'DM Serif Display', Georgia, serif;
-      font-size: 20px;
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: 17px;
       color: var(--strong);
       text-decoration: none;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.01em;
       white-space: nowrap;
     }
     .logo svg { vertical-align: middle; margin-right: 6px; border-radius: 50%; }
     .logo .sep { color: var(--label); margin: 0 6px; }
     .title-block { min-width: 0; }
     .title-block h1 {
-      font-family: 'DM Serif Display', Georgia, serif;
-      font-weight: 400;
+      font-family: var(--sans);
+      font-weight: 600;
       font-size: 20px;
       color: var(--strong);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -193,15 +194,15 @@
     }
     .pick-body { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
     .pick h3 {
-      font-family: 'DM Serif Display', Georgia, serif;
-      font-weight: 400; font-size: 17px; line-height: 1.3;
+      font-family: var(--sans);
+      font-weight: 600; font-size: 17px; line-height: 1.3;
       color: var(--strong);
       display: flex; gap: 10px; align-items: baseline;
     }
     .pick h3 a { color: inherit; text-decoration: none; }
     .pick h3 a:hover { color: var(--accent); }
     .num {
-      font-family: 'DM Sans', system-ui, sans-serif;
+      font-family: var(--sans);
       font-size: 12px; font-weight: 600; color: var(--on-accent);
       background: var(--accent);
       min-width: 22px; height: 22px; border-radius: 11px;
@@ -217,7 +218,7 @@
     }
     .chip-perf { background: var(--accent-soft); color: var(--accent); }
     .chip-waiting { font-style: italic; }
-    .reason { font-size: 14px; color: var(--text); }
+    .reason { font-family: var(--serif); font-size: 15px; color: var(--text); }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
     .btn {
       font-family: inherit; font-size: 12px; font-weight: 500;
@@ -253,7 +254,7 @@
     .also-main a { color: var(--strong); text-decoration: none; font-weight: 500; }
     .also-main a:hover { color: var(--accent); }
     .also-meta { font-size: 12px; color: var(--muted); }
-    .also-reason { font-size: 13px; color: var(--text); }
+    .also-reason { font-family: var(--serif); font-size: 14px; color: var(--text); }
 
     footer {
       max-width: 980px; margin: 8px auto 40px; padding: 14px 24px 0;

@@ -201,3 +201,18 @@ def test_dev_sample_is_v1_and_renders_without_warnings(tmp_path, monkeypatch, ca
     monkeypatch.setattr(rr, "METADATA_DIR", tmp_path / "metadata")
     rr.render_from_payload(dev.CONTENT, str(tmp_path / "sample.html"))
     assert "RENDER_WARN" not in capsys.readouterr().err
+
+
+# 038 D2: one type system on every local page: DM Sans (the only web font, one request) for
+# headlines and interface, Georgia for prose, the ui-monospace stack for code.
+LOCAL_PAGES = ["skills/video-lens/template.html", *bv.TOKEN_PAGES]
+
+
+@pytest.mark.parametrize("rel", LOCAL_PAGES)
+def test_local_pages_use_one_type_system(rel):
+    text = (ROOT / rel).read_text()
+    assert "DM Serif" not in text and "DM Mono" not in text
+    fonts = re.findall(r'href="(https://fonts\.googleapis\.com/css2[^"]*)"', text)
+    assert fonts == ["https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap"], fonts
+    css = _outside_tokens(text)
+    assert not re.findall(r"font-family:\s*['\"]?(?!var\(|inherit)[^;']*DM Sans", css), "name the font through var(--sans)"

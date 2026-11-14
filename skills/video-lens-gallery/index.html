@@ -6,7 +6,7 @@
   <title>video-lens — index</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23c0392b'/><text x='16' y='21' font-family='sans-serif' font-size='13' font-weight='700' fill='%23ffffff' text-anchor='middle' letter-spacing='-0.5'>VL</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -93,7 +93,7 @@
     body {
       background: var(--paper);
       color: var(--text);
-      font-family: 'DM Sans', system-ui, sans-serif;
+      font-family: var(--sans);
       font-size: 15px;
       line-height: 1.6;
       min-height: 100vh;
@@ -115,11 +115,12 @@
     }
 
     .logo {
-      font-family: 'DM Serif Display', Georgia, serif;
-      font-size: 20px;
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: 17px;
       color: var(--strong);
       text-decoration: none;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.01em;
       flex-shrink: 0;
     }
 
@@ -135,7 +136,7 @@
       border-radius: 6px;
       background: var(--paper);
       color: var(--text);
-      font-family: 'DM Sans', system-ui, sans-serif;
+      font-family: var(--sans);
       font-size: 14px;
       outline: none;
       transition: border-color 0.15s, background-color 0.2s;
@@ -236,10 +237,10 @@
       margin: 1.2rem 0 0.6rem;
     }
     #help-modal h3:first-child { margin-top: 0; }
-    #help-modal p { font-size: 0.88rem; line-height: 1.65; margin: 0; color: var(--text); font-family: 'DM Sans', system-ui, sans-serif; }
+    #help-modal p { font-size: 0.88rem; line-height: 1.65; margin: 0; color: var(--text); font-family: var(--sans); }
     .help-shortcuts { display: grid; grid-template-columns: auto 1fr; gap: 0.45rem 1rem; }
     .help-key {
-      font-family: 'DM Mono', 'SF Mono', 'Menlo', monospace;
+      font-family: var(--mono);
       background: var(--pane); color: var(--strong);
       border-radius: 4px; padding: 0.15rem 0.5rem;
       font-size: 0.78rem; white-space: nowrap;
@@ -310,7 +311,7 @@
     .channel-select {
       padding: 4px 10px;
       font-size: 12px;
-      font-family: 'DM Sans', system-ui, sans-serif;
+      font-family: var(--sans);
       background: var(--paper);
       color: var(--text);
       border: 1px solid var(--line);
@@ -401,7 +402,8 @@
     }
 
     .card-title {
-      font-family: 'DM Serif Display', Georgia, serif;
+      font-family: var(--sans);
+      font-weight: 600;
       font-size: 15px;
       line-height: 1.35;
       color: var(--strong);
@@ -424,7 +426,8 @@
     }
 
     .card-summary {
-      font-size: 13px;
+      font-family: var(--serif);
+      font-size: 14px;
       color: var(--text);
       line-height: 1.5;
       display: -webkit-box;
@@ -515,7 +518,8 @@
     }
 
     .list-title {
-      font-family: 'DM Serif Display', Georgia, serif;
+      font-family: var(--sans);
+      font-weight: 600;
       font-size: 14px;
       color: var(--strong);
       text-decoration: none;
@@ -557,7 +561,8 @@
     }
 
     .empty h2 {
-      font-family: 'DM Serif Display', Georgia, serif;
+      font-family: var(--sans);
+      font-weight: 600;
       font-size: 22px;
       margin-bottom: 8px;
     }
@@ -1210,7 +1215,7 @@
     'background:var(--pane);color:var(--strong);' +
     'border-bottom:1px solid var(--pane-line);' +
     'padding:2rem 1.5rem;' +
-    'font-family:"DM Sans",system-ui,sans-serif;'
+    'font-family:var(--sans);'
   );
 
   banner.innerHTML =
@@ -1227,7 +1232,7 @@
     '<p style="font-size:15px;font-weight:600;color:var(--strong);margin:0 0 6px;line-height:1.3;">Serve to enable video playback</p>' +
     '<p style="font-size:12px;color:var(--muted);line-height:1.65;max-width:290px;margin:0 auto;">' +
     'YouTube blocks embeds opened via\u00a0' +
-    '<code style="font-size:10.5px;background:var(--pane-line);padding:1px 5px;border-radius:3px;font-family:monospace">file://</code>' +
+    '<code style="font-size:10.5px;background:var(--pane-line);padding:1px 5px;border-radius:3px;font-family:var(--mono)">file://</code>' +
     '.\u00a0Start a local HTTP server to enable playback.' +
     '</p>' +
     '</div>' +
@@ -1238,7 +1243,7 @@
     '\u2460\u00a0Start server' +
     '</p>' +
     '<div style="background:var(--paper);border:1px solid var(--pane-line);border-radius:8px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;">' +
-    '<code id="fl-cmd" style="flex:1;font-size:11px;font-family:\'SF Mono\',\'Fira Code\',\'Menlo\',monospace;line-height:1.65;word-break:break-all;user-select:all;color:var(--strong);">' + esc(cmd) + '</code>' +
+    '<code id="fl-cmd" style="flex:1;font-size:11px;font-family:var(--mono);line-height:1.65;word-break:break-all;user-select:all;color:var(--strong);">' + esc(cmd) + '</code>' +
     '<button id="fl-copy" style="flex-shrink:0;margin-top:2px;padding:5px 11px;font-size:11px;font-family:inherit;font-weight:500;background:var(--pane);color:var(--muted);border:none;border-radius:5px;cursor:pointer;white-space:nowrap;">Copy</button>' +
     '</div>' +
     '</div>' +
