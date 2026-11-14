@@ -237,3 +237,18 @@ def test_every_mark_is_the_one_mark(rel):
     assert found and set(found) == set(canonical), rel
     assert text.count("VL</text>") == len(found), "a VL mark that is not the canonical one"
     assert 'rel="icon"' in text and "ffd700" not in text
+
+
+# 038 D4: one theme control on every local page: the report's half-circle icon, the shared key
+# "theme", the OS until the reader chooses (nothing written at load), t toggles.
+HALF_CIRCLE = '<path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>'
+
+
+@pytest.mark.parametrize("rel", bv.TOKEN_PAGES)
+def test_theme_control_is_the_reports(rel):
+    text = (ROOT / rel).read_text()
+    assert HALF_CIRCLE in text and 'title="Light or dark [t]"' in text
+    assert "sunPath" not in text and "moonPath" not in text
+    assert "matches ? 'dark' : 'light'" not in text, "data-theme from the OS at load"
+    assert "if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);" in text
+    assert "e.key === 't'" in text and "localStorage.setItem('theme', next)" in text

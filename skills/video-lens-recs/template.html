@@ -8,12 +8,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <script>
-    // Same localStorage key as the gallery and the reports, so the theme carries over.
+    // The reader's choice of light or dark, shared with the reports (key "theme"). Without one
+    // the page follows the OS through tokens.css; nothing is written at load (038 D4).
     (function () {
       var t = null;
       try { t = localStorage.getItem('theme'); } catch (e) {}
-      if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      document.documentElement.dataset.theme = t;
+      if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
   <style>
@@ -290,9 +290,7 @@
     </div>
     <div class="head-right">
       <a class="gallery-link" href="../index.html">← Gallery</a>
-      <button class="icon-btn" id="themeBtn" type="button" title="Toggle theme" aria-label="Toggle dark/light mode">
-        <svg id="theme-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
-      </button>
+      <button class="icon-btn" id="themeBtn" type="button" title="Light or dark [t]" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
     </div>
   </div>
   <nav>{{NAV}}</nav>
@@ -306,17 +304,22 @@
 <script type="application/json" id="video-lens-recs-meta">{{RECS_META}}</script>
 <script>
 (function () {
-  var sunPath = '<circle cx="12" cy="12" r="4.5"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.87" y2="5.87"/><line x1="18.13" y1="18.13" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.87" y2="18.13"/><line x1="18.13" y1="5.87" x2="19.78" y2="4.22"/>';
-  var moonPath = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
-  function applyTheme(t) {
-    document.documentElement.dataset.theme = t;
-    document.getElementById('theme-icon').innerHTML = t === 'dark' ? sunPath : moonPath;
-  }
-  applyTheme(document.documentElement.dataset.theme || 'light');
-  document.getElementById('themeBtn').addEventListener('click', function () {
-    var next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  // Theme (038 D4: as in the report).
+  function toggleTheme() {
+    var root = document.documentElement;
+    var dark = root.getAttribute('data-theme')
+      ? root.getAttribute('data-theme') === 'dark'
+      : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var next = dark ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
     try { localStorage.setItem('theme', next); } catch (e) {}
-    applyTheme(next);
+  }
+  document.getElementById('themeBtn').addEventListener('click', toggleTheme);
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var tag = document.activeElement ? document.activeElement.tagName : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.key === 't') toggleTheme();
   });
 
   var toast = document.getElementById('toast');
