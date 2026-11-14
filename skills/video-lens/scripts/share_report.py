@@ -21,6 +21,7 @@ Local state:
 """
 import argparse
 import base64
+import http.client
 import json
 import os
 import re
@@ -179,7 +180,14 @@ def _once(method: str, url: str, data: bytes | None, headers: dict, timeout: flo
 
 def request(method: str, url: str, body: dict | None = None, key: str | None = None,
             install: str | None = None, retries: int = RETRIES, timeout: float = TIMEOUT) -> Response:
-    """Network errors and 5xx are retried with backoff; `paused` (503) and 4xx are not."""
+    """Network errors and 5xx are retried with backoff; `paused` (503) and 4xx are not.
+
+    A POST creates a share, so it is retried only when the request cannot have reached the
+    service (urllib's URLError: DNS, refused, a failure while connecting or sending) or on a 5xx
+    (the Worker writes in one atomic batch). When the answer is lost after the request was sent
+    (a read timeout, a reset), the share may exist without its manage key here, and a second POST
+    would make another one: stop and say so.
+    """
     headers = {"User-Agent": f"video-lens-share/{skill_version()}", "Accept": "application/json"}
     data = None
     if body is not None:
@@ -192,8 +200,15 @@ def request(method: str, url: str, body: dict | None = None, key: str | None = N
     for attempt in range(retries + 1):
         try:
             resp = _once(method, url, data, headers, timeout)
-        except (urllib.error.URLError, OSError, ValueError):
+        except urllib.error.URLError:
             resp = None
+        except (OSError, ValueError, http.client.HTTPException):
+            resp = None
+            if method == "POST":
+                raise ShareError("SHARE_NETWORK", "the connection to the share service broke after the "
+                                 "report was sent; a link may have been made that this machine cannot "
+                                 "revoke (the notice form on the service's site can remove it). Try "
+                                 "again later; a new attempt makes a new link")
         if resp is not None and not (resp.status >= 500 and resp.body.get("error") != "paused"):
             return resp
         if attempt < retries:

@@ -10,6 +10,7 @@ import os
 import stat
 import subprocess
 import sys
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -482,6 +483,49 @@ def test_every_third_request_failing_still_works(env):
         assert env.run("report", path)[0] == 0
     assert env.run("list")[0] == 0
     assert len(env.fake.state.shares) == 1
+
+
+def test_post_is_not_retried_when_the_answer_is_lost_after_sending(env, monkeypatch):
+    env.accept()
+    real = sr._once
+
+    def lost(method, url, data, headers, timeout):
+        resp = real(method, url, data, headers, timeout)   # the service commits the share
+        if method == "POST":
+            raise TimeoutError("timed out")
+        return resp
+
+    monkeypatch.setattr(sr, "_once", lost)
+    code, _, err = env.run("report", env.report())
+    assert code == 1 and err.startswith("ERROR:SHARE_NETWORK:")
+    assert "cannot revoke" in err
+    assert [x for x in env.api_log() if x.startswith("POST")] == ["POST /api/v1/shares 201"]
+    assert not sr.registry_path().exists() or env.registry() == []
+
+
+def test_post_is_retried_when_the_request_never_left(env, monkeypatch):
+    env.accept()
+    real = sr._once
+    calls = []
+
+    def refused_once(method, url, data, headers, timeout):
+        calls.append(method)
+        if len(calls) == 1:
+            raise urllib.error.URLError(ConnectionRefusedError(61, "refused"))
+        return real(method, url, data, headers, timeout)
+
+    monkeypatch.setattr(sr, "_once", refused_once)
+    code, out, err = env.run("report", env.report())
+    assert code == 0, err
+    assert calls[:2] == ["POST", "POST"] and len(env.fake.state.shares) == 1
+
+
+def test_paused_post_is_not_retried(env):
+    env.accept()
+    env.fault(match="POST /api/v1/shares", status=503, error="paused", times=10)
+    code, _, err = env.run("report", env.report())
+    assert code == 1 and err.startswith("ERROR:SHARE_PAUSED:")
+    assert sum(1 for x in env.api_log() if x.startswith("POST")) == 1
 
 
 def test_network_error(env, monkeypatch):
