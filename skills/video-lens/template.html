@@ -108,9 +108,36 @@
 .tool.icon { width: 1.9rem; padding: 0; display: inline-grid; place-items: center; font-size: 0.9rem; }
 .tool.quiet { min-height: 1.6rem; font-size: 0.72rem; }
 .tool[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.tool.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.tool.primary:hover { filter: brightness(1.08); color: var(--on-accent); }
+a.tool { display: inline-flex; align-items: center; text-decoration: none; }
+
+/* Chips: tags, filters, facts. One look; .active (a chosen filter) and .accent (a fact that stands
+   out) take the accent. A chip that is a button or a link reacts to the pointer. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font: 500 0.72rem/1.5 var(--sans);
+  padding: 0.05rem 0.55rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--muted);
+  white-space: nowrap;
+  text-decoration: none;
+}
+button.chip, a.chip { cursor: pointer; }
+button.chip:hover, a.chip:hover { color: var(--strong); border-color: var(--muted); }
+.chip.active, .chip.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); }
+
+/* Cards: a raised block on the paper (gallery cards, Discover picks). */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-sm); }
+
 
 /* ── Help: a <dialog>, ? opens it, Esc closes ── */
 dialog {
+  margin: auto; /* centred, also on a page that resets margins */
   width: min(26rem, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
   padding: 1.5rem 1.6rem;

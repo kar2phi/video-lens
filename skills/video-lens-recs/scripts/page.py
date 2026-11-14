@@ -365,7 +365,7 @@ def _e(s) -> str:
     return html.escape(str(s or ""), quote=True)
 
 
-def summarize_button(url: str, raycast: bool, cls: str = "btn btn-primary") -> str:
+def summarize_button(url: str, raycast: bool, cls: str = "tool primary") -> str:
     if raycast:
         return (f'<a class="{cls}" href="raycast://script-commands/video-lens?arguments='
                 f'{_e(urllib.parse.quote(url, safe=""))}">⚡ Summarize</a>')
@@ -377,7 +377,8 @@ def item_html(it: dict, raycast: bool) -> str:
     c = it["candidate"]
     vid = c["videoId"]
     url = video_url(vid)
-    chip_html = "".join(f'<span class="chip chip-{_e(k)}">{_e(t)}</span>' for k, t in it["chips"])
+    chip_html = "".join(f'<span class="chip chip-{_e(k)}{" accent" if k == "perf" else ""}">{_e(t)}</span>'
+                        for k, t in it["chips"])
     meta = [c.get("channel") or ""]
     if c.get("duration"):
         meta.append(_minutes(c["duration"]))
@@ -386,7 +387,7 @@ def item_html(it: dict, raycast: bool) -> str:
     meta_html = " · ".join(_e(m) for m in meta if m)
     dur = f'<span class="dur">{_e(_clock(c["duration"]))}</span>' if c.get("duration") else ""
     return (
-        f'<article class="pick" id="pick-{it["num"]}" data-video="{_e(vid)}">'
+        f'<article class="pick card" id="pick-{it["num"]}" data-video="{_e(vid)}">'
         f'<a class="thumb" href="{_e(url)}" target="_blank" rel="noopener noreferrer">'
         f'<img src="https://i.ytimg.com/vi/{_e(vid)}/mqdefault.jpg" alt="" loading="lazy" decoding="async">{dur}</a>'
         f'<div class="pick-body">'
@@ -394,8 +395,8 @@ def item_html(it: dict, raycast: bool) -> str:
         f'<p class="pick-meta">{meta_html}</p>'
         f'<div class="chips">{chip_html}</div>'
         + (f'<p class="reason">{_e(it["reason"])}</p>' if it["reason"] else "")
-        + f'<div class="actions"><a class="btn" href="{_e(url)}" target="_blank" rel="noopener noreferrer">▶ Watch</a>'
-        f'{summarize_button(url, raycast)}<button class="btn" type="button" data-copy="{_e(url)}">⧉ Copy link</button></div>'
+        + f'<div class="actions"><a class="tool" href="{_e(url)}" target="_blank" rel="noopener noreferrer">▶ Watch</a>'
+        f'{summarize_button(url, raycast)}<button class="tool" type="button" data-copy="{_e(url)}">⧉ Copy link</button></div>'
         f'</div></article>'
     )
 
@@ -412,7 +413,7 @@ def also_html(rows: list, raycast: bool) -> str:
             f'<li><div class="also-main"><a href="{_e(url)}" target="_blank" rel="noopener noreferrer">{_e(c["title"])}</a>'
             f'<span class="also-meta">{" · ".join(_e(m) for m in meta if m)}</span>'
             + (f'<span class="also-reason">{_e(r["reason"])}</span>' if r["reason"] else "")
-            + f'</div>{summarize_button(url, raycast, "btn btn-small")}</li>')
+            + f'</div>{summarize_button(url, raycast, "tool quiet")}</li>')
     return ('<section id="sec-also"><details class="also"><summary>Also in the window '
             f'<span>{len(rows)}</span></summary><ol>{"".join(lis)}</ol></details></section>')
 
@@ -437,13 +438,13 @@ def page_html(data: dict, items: list, also: list, cfg: dict, date: str) -> str:
     sections, nav = [], []
     for i, ((page_no, section), its) in enumerate(blocks):
         title = section_title(section, page_no, topics)
-        nav.append(f'<a class="nav-pill" href="#sec-{i}">{_e(title)} <span>{len(its)}</span></a>')
+        nav.append(f'<a class="chip nav-pill" href="#sec-{i}">{_e(title)} <span>{len(its)}</span></a>')
         sections.append(f'<section id="sec-{i}"><h2>{_e(title)}</h2>'
                         + "".join(item_html(it, raycast) for it in its) + "</section>")
     if not sections:
         sections.append('<section><p class="empty">No picks this time.</p></section>')
     if also:
-        nav.append(f'<a class="nav-pill" href="#sec-also">Also in the window <span>{len(also)}</span></a>')
+        nav.append(f'<a class="chip nav-pill" href="#sec-also">Also in the window <span>{len(also)}</span></a>')
         sections.append(also_html(also, raycast))
     head = header_lines(data)
     meta = {"run": data["run"], "topic": data["topic"], "label": data["label"], "date": date,

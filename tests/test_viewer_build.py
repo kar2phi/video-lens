@@ -285,3 +285,20 @@ def test_page_titles_follow_one_pattern():
     import page
     src = Path(page.__file__).read_text()
     assert '"PAGE_TITLE": _e(f"Discover: {data[\'label\']} · video-lens"),' in src
+
+
+# 038 D7: one component inventory (viewer/components.css): .tool buttons, .chip, .card. The old
+# per-page buttons and chips are gone from the gallery and Discover pages and the recs renderer.
+@pytest.mark.parametrize("rel", [*bv.SHARED_PAGES, "skills/video-lens-recs/scripts/page.py"])
+def test_pages_use_the_shared_components(rel):
+    text = _outside_shared((ROOT / rel).read_text())
+    for old in ("icon-btn", "reset-btn", '"btn', "btn-primary", "btn-small", ".nav-pill {", ".chip {", "chip-perf {"):
+        assert old not in text, (rel, old)
+    components = (ROOT / "viewer" / "components.css").read_text()
+    for rule in (".tool {", ".tool.icon", ".tool.quiet", ".tool.primary", ".chip {", ".chip.active", ".card {"):
+        assert rule in components, rule
+
+
+def test_gallery_card_summary_is_plain_text():
+    text = (ROOT / "skills/video-lens-gallery/index.html").read_text()
+    assert "summary.textContent = plainText(r.summary);" in text

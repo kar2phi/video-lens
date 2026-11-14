@@ -119,9 +119,36 @@
 .tool.icon { width: 1.9rem; padding: 0; display: inline-grid; place-items: center; font-size: 0.9rem; }
 .tool.quiet { min-height: 1.6rem; font-size: 0.72rem; }
 .tool[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.tool.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.tool.primary:hover { filter: brightness(1.08); color: var(--on-accent); }
+a.tool { display: inline-flex; align-items: center; text-decoration: none; }
+
+/* Chips: tags, filters, facts. One look; .active (a chosen filter) and .accent (a fact that stands
+   out) take the accent. A chip that is a button or a link reacts to the pointer. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font: 500 0.72rem/1.5 var(--sans);
+  padding: 0.05rem 0.55rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--muted);
+  white-space: nowrap;
+  text-decoration: none;
+}
+button.chip, a.chip { cursor: pointer; }
+button.chip:hover, a.chip:hover { color: var(--strong); border-color: var(--muted); }
+.chip.active, .chip.accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); }
+
+/* Cards: a raised block on the paper (gallery cards, Discover picks). */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-sm); }
+
 
 /* ── Help: a <dialog>, ? opens it, Esc closes ── */
 dialog {
+  margin: auto; /* centred, also on a page that resets margins */
   width: min(26rem, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
   padding: 1.5rem 1.6rem;
@@ -190,21 +217,8 @@ dialog a { color: var(--accent); }
     .head-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .gallery-link { font-size: 13px; color: var(--accent); text-decoration: none; white-space: nowrap; }
     .gallery-link:hover { text-decoration: underline; }
-    .icon-btn {
-      width: 30px; height: 30px; border-radius: 50%;
-      border: 1px solid var(--pane-line);
-      background: transparent; color: var(--muted); cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-    }
     nav { display: flex; flex-wrap: wrap; gap: 6px; max-width: 980px; margin: 10px auto 0; }
-    .nav-pill {
-      font-size: 12px; font-weight: 500;
-      padding: 3px 10px; border-radius: 20px;
-      background: var(--paper); color: var(--muted);
-      text-decoration: none; white-space: nowrap;
-    }
-    .nav-pill span { color: var(--label); margin-left: 2px; }
-    .nav-pill:hover { background: var(--accent-soft); color: var(--accent); }
+    .nav-pill span { color: var(--label); }
 
     main { max-width: 980px; margin: 0 auto; padding: 24px; }
     section + section { margin-top: 28px; }
@@ -218,10 +232,6 @@ dialog a { color: var(--accent); }
       display: grid;
       grid-template-columns: 240px 1fr;
       gap: 18px;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow-sm);
       padding: 14px;
       margin-bottom: 12px;
     }
@@ -258,27 +268,9 @@ dialog a { color: var(--accent); }
     }
     .pick-meta { font-size: 13px; color: var(--muted); }
     .chips { display: flex; flex-wrap: wrap; gap: 5px; }
-    .chip {
-      font-size: 11px; font-weight: 500;
-      padding: 2px 8px; border-radius: 12px;
-      background: var(--paper); color: var(--muted);
-    }
-    .chip-perf { background: var(--accent-soft); color: var(--accent); }
     .chip-waiting { font-style: italic; }
     .reason { font-family: var(--serif); font-size: 15px; color: var(--text); }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
-    .btn {
-      font-family: inherit; font-size: 12px; font-weight: 500;
-      padding: 5px 12px; border-radius: 6px;
-      border: 1px solid var(--line);
-      background: transparent; color: var(--text);
-      cursor: pointer; text-decoration: none; white-space: nowrap;
-    }
-    .btn:hover { border-color: var(--accent); color: var(--accent); }
-    .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-    .btn-primary:hover { opacity: 0.88; color: var(--on-accent); }
-    .btn-small { font-size: 11px; padding: 3px 9px; flex-shrink: 0; }
-
     .also summary {
       cursor: pointer; list-style: none;
       font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
@@ -337,8 +329,8 @@ dialog a { color: var(--accent); }
     </div>
     <div class="head-right">
       <a class="gallery-link" href="../index.html">← Gallery</a>
-      <button class="icon-btn" id="helpBtn" type="button" title="Keyboard shortcuts and info [?]" aria-label="Keyboard shortcuts and info">?</button>
-      <button class="icon-btn" id="themeBtn" type="button" title="Light or dark [t]" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+      <button class="tool icon" id="helpBtn" type="button" title="Keyboard shortcuts and info [?]" aria-label="Keyboard shortcuts and info">?</button>
+      <button class="tool icon" id="themeBtn" type="button" title="Light or dark [t]" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
     </div>
   </div>
   <nav>{{NAV}}</nav>
