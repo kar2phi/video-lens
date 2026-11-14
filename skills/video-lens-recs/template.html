@@ -171,6 +171,86 @@ dialog p { margin: 0; }
 kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px solid var(--pane-line); border-radius: 4px; padding: 0.2rem 0.4rem; color: var(--strong); }
 dialog h2 { font: 600 0.72rem/1.3 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--label); }
 dialog a { color: var(--accent); }
+/* The same About on every page (049 §3): the site and the source, side by side. */
+.help-links { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; margin-top: 0.6rem; font-weight: 500; }
+
+/* ── Theme menu: Light, Dark, Auto (049 §2, the landing's menu, 048 §2). The button keeps the
+   half-circle icon; Auto (no data-theme, nothing stored) follows the OS and is the default. ── */
+.theme { position: relative; }
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 50;
+  min-width: 9.5rem;
+  padding: 0.3rem;
+  background: var(--card);
+  border: 1px solid var(--pane-line);
+  border-radius: 9px;
+  box-shadow: var(--shadow);
+}
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  font: 500 0.86rem/1 var(--sans);
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+.menu button:hover, .menu button:focus-visible { background: var(--pane); color: var(--strong); outline: none; }
+.menu button svg { width: 1rem; height: 1rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.menu button::after { content: ''; margin-left: auto; width: 0.42rem; height: 0.42rem; border-radius: 50%; }
+.menu button[aria-checked="true"] { color: var(--strong); }
+.menu button[aria-checked="true"]::after { background: var(--accent); }
+.menu[hidden] { display: none; }
+
+/* ── Top bar of the gallery and recommendations pages: the landing's frame (048 §1, 049 §1).
+   The mark and name on the left; the page switch, help and theme on the right. ── */
+.wrap { max-width: 72rem; margin: 0 auto; padding-inline: clamp(16px, 4vw, 2.5rem); }
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar .wrap { display: flex; align-items: center; gap: 0.6rem; height: 3.5rem; }
+.topbar .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-right: auto;
+  font: 600 1rem/1 var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--strong);
+  text-decoration: none;
+  white-space: nowrap;
+}
+/* The mark's viewBox leaves a unit of air around the circle, so the box never cuts it (048 §1). */
+.topbar .mark { display: block; width: 1.75rem; height: 1.75rem; flex: none; overflow: visible; }
+.pages { display: flex; align-self: stretch; gap: 1.4rem; margin-right: 0.9rem; font: 500 0.88rem/1 var(--sans); }
+.pages a, .pages span { display: flex; align-items: center; color: var(--muted); text-decoration: none; white-space: nowrap; }
+.pages a:hover { color: var(--strong); }
+.pages [aria-current="page"] { color: var(--strong); box-shadow: inset 0 -2px var(--accent); }
+.pages [aria-disabled="true"] { opacity: 0.55; cursor: default; }
+.topbar .tool.icon { width: 2.1rem; min-height: 2.1rem; color: var(--strong); font-size: 0.95rem; }
+.topbar .tool.icon svg { width: 1rem; height: 1rem; }
+@media (max-width: 480px) {
+  .topbar .wrap { gap: 0.4rem; }
+  .topbar .brand span { display: none; }
+  .pages { gap: 1rem; margin-right: 0.3rem; }
+}
+@media (max-width: 360px) {
+  .pages { gap: 0.75rem; margin-right: 0; font-size: 0.82rem; }
+}
 /* END SHARED */
 
     html { scroll-behavior: smooth; scroll-padding-top: 120px; }
@@ -185,42 +265,21 @@ dialog a { color: var(--accent); }
       transition: background-color 0.2s, color 0.2s;
     }
 
-    header {
-      background: var(--pane);
-      border-bottom: 1px solid var(--pane-line);
-      padding: 14px 24px 12px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .head-row { display: flex; align-items: center; gap: 16px; max-width: 980px; margin: 0 auto; }
-    .logo {
+    /* The page's own head under the top bar: the topic, its window, and the section chips. */
+    .page-head { padding-top: 26px; }
+    .page-head h1 {
       font-family: var(--sans);
       font-weight: 600;
-      font-size: 17px;
-      color: var(--strong);
-      text-decoration: none;
+      font-size: 24px;
+      line-height: 1.25;
       letter-spacing: -0.01em;
-      white-space: nowrap;
-    }
-    .logo svg { vertical-align: middle; margin-right: 6px; border-radius: 50%; }
-    .logo .sep { color: var(--label); margin: 0 6px; }
-    .title-block { min-width: 0; }
-    .title-block h1 {
-      font-family: var(--sans);
-      font-weight: 600;
-      font-size: 20px;
       color: var(--strong);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .subtitle { font-size: 12px; color: var(--muted); }
-    .head-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-    .gallery-link { font-size: 13px; color: var(--accent); text-decoration: none; white-space: nowrap; }
-    .gallery-link:hover { text-decoration: underline; }
-    nav { display: flex; flex-wrap: wrap; gap: 6px; max-width: 980px; margin: 10px auto 0; }
+    .subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .page-head nav { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
     .nav-pill span { color: var(--label); }
 
-    main { max-width: 980px; margin: 0 auto; padding: 24px; }
+    main.wrap { padding-top: 24px; padding-bottom: 24px; }
     section + section { margin-top: 28px; }
     section h2 {
       font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
@@ -295,11 +354,8 @@ dialog a { color: var(--accent); }
     .also-meta { font-size: 12px; color: var(--muted); }
     .also-reason { font-family: var(--serif); font-size: 14px; color: var(--text); }
 
-    footer {
-      max-width: 980px; margin: 8px auto 40px; padding: 14px 24px 0;
-      border-top: 1px solid var(--line);
-      font-size: 12px; color: var(--label);
-    }
+    footer.wrap { margin-bottom: 40px; font-size: 12px; color: var(--label); }
+    footer.wrap p { border-top: 1px solid var(--line); padding-top: 14px; }
 
     #toast {
       position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
@@ -310,35 +366,42 @@ dialog a { color: var(--accent); }
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
     @media (max-width: 640px) {
-      header { padding: 12px 16px 10px; }
-      .head-row { flex-wrap: wrap; gap: 8px; }
-      .logo .wordmark { display: none; }
-      main { padding: 16px; }
+      .page-head { padding-top: 18px; }
+      .page-head h1 { font-size: 20px; }
+      main.wrap { padding-top: 16px; }
       .pick { grid-template-columns: 1fr; }
-      footer { padding: 14px 16px 0; }
     }
   </style>
 </head>
 <body>
-<header>
-  <div class="head-row">
-    <a class="logo" href="../index.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="24"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg><span class="wordmark">video-lens</span><span class="sep">·</span>Discover</a>
-    <div class="title-block">
-      <h1>{{TOPIC_LABEL}}</h1>
-      <div class="subtitle">{{SUBTITLE}}</div>
-    </div>
-    <div class="head-right">
-      <a class="gallery-link" href="../index.html">← Gallery</a>
-      <button class="tool icon" id="helpBtn" type="button" title="Keyboard shortcuts and info [?]" aria-label="Keyboard shortcuts and info">?</button>
-      <button class="tool icon" id="themeBtn" type="button" title="Light or dark [t]" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
-    </div>
-  </div>
-  <nav>{{NAV}}</nav>
+<header class="topbar">
+<div class="wrap">
+<a class="brand" href="../index.html" aria-label="video-lens gallery"><svg class="mark" viewBox="-1 -1 34 34" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg><span>video-lens</span></a>
+<nav class="pages" aria-label="Pages">
+<a href="../index.html">Gallery</a>
+<a aria-current="page">Recommendations</a>
+</nav>
+<button type="button" class="tool icon" id="help-btn" title="Keyboard shortcuts and info [?]" aria-label="Keyboard shortcuts and info">?</button>
+<div class="theme">
+<button type="button" class="tool icon" id="theme-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="theme-menu" aria-label="Theme: Auto" title="Theme [t]"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+<div class="menu" id="theme-menu" role="menu" aria-label="Theme" hidden>
+<button type="button" role="menuitemradio" aria-checked="false" data-theme-choice="light"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Light</button>
+<button type="button" role="menuitemradio" aria-checked="false" data-theme-choice="dark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>Dark</button>
+<button type="button" role="menuitemradio" aria-checked="true" data-theme-choice="auto"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Auto</button>
+</div>
+</div>
+</div>
 </header>
 
-<main>{{SECTIONS}}</main>
+<div class="page-head wrap">
+  <h1>{{TOPIC_LABEL}}</h1>
+  <p class="subtitle">{{SUBTITLE}}</p>
+  <nav aria-label="Sections">{{NAV}}</nav>
+</div>
 
-<footer>{{FOOTER}}</footer>
+<main class="wrap">{{SECTIONS}}</main>
+
+<footer class="wrap"><p>{{FOOTER}}</p></footer>
 
 <dialog id="help" aria-labelledby="help-h" tabindex="-1">
 <button type="button" class="tool icon" id="help-close" aria-label="Close">×</button>
@@ -347,32 +410,85 @@ dialog a { color: var(--accent); }
 <dt><kbd>t</kbd></dt><dd>Light or dark</dd>
 <dt><kbd>?</kbd></dt><dd>This help</dd>
 </dl>
+<h2>On this page</h2>
+<p>Videos for this topic, rated by your agent, with the reason for each. <b>Summarize</b> copies the video-lens command for your agent (or opens Raycast, when set up). In the chat you can also say "summarize 1, 4", "not interested in 3", "mute 6", "more like 2" or "next".</p>
 <h2>About</h2>
-<p>Videos from video-lens-recs for this topic, rated by your agent, with the reason for each. <b>Summarize</b> copies the video-lens command for your agent (or opens Raycast, when set up). In the chat you can also say "summarize 1, 4", "not interested in 3", "mute 6", "more like 2" or "next". <a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">video-lens on GitHub ↗</a></p>
+<p>video-lens turns a YouTube video into a report you read beside the player: a summary, the takeaway, key points and a timed outline. Your gallery keeps every report you save, and Recommendations suggests what to watch next.</p>
+<p class="help-links"><a href="https://video-lens.org/" target="_blank" rel="noopener noreferrer">video-lens.org ↗</a><a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">GitHub ↗</a></p>
 </dialog>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script type="application/json" id="video-lens-recs-meta">{{RECS_META}}</script>
 <script>
 (function () {
-  // Theme (038 D4: as in the report).
+  // ── Theme: the landing's menu, Light, Dark or Auto (049 §2). Auto stores nothing and follows
+  // the OS; t flips between light and dark (038 D4). The key "theme" is the report's. ──
+  var themeBtn = document.getElementById('theme-btn');
+  var themeMenu = document.getElementById('theme-menu');
+  function themeChoice() {
+    var t = document.documentElement.getAttribute('data-theme');
+    return t === 'dark' || t === 'light' ? t : 'auto';
+  }
+  function markTheme() {
+    var choice = themeChoice();
+    themeMenu.querySelectorAll('[data-theme-choice]').forEach(function (item) {
+      item.setAttribute('aria-checked', String(item.getAttribute('data-theme-choice') === choice));
+    });
+    themeBtn.setAttribute('aria-label', 'Theme: ' + choice.charAt(0).toUpperCase() + choice.slice(1));
+  }
+  function setTheme(choice) {
+    var root = document.documentElement;
+    if (choice === 'auto') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', choice);
+    try {
+      if (choice === 'auto') localStorage.removeItem('theme');
+      else localStorage.setItem('theme', choice);
+    } catch (e) {}
+    markTheme();
+  }
   function toggleTheme() {
     var root = document.documentElement;
     var dark = root.getAttribute('data-theme')
       ? root.getAttribute('data-theme') === 'dark'
       : window.matchMedia('(prefers-color-scheme: dark)').matches;
     var next = dark ? 'light' : 'dark';
-    root.setAttribute('data-theme', next);
-    try { localStorage.setItem('theme', next); } catch (e) {}
+    setTheme(next);
   }
-  document.getElementById('themeBtn').addEventListener('click', toggleTheme);
+  function openThemeMenu(yes, focus) {
+    themeMenu.hidden = !yes;
+    themeBtn.setAttribute('aria-expanded', String(yes));
+    if (yes && focus) (themeMenu.querySelector('[aria-checked="true"]') || themeMenu.querySelector('button')).focus();
+  }
+  markTheme();
+  themeBtn.addEventListener('click', function (e) { openThemeMenu(themeMenu.hidden, e.detail === 0); });
+  themeMenu.addEventListener('click', function (e) {
+    var item = e.target.closest('[data-theme-choice]');
+    if (!item) return;
+    setTheme(item.getAttribute('data-theme-choice'));
+    openThemeMenu(false);
+    themeBtn.focus();
+  });
+  themeMenu.addEventListener('keydown', function (e) {
+    var items = Array.prototype.slice.call(themeMenu.querySelectorAll('button'));
+    var at = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[(at + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !themeMenu.hidden) { openThemeMenu(false); themeBtn.focus(); }
+  });
+  document.addEventListener('click', function (e) {
+    if (!themeMenu.hidden && !e.target.closest('.theme')) openThemeMenu(false);
+  });
   // Help: a <dialog>, as in the report.
   var help = document.getElementById('help');
   function toggleHelp() {
     if (!help.showModal) return;
     if (help.open) help.close(); else { help.showModal(); help.focus(); }
   }
-  document.getElementById('helpBtn').addEventListener('click', toggleHelp);
+  document.getElementById('help-btn').addEventListener('click', toggleHelp);
   document.getElementById('help-close').addEventListener('click', function () { help.close(); });
   help.addEventListener('click', function (e) { if (e.target === help) help.close(); });
   document.addEventListener('keydown', function (e) {

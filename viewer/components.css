@@ -71,3 +71,83 @@ dialog p { margin: 0; }
 kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px solid var(--pane-line); border-radius: 4px; padding: 0.2rem 0.4rem; color: var(--strong); }
 dialog h2 { font: 600 0.72rem/1.3 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--label); }
 dialog a { color: var(--accent); }
+/* The same About on every page (049 §3): the site and the source, side by side. */
+.help-links { display: flex; flex-wrap: wrap; gap: 0.3rem 1.2rem; margin-top: 0.6rem; font-weight: 500; }
+
+/* ── Theme menu: Light, Dark, Auto (049 §2, the landing's menu, 048 §2). The button keeps the
+   half-circle icon; Auto (no data-theme, nothing stored) follows the OS and is the default. ── */
+.theme { position: relative; }
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 50;
+  min-width: 9.5rem;
+  padding: 0.3rem;
+  background: var(--card);
+  border: 1px solid var(--pane-line);
+  border-radius: 9px;
+  box-shadow: var(--shadow);
+}
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  font: 500 0.86rem/1 var(--sans);
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+.menu button:hover, .menu button:focus-visible { background: var(--pane); color: var(--strong); outline: none; }
+.menu button svg { width: 1rem; height: 1rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.menu button::after { content: ''; margin-left: auto; width: 0.42rem; height: 0.42rem; border-radius: 50%; }
+.menu button[aria-checked="true"] { color: var(--strong); }
+.menu button[aria-checked="true"]::after { background: var(--accent); }
+.menu[hidden] { display: none; }
+
+/* ── Top bar of the gallery and recommendations pages: the landing's frame (048 §1, 049 §1).
+   The mark and name on the left; the page switch, help and theme on the right. ── */
+.wrap { max-width: 72rem; margin: 0 auto; padding-inline: clamp(16px, 4vw, 2.5rem); }
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar .wrap { display: flex; align-items: center; gap: 0.6rem; height: 3.5rem; }
+.topbar .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-right: auto;
+  font: 600 1rem/1 var(--sans);
+  letter-spacing: -0.01em;
+  color: var(--strong);
+  text-decoration: none;
+  white-space: nowrap;
+}
+/* The mark's viewBox leaves a unit of air around the circle, so the box never cuts it (048 §1). */
+.topbar .mark { display: block; width: 1.75rem; height: 1.75rem; flex: none; overflow: visible; }
+.pages { display: flex; align-self: stretch; gap: 1.4rem; margin-right: 0.9rem; font: 500 0.88rem/1 var(--sans); }
+.pages a, .pages span { display: flex; align-items: center; color: var(--muted); text-decoration: none; white-space: nowrap; }
+.pages a:hover { color: var(--strong); }
+.pages [aria-current="page"] { color: var(--strong); box-shadow: inset 0 -2px var(--accent); }
+.pages [aria-disabled="true"] { opacity: 0.55; cursor: default; }
+.topbar .tool.icon { width: 2.1rem; min-height: 2.1rem; color: var(--strong); font-size: 0.95rem; }
+.topbar .tool.icon svg { width: 1rem; height: 1rem; }
+@media (max-width: 480px) {
+  .topbar .wrap { gap: 0.4rem; }
+  .topbar .brand span { display: none; }
+  .pages { gap: 1rem; margin-right: 0.3rem; }
+}
+@media (max-width: 360px) {
+  .pages { gap: 0.75rem; margin-right: 0; font-size: 0.82rem; }
+}

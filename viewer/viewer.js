@@ -585,14 +585,69 @@
       });
     }
 
-    // ── Theme ──
+    // ── Theme: the landing's menu (Light, Dark, Auto; 049 §2). Auto stores nothing and follows
+    // the OS; t flips between light and dark as before. ──
+    var themeBtn = $("theme-btn");
+    var themeMenu = $("theme-menu");
+    function themeChoice() {
+      var t = root.getAttribute("data-theme");
+      return t === "dark" || t === "light" ? t : "auto";
+    }
+    function markTheme() {
+      if (!themeMenu) return;
+      var choice = themeChoice();
+      all("[data-theme-choice]", themeMenu).forEach(function (item) {
+        item.setAttribute("aria-checked", String(item.getAttribute("data-theme-choice") === choice));
+      });
+      themeBtn.setAttribute("aria-label", "Theme: " + choice.charAt(0).toUpperCase() + choice.slice(1));
+    }
+    function setTheme(choice) {
+      if (choice === "auto") root.removeAttribute("data-theme");
+      else root.setAttribute("data-theme", choice);
+      write(KEYS.theme, choice === "auto" ? null : choice);
+      markTheme();
+    }
     function toggleTheme() {
       var dark = root.getAttribute("data-theme")
         ? root.getAttribute("data-theme") === "dark"
         : window.matchMedia("(prefers-color-scheme: dark)").matches;
-      var next = dark ? "light" : "dark";
-      root.setAttribute("data-theme", next);
-      write(KEYS.theme, next);
+      setTheme(dark ? "light" : "dark");
+    }
+    function openThemeMenu(yes, focus) {
+      if (!themeMenu) return;
+      themeMenu.hidden = !yes;
+      themeBtn.setAttribute("aria-expanded", String(yes));
+      if (yes && focus) (themeMenu.querySelector('[aria-checked="true"]') || themeMenu.querySelector("button")).focus();
+    }
+    function toggleThemeMenu(e) {
+      if (themeMenu) openThemeMenu(themeMenu.hidden, e && e.detail === 0);
+      else toggleTheme();
+    }
+    if (themeMenu) {
+      markTheme();
+      themeMenu.addEventListener("click", function (e) {
+        var item = e.target instanceof Element ? e.target.closest("[data-theme-choice]") : null;
+        if (!item) return;
+        setTheme(item.getAttribute("data-theme-choice"));
+        openThemeMenu(false);
+        themeBtn.focus();
+      });
+      themeMenu.addEventListener("keydown", function (e) {
+        var items = all("button", themeMenu);
+        var at = items.indexOf(document.activeElement);
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          e.stopPropagation();
+          items[(at + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          openThemeMenu(false);
+          themeBtn.focus();
+        }
+      });
+      document.addEventListener("click", function (e) {
+        if (!themeMenu.hidden && !(e.target instanceof Element && e.target.closest(".theme"))) openThemeMenu(false);
+      });
     }
 
     // ── Generation facts (local report): date, model and time taken, from the meta block ──
@@ -694,13 +749,25 @@
         fallback();
       }
     }
+    // The file name: when it was saved, then the video's title, e.g.
+    // "2026-11-14-153210_skill_issue_andrej_karpathy_on_code_agents.md" (049 §5). Letters of any
+    // script stay; everything else becomes "_". Never the page's path, so never a share ID.
+    function mdFileName() {
+      var now = new Date();
+      function two(n) { return String(n).padStart(2, "0"); }
+      var stamp = now.getFullYear() + "-" + two(now.getMonth() + 1) + "-" + two(now.getDate()) + "-" +
+        two(now.getHours()) + two(now.getMinutes()) + two(now.getSeconds());
+      var h1 = document.querySelector("h1");
+      var slug = (h1 ? h1.textContent : "").normalize("NFKC").toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_+|_+$/g, "");
+      slug = Array.from(slug).slice(0, 80).join("").replace(/_+$/, "");
+      return stamp + "_" + (slug || "video-lens-report") + ".md";
+    }
     function saveMarkdown() {
-      var file = location.pathname.split("/").pop().replace(/\.html$/, "");
-      if (!file || /^[A-Za-z0-9_-]{22}$/.test(file)) file = "video-lens-report"; // never the share ID
       var url = URL.createObjectURL(new Blob([markdown()], { type: "text/markdown" }));
       var a = document.createElement("a");
       a.href = url;
-      a.download = file + ".md";
+      a.download = mdFileName();
       a.hidden = true;
       document.body.appendChild(a);
       a.click();
@@ -718,7 +785,7 @@
       $("help-close").addEventListener("click", function () { help.close(); });
     }
 
-    [["md-copy", copyMarkdown], ["md-save", saveMarkdown], ["help-btn", toggleHelp], ["theme-btn", toggleTheme]]
+    [["md-copy", copyMarkdown], ["md-save", saveMarkdown], ["help-btn", toggleHelp], ["theme-btn", toggleThemeMenu]]
       .forEach(function (pair) {
         var b = $(pair[0]);
         if (!b) return;
@@ -806,6 +873,7 @@
         if (k === "?") { e.preventDefault(); help.close(); }
         return;
       }
+      if (k === "Escape" && themeMenu && !themeMenu.hidden) { openThemeMenu(false); themeBtn.focus(); return; }
       // A focused link or button keeps Enter and Space.
       if ((k === " " || k === "Enter") && target && target.closest("a, button, summary")) return;
       var ready = player.ready();

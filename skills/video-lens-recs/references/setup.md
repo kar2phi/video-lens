@@ -126,6 +126,6 @@ the main pipeline (SKILL.md Step 1).
   reports made before video-lens stored them. Channel matching then no longer depends on
   names.
 - **Summarize button:** when the video-lens Raycast script is installed
-  (`task install-raycast`), the Discover page's *Summarize* opens it through a Raycast
+  (`task install-raycast`), the Recommendations page's *Summarize* opens it through a Raycast
   deeplink. Otherwise it copies `/video-lens <url>` to paste into the agent. Set
   `"ui": {"raycast_summarize": false}` to always copy.

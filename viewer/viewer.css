@@ -194,6 +194,8 @@ h2 {
 .brand:hover { color: var(--strong); }
 .rail-gap { flex: 1; }
 html:not(.js) .rail .tool { display: none; }
+/* The theme menu opens upward from the rail at the foot of the pane; on a phone the rail is on top. */
+.rail .menu { top: auto; bottom: calc(100% + 0.4rem); }
 
 /* ── The document ── */
 .masthead, .doc { padding-inline: var(--pad); }
@@ -268,7 +270,8 @@ h1 {
   .layout { display: flex; flex-direction: column; }
   .watch { display: contents; }
   .divider { display: none; }
-  .rail { order: 0; border-top: 0; border-bottom: 1px solid var(--pane-line); }
+  .rail { order: 0; border-top: 0; border-bottom: 1px solid var(--pane-line); position: relative; z-index: 6; }
+  .rail .menu { top: calc(100% + 0.4rem); bottom: auto; }
   .masthead { order: 1; padding-top: 1.2rem; padding-bottom: 1.1rem; }
   .stage { order: 2; z-index: 5; border-bottom: 1px solid var(--pane-line); }
   .outline { order: 3; flex: none; overflow: visible; border-top: 0; }

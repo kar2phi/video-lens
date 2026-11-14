@@ -240,19 +240,63 @@ def test_every_mark_is_the_one_mark(rel):
     assert 'rel="icon"' in text and "ffd700" not in text
 
 
-# 038 D4: one theme control on every local page: the report's half-circle icon, the shared key
-# "theme", the OS until the reader chooses (nothing written at load), t toggles.
+# 038 D4, 049 §2: one theme control on every page: the landing's menu (Light, Dark, Auto) behind the
+# report's half-circle icon, the shared key "theme", the OS until the reader chooses (nothing written
+# at load), Auto removes the key, t still flips light and dark.
 HALF_CIRCLE = '<path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>'
 
 
-@pytest.mark.parametrize("rel", bv.SHARED_PAGES)
-def test_theme_control_is_the_reports(rel):
+@pytest.mark.parametrize("rel", ["viewer/shell.html", *bv.SHARED_PAGES])
+def test_theme_control_is_the_landings_menu(rel):
     text = (ROOT / rel).read_text()
-    assert HALF_CIRCLE in text and 'title="Light or dark [t]"' in text
+    assert HALF_CIRCLE in text and 'title="Theme [t]"' in text
+    assert 'id="theme-btn" aria-haspopup="menu"' in text and '<div class="menu" id="theme-menu" role="menu"' in text
+    for choice in ("light", "dark", "auto"):
+        assert f'data-theme-choice="{choice}"' in text, choice
+    if rel == "viewer/shell.html":
+        return
     assert "sunPath" not in text and "moonPath" not in text
     assert "matches ? 'dark' : 'light'" not in text, "data-theme from the OS at load"
     assert "if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);" in text
-    assert "e.key === 't'" in text and "localStorage.setItem('theme', next)" in text
+    assert "e.key === 't'" in text and "localStorage.setItem('theme', choice)" in text
+    assert "localStorage.removeItem('theme')" in text
+
+
+# 049 §1: the gallery and recommendations pages share the landing's top bar: the mark (viewBox with
+# a unit of air, 048 §1) and the name, then a two-item page switch, help and theme.
+@pytest.mark.parametrize("rel", bv.SHARED_PAGES)
+def test_top_bar_is_the_landings(rel):
+    text = (ROOT / rel).read_text()
+    bar = text[text.index('<header class="topbar">'):text.index("</header>")]
+    assert '<svg class="mark" viewBox="-1 -1 34 34"' in bar
+    pages = re.search(r'<nav class="pages" aria-label="Pages">(.*?)</nav>', bar, re.S).group(1)
+    assert re.findall(r">([^<>]+)</a>", pages) == ["Gallery", "Recommendations"]
+    assert pages.count('aria-current="page"') == 1
+    current = "Gallery" if "gallery" in rel else "Recommendations"
+    assert re.search(r'aria-current="page">%s<' % current, pages), rel
+    assert 'id="help-btn"' in bar and 'id="theme-btn"' in bar
+    assert "Discover" not in bar
+
+
+# 049 §3: the help's About is the same text on every page, with the site and the source.
+def _about(text):
+    return text[text.index("<h2>About</h2>"):text.index("</dialog>")]
+
+
+def test_help_about_is_the_same_everywhere():
+    abouts = {rel: _about((ROOT / rel).read_text()) for rel in ["viewer/shell.html", *bv.SHARED_PAGES]}
+    assert len(set(abouts.values())) == 1, abouts
+    about = next(iter(abouts.values()))
+    assert 'href="https://video-lens.org/"' in about and 'href="https://github.com/kar2phi/video-lens"' in about
+
+
+# 049 §4: the share footer keeps the three links it must have: the DSA notice (Report this page),
+# the imprint and privacy (§ 5 DDG, GDPR Art. 13) and YouTube's Terms (API Services policies III.A.1).
+def test_share_footer_has_only_the_required_links():
+    shell = (ROOT / "viewer/shell.html").read_text()
+    share = shell[shell.index('<footer class="colophon">'):shell.index("</footer>")]
+    share = share[share.index("<!-- @share -->"):]
+    assert re.findall(r'<a href="([^"]+)">', share) == ["{{REPORT_URL}}", "/legal/privacy", "https://www.youtube.com/t/terms"]
 
 
 # 038 D5: help is the report's <dialog> on every local page: ? opens it, Esc closes it (native),
@@ -284,7 +328,7 @@ def test_page_titles_follow_one_pattern():
     sys.path.insert(0, str(ROOT / "skills" / "video-lens-recs" / "scripts"))
     import page
     src = Path(page.__file__).read_text()
-    assert '"PAGE_TITLE": _e(f"Discover: {data[\'label\']} · video-lens"),' in src
+    assert '"PAGE_TITLE": _e(f"Recommendations: {data[\'label\']} · video-lens"),' in src
 
 
 # 038 D7: one component inventory (viewer/components.css): .tool buttons, .chip, .card. The old

@@ -337,7 +337,7 @@ def chat_list(data: dict, items: list, page_no: int, page_url: str, left: int, a
     if left:
         lines.append(f'{left} more picks ready: say "next".')
     if page_url:
-        lines.append(f"Discover page: {page_url}" + (f" (lists {also_n} more candidates)" if also_n else ""))
+        lines.append(f"Recommendations page: {page_url}" + (f" (lists {also_n} more candidates)" if also_n else ""))
     lines.append('Reply "summarize 1, 4" · "not interested in 3" · "I watched 5" · "mute <channel>" · '
                  '"more like 2" · "next"')
     return "\n".join(lines)
@@ -451,7 +451,7 @@ def page_html(data: dict, items: list, also: list, cfg: dict, date: str) -> str:
             "windowDays": data["window_days"], "picks": sum(it["section"] != "waiting" for it in items),
             "videoIds": [it["candidate"]["videoId"] for it in items]}
     values = {
-        "PAGE_TITLE": _e(f"Discover: {data['label']} · video-lens"),
+        "PAGE_TITLE": _e(f"Recommendations: {data['label']} · video-lens"),
         "TOPIC_LABEL": _e(data["label"]),
         "SUBTITLE": _e(f"last {data['window_days']} days · {date}"),
         "NAV": "".join(nav),

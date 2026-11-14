@@ -61,6 +61,17 @@ design (no change to what they do).
 
 ### Changed
 
+- The website's look on every page (049). The gallery and the recommendations page share the
+  top bar of video-lens.org: the mark and name, a two-item switch between **Gallery** and
+  **Recommendations** (was a "Discover →" link and a "Discover" header), help and theme. The
+  theme button opens the site's menu everywhere, the report included: Light, Dark or Auto
+  (Auto forgets the choice and follows the system; `t` still flips light and dark). The help
+  dialog's About is the same text on every page, with links to video-lens.org and GitHub.
+  The recommendations page is called that in its title and in the chat.
+- Markdown download: the file is named by when it was saved, then the video's title
+  (`2026-11-14-153210_skill_issue_andrej_karpathy.md`), instead of the report's file name or
+  `video-lens-report.md`.
+- Share page footer: three links (Report this page, Imprint & privacy, YouTube Terms), was six.
 - The report is built from `viewer/` (`shell.html`, `viewer.css`, `viewer.js`,
   `tokens.css`, `components.css`); `tools/build_viewer.py` writes
   `skills/video-lens/template.html` and the share build, and `--check` fails when either is

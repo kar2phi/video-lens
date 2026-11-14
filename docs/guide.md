@@ -122,11 +122,11 @@ The first run walks you through setup: import your subscriptions from a Google T
 into topics. Each run lists recent uploads from the topic's channels, from channels you
 summarise often, and from topic searches. It drops what you already summarised, Shorts,
 premieres and clickbait, scores the rest, and lets the agent rate every candidate. You get the
-best 12 as a numbered list in the chat, each with a reason, and a Discover page in the gallery
+best 12 as a numbered list in the chat, each with a reason, and a Recommendations page in the gallery
 that also lists the rest. Then reply "summarize 1, 4", "not interested in 3", "mute <channel>",
 "more like 2", or "next" for the following 12 from the same run.
 
-<img src="video-lens-discover.png" alt="The Discover page: recommended videos with a reason each" width="700">
+<img src="video-lens-discover.png" alt="The Recommendations page: recommended videos with a reason each" width="700">
 
 **Privacy.** Watch history is never imported. In live mode each run checks only its candidates
 against your most recent watches, in memory, and records "watched" only for a video it showed

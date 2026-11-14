@@ -747,7 +747,7 @@ def test_gallery_index_lists_discover_pages(world):
     assert manifest["recs"] == [{"filename": "recs/2026-10-21_ai.html", "topic": "ai", "label": "AI & agents",
                                  "date": "2026-10-21", "picks": 4}]
     index = (world["library"] / "index.html").read_text()
-    assert 'id="discoverLink"' in index and "showDiscover(window.__MANIFEST__)" in index
+    assert 'id="recs-link"' in index and "showRecs(window.__MANIFEST__)" in index
 
 
 def test_render_rebuilds_the_gallery_index(world):
