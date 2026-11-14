@@ -237,7 +237,7 @@ If Step 1's `CAPABILITIES:` line lists `share`, end with one more line, exactly:
 3. Run `python3 "SCRIPTS_DIR/share_report.py" report "OUTPUT_PATH"`.
 4. On `ERROR:SHARE_TERMS`: show the terms link from the message and this notice, then ask whether to go ahead: "This uploads the summary to a public service run by the skill's author: anyone with the link can read it, the operator can read it too and may remove it, illegal content is not allowed, and a random install ID plus a hashed IP address are processed to limit abuse." Run `python3 "SCRIPTS_DIR/share_report.py" terms --accept` only after the user says yes, then run the step 3 command again.
 5. Relay the `SHARE_URL:` value exactly, then: "Anyone with the link can open it. Say 'unshare' to revoke it."
-6. "Unshare" or "revoke the link": `share_report.py revoke "OUTPUT_PATH"` (or the ID or link the user names), then relay the `REVOKED:` line. "Which reports are shared": `share_report.py list`, and relay its `SHARE:` lines. "Stop offering links": `share_report.py offer off`.
+6. "Unshare" or "revoke the link": `share_report.py revoke "OUTPUT_PATH"` (or the ID or link the user names), then relay the `REVOKED:` line. "Which reports are shared": `share_report.py list`, and relay its `SHARE:` lines (`removed:<reason>`: the operator took the link down for that reason; `gone`: the link no longer exists). "Stop offering links": `share_report.py offer off`.
 7. On `ERROR:SHARE_NO_DATA`: say the report was made before sharing existed and offer to run the video again.
 8. On any other `ERROR:` line: relay the message and stop. Never retry `SHARE_RATE`, `SHARE_PAUSED` or `SHARE_REMOVED`.
 

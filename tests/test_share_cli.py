@@ -281,7 +281,21 @@ def test_list_states(env):
     assert rows[ids[0]][4] == 'What are skills? & <why> "quotes"'
     assert len(rows[ids[0]][2]) == 10 and rows[ids[0]][2][4] == "-"
     assert rows[ids[1]][3] == "outdated"
-    assert rows[ids[2]][3] == "removed"
+    assert rows[ids[2]][3] == "removed:spam"
+
+
+def test_list_shows_the_takedown_reason_and_gone(env):
+    env.accept()
+    a, b = env.report("a.html"), env.report("b.html")
+    ids = [lines(env.run("report", p)[1], "SHARE_ID:")[0] for p in (a, b)]
+    with env.fake.state.lock:
+        env.fake.state.op("takedown", {"id": ids[0], "reason": "copyright"})
+    del env.fake.state.shares[ids[1]]   # deleted elsewhere: the service answers 401
+    code, out, err = env.run("list")
+    assert code == 0, err
+    rows = {r.split()[0]: r.split(maxsplit=4) for r in lines(out, "SHARE:")}
+    assert rows[ids[0]][3] == "removed:copyright"
+    assert rows[ids[1]][3] == "gone"
 
 
 def test_list_empty(env):

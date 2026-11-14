@@ -9,7 +9,9 @@
 
 This is the only video-lens script that sends report content off the machine, and it does so
 only when the user asks. Output on stdout: `SHARE_URL: <url>`, `SHARE_ID: <id>`,
-`REVOKED: <id>`, `SHARE: <id> <views> <updated> <current|outdated|removed> <title>`.
+`REVOKED: <id>`, `SHARE: <id> <views> <updated> <state> <title>`, where state is `current`,
+`outdated` (the report changed since), `removed:<reason>` (taken down by the operator, with one of
+the service's fixed reason codes) or `gone` (the service no longer knows the link).
 Errors on stderr: `ERROR:SHARE_<CODE>: <message>`; exit 2 for SHARE_TERMS, else 1.
 
 Local state:
@@ -43,6 +45,7 @@ META_RE = re.compile(r'<script type="application/json" id="video-lens-meta">(.*?
 DATA_RE = re.compile(r'<script type="application/json" id="video-lens-data">(.*?)</script>', re.S)
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{22}$")
 URL_ID_RE = re.compile(r"/s/([A-Za-z0-9_-]{22})/?(?:[?#].*)?$")
+REASON_RE = re.compile(r"[a-z][a-z_]{0,31}")
 VERSION_RE = re.compile(r'^\s*version:\s*"?([^"\s]+)"?\s*$', re.M)
 
 TERMS_EXIT = 2
@@ -376,12 +379,15 @@ def cmd_list(args) -> int:
     for s in load_registry():
         resp = request("GET", f"{base}/api/v1/shares/{s['id']}", key=s.get("manageKey"))
         if resp.status == 401:
-            info = {"status": "removed", "reason": None, "views": 0, "updated": s.get("updated")}
+            info = {"status": "gone", "reason": None, "views": 0, "updated": s.get("updated")}
         else:
             raise_for(resp, base)
             info = resp.body
-        if info.get("status") == "removed":
-            state = "removed"
+        if info.get("status") == "gone":
+            state = "gone"
+        elif info.get("status") == "removed":
+            reason = info.get("reason")
+            state = "removed:" + (reason if isinstance(reason, str) and REASON_RE.fullmatch(reason) else "other")
         else:
             mtime, size = _stat(Path(s.get("source", "")))
             state = "current" if (mtime, size) == (s.get("mtime"), s.get("size")) else "outdated"
