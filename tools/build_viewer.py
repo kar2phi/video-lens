@@ -2,16 +2,18 @@
 """Build the viewer from its single source in viewer/ (stdlib only).
 
   python3 tools/build_viewer.py --mode local          write skills/video-lens/template.html and the
-                                                      tokens block of the gallery and Discover pages
+                                                      shared CSS block of the gallery and Discover pages
   python3 tools/build_viewer.py --check               exit 1 when any of those is stale
   python3 tools/build_viewer.py --mode share --out D  write D/shell.html, D/viewer.css, D/viewer.js, D/tokens.css
   python3 tools/build_viewer.py --vectors             write viewer/fragments.json (035 §4.5)
 
 --check also fails when viewer/fragments.json differs from what --vectors writes.
 
-viewer/tokens.css is the one source of color and font tokens (038 §5 D1). The local report and
-the share viewer.css carry it in front of viewer.css; the gallery and Discover pages (single-file
-pages, hand-written otherwise) carry it between TOKENS_BEGIN and TOKENS_END in their <style>.
+viewer/tokens.css is the one source of color and font tokens (038 §5 D1), viewer/components.css
+the shared pieces (buttons, help dialog, keys; D5, D7). The local report and the share viewer.css
+carry both in front of viewer.css; the gallery and Discover pages (single-file pages, hand-written
+otherwise) carry both between SHARED_BEGIN and SHARED_END in their <style>. The share build also
+writes tokens.css alone, for the site's own pages.
 
 The share shell keeps the Worker's slots ({{NAME}}, filled in one pass) and links the two
 assets through {{ASSET_CSS}} / {{ASSET_JS}} (and {{ASSET_FONTS}}); nothing in it is inline code.
@@ -38,33 +40,38 @@ def read_tokens(root):
     return (Path(root) / "viewer" / "tokens.css").read_text(encoding="utf-8")
 
 
+def shared_css(root):
+    """tokens.css, then components.css: what every local page shares."""
+    return read_tokens(root) + "\n" + (Path(root) / "viewer" / "components.css").read_text(encoding="utf-8")
+
+
 def viewer_css(root):
-    """tokens.css, then viewer.css: the report's whole stylesheet."""
-    return read_tokens(root) + "\n" + (Path(root) / "viewer" / "viewer.css").read_text(encoding="utf-8")
+    """tokens.css, components.css, then viewer.css: the report's whole stylesheet."""
+    return shared_css(root) + "\n" + (Path(root) / "viewer" / "viewer.css").read_text(encoding="utf-8")
 
 
-# The single-file pages that carry the tokens inline, between these two lines of their <style>.
-TOKEN_PAGES = ("skills/video-lens-gallery/index.html", "skills/video-lens-recs/template.html")
-TOKENS_BEGIN = "/* TOKENS: generated from viewer/tokens.css by tools/build_viewer.py; do not edit, rebuild */\n"
-TOKENS_END = "/* END TOKENS */\n"
+# The single-file pages that carry the shared CSS inline, between these two lines of their <style>.
+SHARED_PAGES = ("skills/video-lens-gallery/index.html", "skills/video-lens-recs/template.html")
+SHARED_BEGIN = "/* SHARED: generated from viewer/tokens.css and viewer/components.css by tools/build_viewer.py; do not edit, rebuild */\n"
+SHARED_END = "/* END SHARED */\n"
 
 
-def inline_tokens(page, tokens, name="page"):
-    """page with the block between TOKENS_BEGIN and TOKENS_END replaced by tokens."""
-    if page.count(TOKENS_BEGIN) != 1 or page.count(TOKENS_END) != 1:
-        raise SystemExit("%s must contain the TOKENS begin and end lines exactly once" % name)
-    head, rest = page.split(TOKENS_BEGIN)
-    _, tail = rest.split(TOKENS_END)
-    return head + TOKENS_BEGIN + tokens + TOKENS_END + tail
+def inline_shared(page, css, name="page"):
+    """page with the block between SHARED_BEGIN and SHARED_END replaced by css."""
+    if page.count(SHARED_BEGIN) != 1 or page.count(SHARED_END) != 1:
+        raise SystemExit("%s must contain the SHARED begin and end lines exactly once" % name)
+    head, rest = page.split(SHARED_BEGIN)
+    _, tail = rest.split(SHARED_END)
+    return head + SHARED_BEGIN + css + SHARED_END + tail
 
 
-def build_token_pages(root):
-    """{path: text} for the gallery and Discover pages with the current tokens."""
-    tokens = read_tokens(root)
+def build_shared_pages(root):
+    """{path: text} for the gallery and Discover pages with the current shared CSS."""
+    css = shared_css(root)
     out = {}
-    for rel in TOKEN_PAGES:
+    for rel in SHARED_PAGES:
         p = Path(root) / rel
-        out[p] = inline_tokens(p.read_text(encoding="utf-8"), tokens, rel)
+        out[p] = inline_shared(p.read_text(encoding="utf-8"), css, rel)
     return out
 
 
@@ -261,7 +268,7 @@ def main(argv=None):
         return 0
     out = build_local(a.root)
     dest = target(a.root)
-    pages = build_token_pages(a.root)
+    pages = build_shared_pages(a.root)
     if a.check:
         for path, text in [(dest, out), *pages.items()]:
             cur = path.read_bytes() if path.exists() else None
@@ -272,7 +279,7 @@ def main(argv=None):
         if (vec.read_bytes() if vec.exists() else None) != build_vectors(a.root).encode("utf-8"):
             print("STALE: %s differs from the renderer; run: python3 tools/build_viewer.py --vectors" % vec, file=sys.stderr)
             return 1
-        print("template.html, the gallery and Discover tokens, and fragments.json are current")
+        print("template.html, the gallery and Discover shared CSS, and fragments.json are current")
         return 0
     for path, text in [(dest, out), *pages.items()]:
         if not path.exists() or path.read_bytes() != text.encode("utf-8"):

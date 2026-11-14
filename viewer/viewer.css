@@ -42,24 +42,6 @@ h2 {
 }
 .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 
-/* Small buttons: one look everywhere. */
-.tool {
-  font: 500 0.78rem/1 var(--sans);
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid var(--pane-line);
-  border-radius: 6px;
-  min-height: 1.9rem;
-  padding: 0 0.6rem;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.tool:hover { color: var(--strong); border-color: var(--muted); }
-.tool.icon { width: 1.9rem; padding: 0; display: inline-grid; place-items: center; font-size: 0.9rem; }
-.tool.quiet { min-height: 1.6rem; font-size: 0.72rem; }
-.tool[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-
 .ts { color: var(--accent); font: 500 0.8rem/1.4 var(--sans); font-variant-numeric: tabular-nums; text-decoration: none; }
 
 /* ── Layout: the video pane stays, the page scrolls beside it ── */
@@ -249,29 +231,6 @@ h1 {
 
 .colophon { margin-top: 3rem; padding-top: 1rem; padding-bottom: 3rem; border-top: 1px solid var(--line); font: 400 0.78rem/1.6 var(--sans); color: var(--muted); }
 .doc .colophon p { margin: 0 0 0.45rem; }
-
-/* ── Help ── */
-dialog {
-  width: min(26rem, calc(100vw - 2rem));
-  max-height: calc(100vh - 2rem);
-  padding: 1.5rem 1.6rem;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--paper);
-  color: var(--text);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  font: 400 0.88rem/1.6 var(--sans);
-}
-dialog:focus { outline: none; }
-dialog::backdrop { background: var(--backdrop); }
-dialog h2 { margin: 1.3rem 0 0.6rem; }
-dialog h2:first-of-type { margin-top: 0; }
-dialog p { margin: 0; }
-#help-close { position: absolute; top: 0.8rem; right: 0.8rem; border: 0; font-size: 1.2rem; }
-.keys { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1rem; margin: 0; align-items: center; }
-.keys dt { white-space: nowrap; }
-.keys dd { margin: 0; color: var(--muted); }
-kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px solid var(--pane-line); border-radius: 4px; padding: 0.2rem 0.4rem; color: var(--strong); }
 
 /* ── Tabs: only where the panes stack ── */
 .tabs { display: none; }

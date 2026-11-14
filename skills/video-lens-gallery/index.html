@@ -19,7 +19,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* TOKENS: generated from viewer/tokens.css by tools/build_viewer.py; do not edit, rebuild */
+/* SHARED: generated from viewer/tokens.css and viewer/components.css by tools/build_viewer.py; do not edit, rebuild */
 /* video-lens design tokens: the one source of color and font for every page (038 §5 D1).
    tools/build_viewer.py inlines this file into the local report (with viewer.css), the gallery
    (skills/video-lens-gallery/index.html) and the Discover page (skills/video-lens-recs/template.html),
@@ -97,7 +97,54 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 48px -12px rgba(0, 0, 0, 0.7);
   color-scheme: dark;
 }
-/* END TOKENS */
+
+/* video-lens components: the pieces every local page shares (038 §5 D5, D7). tools/build_viewer.py
+   puts this file after tokens.css, before viewer.css in the report and the share page, and into the
+   gallery and Discover pages with the tokens. Page-specific layout stays in each page. */
+
+/* Small buttons: one look everywhere (.tool, .tool.icon, .tool.quiet, pressed). */
+.tool {
+  font: 500 0.78rem/1 var(--sans);
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--pane-line);
+  border-radius: 6px;
+  min-height: 1.9rem;
+  padding: 0 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tool:hover { color: var(--strong); border-color: var(--muted); }
+.tool.icon { width: 1.9rem; padding: 0; display: inline-grid; place-items: center; font-size: 0.9rem; }
+.tool.quiet { min-height: 1.6rem; font-size: 0.72rem; }
+.tool[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+/* ── Help: a <dialog>, ? opens it, Esc closes ── */
+dialog {
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 1.5rem 1.6rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--text);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  font: 400 0.88rem/1.6 var(--sans);
+}
+dialog:focus { outline: none; }
+dialog::backdrop { background: var(--backdrop); }
+dialog h2 { margin: 1.3rem 0 0.6rem; }
+dialog h2:first-of-type { margin-top: 0; }
+dialog p { margin: 0; }
+#help-close { position: absolute; top: 0.8rem; right: 0.8rem; border: 0; font-size: 1.2rem; }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1rem; margin: 0; align-items: center; }
+.keys dt { white-space: nowrap; }
+.keys dd { margin: 0; color: var(--muted); }
+kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px solid var(--pane-line); border-radius: 4px; padding: 0.2rem 0.4rem; color: var(--strong); }
+dialog h2 { font: 600 0.72rem/1.3 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; color: var(--label); }
+dialog a { color: var(--accent); }
+/* END SHARED */
 
     body {
       background: var(--paper);
@@ -222,49 +269,6 @@
       transition: opacity 0.15s, border-color 0.15s;
     }
     .icon-btn:hover { opacity: 0.65; }
-
-    /* ── Help modal ── */
-    #help-overlay {
-      display: none; position: fixed; inset: 0; z-index: 200;
-      background: var(--backdrop);
-      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-      align-items: center; justify-content: center;
-    }
-    #help-overlay.open { display: flex; }
-    #help-modal {
-      background: var(--paper); color: var(--text);
-      border: 1px solid var(--line); border-radius: 12px;
-      padding: 1.75rem 2rem 1.5rem; max-width: 400px;
-      width: calc(100% - 3rem); box-shadow: var(--shadow);
-      position: relative;
-      max-height: calc(100vh - 4rem);
-      overflow-y: auto;
-    }
-    #help-modal h3 {
-      font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em;
-      text-transform: uppercase; color: var(--label);
-      margin: 1.2rem 0 0.6rem;
-    }
-    #help-modal h3:first-child { margin-top: 0; }
-    #help-modal p { font-size: 0.88rem; line-height: 1.65; margin: 0; color: var(--text); font-family: var(--sans); }
-    .help-shortcuts { display: grid; grid-template-columns: auto 1fr; gap: 0.45rem 1rem; }
-    .help-key {
-      font-family: var(--mono);
-      background: var(--pane); color: var(--strong);
-      border-radius: 4px; padding: 0.15rem 0.5rem;
-      font-size: 0.78rem; white-space: nowrap;
-      align-self: center; text-align: center;
-    }
-    .help-desc { color: var(--muted); align-self: center; font-size: 0.85rem; }
-    #help-close {
-      position: absolute; top: 0.75rem; right: 0.75rem;
-      width: 26px; height: 26px; border-radius: 50%; border: none;
-      background: transparent; color: var(--muted);
-      cursor: pointer; font-size: 1.1rem; opacity: 0.5;
-      display: flex; align-items: center; justify-content: center;
-      transition: opacity 0.15s;
-    }
-    #help-close:hover { opacity: 1; }
 
     /* ── Filter bar ── */
     .filter-bar {
@@ -600,25 +604,18 @@
 </head>
 <body>
 
-<div id="help-overlay" role="dialog" aria-modal="true" aria-label="Help">
-  <div id="help-modal">
-    <button id="help-close" aria-label="Close">×</button>
-    <div style="text-align:center;margin-bottom:16px">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="40" height="40" style="border-radius:50%"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg>
-    </div>
-    <h3>About</h3>
-    <p>video-lens fetches a YouTube transcript and uses AI to generate a structured report — executive summary, key points, analysis, takeaway, a timestamped outline, and an in-page player.</p>
-    <p>video-lens gallery lets you browse and search your saved reports. Click any card or row to open the full report.</p>
-    <p><a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">View on GitHub ↗</a></p>
-    <h3>Shortcuts</h3>
-    <div class="help-shortcuts">
-      <span class="help-key">/</span><span class="help-desc">focus search</span>
-      <span class="help-key">1</span><span class="help-desc">cards view</span>
-      <span class="help-key">2</span><span class="help-desc">list view</span>
-      <span class="help-key">Esc</span><span class="help-desc">close help</span>
-    </div>
-  </div>
-</div>
+<dialog id="help" aria-labelledby="help-h" tabindex="-1">
+<button type="button" class="tool icon" id="help-close" aria-label="Close">×</button>
+<h2 id="help-h">Keyboard</h2>
+<dl class="keys">
+<dt><kbd>/</kbd></dt><dd>Search</dd>
+<dt><kbd>1</kbd> <kbd>2</kbd></dt><dd>Cards or list</dd>
+<dt><kbd>t</kbd></dt><dd>Light or dark</dd>
+<dt><kbd>?</kbd></dt><dd>This help</dd>
+</dl>
+<h2>About</h2>
+<p>Your saved video-lens reports, newest first. Each report has a summary, the takeaway, key points and a timed outline beside the player. Open a card or a row to read it. <a href="https://github.com/kar2phi/video-lens" target="_blank" rel="noopener noreferrer">video-lens on GitHub ↗</a></p>
+</dialog>
 
 <header>
   <span class="logo"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="24" height="24" style="vertical-align:middle;margin-right:6px;border-radius:50%"><circle cx="16" cy="16" r="16" fill="#c0392b"/><text x="16" y="21" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="-0.5">VL</text></svg>video-lens</span>
@@ -642,7 +639,7 @@
         </svg>
       </button>
     </div>
-    <button class="icon-btn" id="helpBtn" title="Help" aria-label="Help">?</button>
+    <button class="icon-btn" id="helpBtn" type="button" title="Keyboard shortcuts and info [?]" aria-label="Keyboard shortcuts and info">?</button>
     <button class="icon-btn" id="themeBtn" type="button" title="Light or dark [t]" aria-label="Switch between light and dark"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
   </div>
 </header>
@@ -1159,31 +1156,27 @@
     return card;
   }
 
-  // ── Help modal + keyboard shortcuts ────────────────────────────────────────
+  // ── Help (a <dialog>, as in the report) + keyboard shortcuts ─────────────
   (function () {
-    var overlay  = document.getElementById('help-overlay');
-    var closeBtn = document.getElementById('help-close');
-    var helpBtn  = document.getElementById('helpBtn');
+    var help     = document.getElementById('help');
     var searchEl = document.getElementById('search');
 
-    function openHelp()  { overlay.classList.add('open'); }
-    function closeHelp() { overlay.classList.remove('open'); }
-
-    helpBtn.addEventListener('click', openHelp);
-    closeBtn.addEventListener('click', closeHelp);
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) closeHelp();
-    });
+    function toggleHelp() {
+      if (!help.showModal) return;
+      if (help.open) help.close(); else { help.showModal(); help.focus(); }
+    }
+    document.getElementById('helpBtn').addEventListener('click', toggleHelp);
+    document.getElementById('help-close').addEventListener('click', function () { help.close(); });
+    help.addEventListener('click', function (e) { if (e.target === help) help.close(); });
 
     document.addEventListener('keydown', function (e) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       var tag = document.activeElement ? document.activeElement.tagName : '';
-      var inInput = (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT');
-
-      if (e.key === 'Escape') { closeHelp(); return; }
-
-      if (inInput) return;
-
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (help.open) {                       // Esc closes the dialog by itself
+        if (e.key === '?') { e.preventDefault(); help.close(); }
+        return;
+      }
       if (e.key === '/') {
         e.preventDefault();
         searchEl.focus(); searchEl.select();
@@ -1195,6 +1188,9 @@
         if (btn) btn.click();
       } else if (e.key === 't') {
         toggleTheme();
+      } else if (e.key === '?') {
+        e.preventDefault();
+        toggleHelp();
       }
     });
   })();

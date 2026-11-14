@@ -21,7 +21,7 @@ def _copy_tree(tmp):
     (tmp / "skills" / "video-lens").mkdir(parents=True)
     shutil.copy(ROOT / "skills" / "video-lens" / "template.html",
                 tmp / "skills" / "video-lens" / "template.html")
-    for rel in bv.TOKEN_PAGES:
+    for rel in bv.SHARED_PAGES:
         (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(ROOT / rel, tmp / rel)
     return tmp
@@ -57,7 +57,7 @@ def test_check_detects_edited_source(tmp_path):
     assert _run("--check", "--root", str(root)).returncode == 0
 
 
-@pytest.mark.parametrize("rel", bv.TOKEN_PAGES)
+@pytest.mark.parametrize("rel", bv.SHARED_PAGES)
 def test_check_detects_stale_tokens_in_a_page(tmp_path, rel):
     root = _copy_tree(tmp_path)
     page = root / rel
@@ -68,18 +68,18 @@ def test_check_detects_stale_tokens_in_a_page(tmp_path, rel):
     assert page.read_bytes() == (ROOT / rel).read_bytes()
 
 
-def test_tokens_are_inlined_everywhere():
-    tokens = (ROOT / "viewer" / "tokens.css").read_text()
-    assert tokens in (ROOT / "skills" / "video-lens" / "template.html").read_text()
-    for rel in bv.TOKEN_PAGES:
-        assert bv.TOKENS_BEGIN + tokens + bv.TOKENS_END in (ROOT / rel).read_text(), rel
+def test_tokens_and_components_are_inlined_everywhere():
+    shared = bv.shared_css(ROOT)
+    assert shared in (ROOT / "skills" / "video-lens" / "template.html").read_text()
+    for rel in bv.SHARED_PAGES:
+        assert bv.SHARED_BEGIN + shared + bv.SHARED_END in (ROOT / rel).read_text(), rel
 
 
-def test_inline_tokens_needs_both_markers_once():
+def test_inline_shared_needs_both_markers_once():
     with pytest.raises(SystemExit):
-        bv.inline_tokens("<style></style>", ":root{}")
+        bv.inline_shared("<style></style>", ":root{}")
     with pytest.raises(SystemExit):
-        bv.inline_tokens(bv.TOKENS_BEGIN + bv.TOKENS_END + bv.TOKENS_END, ":root{}")
+        bv.inline_shared(bv.SHARED_BEGIN + bv.SHARED_END + bv.SHARED_END, ":root{}")
 
 
 # 038 D1: a color token (a custom property whose value is a color or a shadow) is defined in
@@ -87,16 +87,16 @@ def test_inline_tokens_needs_both_markers_once():
 COLOR_TOKEN = re.compile(r"--[\w-]+\s*:\s*[^;{}]*(?:#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|color-mix\()")
 
 
-def _outside_tokens(text):
-    if bv.TOKENS_BEGIN in text:
-        head, rest = text.split(bv.TOKENS_BEGIN)
-        text = head + rest.split(bv.TOKENS_END)[1]
+def _outside_shared(text):
+    if bv.SHARED_BEGIN in text:
+        head, rest = text.split(bv.SHARED_BEGIN)
+        text = head + rest.split(bv.SHARED_END)[1]
     return text
 
 
-@pytest.mark.parametrize("rel", ["viewer/viewer.css", "viewer/shell.html", "viewer/viewer.js", *bv.TOKEN_PAGES])
-def test_no_color_token_outside_tokens_css(rel):
-    found = COLOR_TOKEN.findall(_outside_tokens((ROOT / rel).read_text()))
+@pytest.mark.parametrize("rel", ["viewer/viewer.css", "viewer/components.css", "viewer/shell.html", "viewer/viewer.js", *bv.SHARED_PAGES])
+def test_no_color_token_outside_shared_css(rel):
+    found = COLOR_TOKEN.findall(_outside_shared((ROOT / rel).read_text()))
     assert not found, "%s defines color tokens; move them to viewer/tokens.css: %s" % (rel, found)
 
 
@@ -132,7 +132,8 @@ def test_share_build_writes_the_four_files(tmp_path):
     assert sorted(p.name for p in out.iterdir()) == ["shell.html", "tokens.css", "viewer.css", "viewer.js"]
     tokens = (ROOT / "viewer" / "tokens.css").read_bytes()
     assert (out / "tokens.css").read_bytes() == tokens
-    assert (out / "viewer.css").read_bytes() == tokens + b"\n" + (ROOT / "viewer" / "viewer.css").read_bytes()
+    assert (out / "viewer.css").read_bytes() == bv.viewer_css(ROOT).encode("utf-8")
+    assert (out / "viewer.css").read_bytes().startswith(tokens)
     assert (out / "viewer.js").read_bytes() == (ROOT / "viewer" / "viewer.js").read_bytes()
 
 
@@ -205,7 +206,7 @@ def test_dev_sample_is_v1_and_renders_without_warnings(tmp_path, monkeypatch, ca
 
 # 038 D2: one type system on every local page: DM Sans (the only web font, one request) for
 # headlines and interface, Georgia for prose, the ui-monospace stack for code.
-LOCAL_PAGES = ["skills/video-lens/template.html", *bv.TOKEN_PAGES]
+LOCAL_PAGES = ["skills/video-lens/template.html", *bv.SHARED_PAGES]
 
 
 @pytest.mark.parametrize("rel", LOCAL_PAGES)
@@ -214,7 +215,7 @@ def test_local_pages_use_one_type_system(rel):
     assert "DM Serif" not in text and "DM Mono" not in text
     fonts = re.findall(r'href="(https://fonts\.googleapis\.com/css2[^"]*)"', text)
     assert fonts == ["https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap"], fonts
-    css = _outside_tokens(text)
+    css = _outside_shared(text)
     assert not re.findall(r"font-family:\s*['\"]?(?!var\(|inherit)[^;']*DM Sans", css), "name the font through var(--sans)"
 
 
@@ -228,7 +229,7 @@ def _marks(text):
     return MARK_RE.findall(decoded)
 
 
-@pytest.mark.parametrize("rel", ["viewer/shell.html", *bv.TOKEN_PAGES])
+@pytest.mark.parametrize("rel", ["viewer/shell.html", *bv.SHARED_PAGES])
 def test_every_mark_is_the_one_mark(rel):
     canonical = _marks((ROOT / "viewer" / "mark.svg").read_text())
     assert len(canonical) == 1 and 'fill="#c0392b"' in canonical[0] and 'fill="#fff"' in canonical[0]
@@ -244,7 +245,7 @@ def test_every_mark_is_the_one_mark(rel):
 HALF_CIRCLE = '<path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>'
 
 
-@pytest.mark.parametrize("rel", bv.TOKEN_PAGES)
+@pytest.mark.parametrize("rel", bv.SHARED_PAGES)
 def test_theme_control_is_the_reports(rel):
     text = (ROOT / rel).read_text()
     assert HALF_CIRCLE in text and 'title="Light or dark [t]"' in text
@@ -252,3 +253,25 @@ def test_theme_control_is_the_reports(rel):
     assert "matches ? 'dark' : 'light'" not in text, "data-theme from the OS at load"
     assert "if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);" in text
     assert "e.key === 't'" in text and "localStorage.setItem('theme', next)" in text
+
+
+# 038 D5: help is the report's <dialog> on every local page: ? opens it, Esc closes it (native),
+# the keys of the page are listed, and the gallery's text names the report's four parts.
+@pytest.mark.parametrize("rel", bv.SHARED_PAGES)
+def test_help_is_a_dialog_with_the_pages_keys(rel):
+    text = (ROOT / rel).read_text()
+    assert '<dialog id="help" aria-labelledby="help-h" tabindex="-1">' in text
+    assert "help-overlay" not in text and "help-modal" not in text
+    keys = re.search(r'<dl class="keys">(.*?)</dl>', text, re.S).group(1)
+    assert "<kbd>t</kbd>" in keys and "<kbd>?</kbd>" in keys
+    assert "e.key === '?'" in text and 'title="Keyboard shortcuts and info [?]"' in text
+
+
+def test_gallery_help_lists_its_keys_and_the_four_parts():
+    text = (ROOT / "skills/video-lens-gallery/index.html").read_text()
+    keys = re.search(r'<dl class="keys">(.*?)</dl>', text, re.S).group(1)
+    assert "<kbd>/</kbd>" in keys and "<kbd>1</kbd> <kbd>2</kbd>" in keys
+    about = text[text.index("<h2>About</h2>"):text.index("</dialog>")]
+    assert "analysis" not in about
+    for part in ("summary", "takeaway", "key points", "timed outline"):
+        assert part in about, part
