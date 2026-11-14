@@ -3,6 +3,7 @@
 The [README](../README.md) covers the quick install and the four commands. This page has the rest.
 
 - [Install from a clone](#install-from-a-clone)
+- [Updating and removing](#updating-and-removing)
 - [Making a report](#making-a-report)
 - [Local transcription](#local-transcription)
 - [Sharing a report](#sharing-a-report)
@@ -32,7 +33,22 @@ brew install deno
 `task install-skill-local` deploys every file in `skills/video-lens/`, including `scripts/`.
 Downloading single files with curl does not pull the scripts, and the skill fails at runtime.
 
-To update, pull and run the same `task install-skill-local` again.
+## Updating and removing
+
+Installed with `npx skills add`:
+
+```bash
+npx skills update                 # every installed skill; or name one: npx skills update video-lens
+npx skills remove video-lens video-lens-gallery video-lens-recs
+```
+
+Installed from a clone: `git pull`, then the same `task install-skill-local AGENT=…` again. To
+remove it, delete the `video-lens*` folders from that agent's skills directory.
+
+Removing the skill leaves your reports in `~/Downloads/video-lens/` and your share settings and
+manage keys where `share_report.py` keeps them. Revoke shares first ("unshare", or "list my
+shares") if you want them gone: without the manage key a share can only be removed through the
+[notice form](https://video-lens.org/legal/abuse).
 
 ## Making a report
 

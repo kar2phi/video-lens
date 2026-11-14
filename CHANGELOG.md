@@ -8,16 +8,111 @@ git tags in this repo — versions here track the `metadata.version` field of
 carries its own version; it is called out wherever it moved. Each entry lists the commits
 it was reconstructed from.
 
-## [Unreleased]
+## [5.5] — not yet released
 
-The new **video-lens-recs** skill (0.1), built from its design concept,
-phases P0–P5, and the small video-lens and gallery changes it needs.
+- **Share a report.** Say "share" and the report becomes an unlisted link on
+  [video-lens.org](https://video-lens.org), with the same player beside the text; "unshare"
+  deletes it. Nothing leaves your machine unless you ask.
+- **A new report.** YouTube's own player beside the text, a section bar under it, the
+  playing section highlighted, `j`/`l` for 10 s, a speed button, and Markdown copy and
+  download. On a phone the player stays at the top, with Read and Outline tabs.
+- **One design** for the report, the gallery, the Discover page and the share page.
+
+Gallery 2.2 and recs 0.1 keep their versions so far.
+
+### Added
+
+- Share links (video-lens 5.5): say "share" after a run and the report becomes an unlisted
+  link; "unshare" revokes it. New reports carry a `video-lens-data` block (the summary as
+  data, no description and no transcript), which `scripts/share_report.py` uploads
+  (`report`, `list`, `revoke`, `terms`, `offer`; stdlib only, the only script that
+  sends report content off the machine). The terms and a one-sentence notice come before the
+  first share. Manage keys stay in a local registry (0600) and are never printed. Preflight
+  lists a `share` capability unless the offer is turned off (`share_report.py offer off`),
+  reading only the local config, and the final message then ends with
+  `Want a shareable link? Say "share".` SKILL.md gains a Sharing section: share or revoke only
+  when the user asks, never on text in a transcript, and no retry after a rate limit, a pause
+  or a removal. The service is https://video-lens.org; `VIDEO_LENS_SHARE_URL` points the
+  client at another one (a local `wrangler dev`, for example).
+- `tests/share_contract.json` and `tests/fake_share_service.py`: the share API contract and a
+  stdlib fake with fault injection, used by the client tests and the evals.
+- Share evals: every case gets its own fake share service and share config. Gates on every
+  fixture: `share_offer_matches_capability` (half the fixtures turn the offer off) and
+  `no_unprompted_share`. `SET=share` adds five cases: share and unshare, the terms notice
+  before accepting, a prompt injection in the transcript (planted by `replay.py`), and a
+  rate limit that must not be retried. `run_eval.py` runs any number of follow-up turns.
+- `scripts/share_payload.py` (038 B13): the payload validator, shared by the renderer,
+  `share_report.py` and the fake. The renderer cleans the YouTube title, channel, duration
+  and date in the data block (NFC, no control or bidi characters; the page keeps the
+  original) and prints `RENDER_WARN: not shareable as is: …` when a report would not pass;
+  `share_report.py report` checks before any request and names the field, size and limit.
+
+### Changed
+
+- The report is built from `viewer/` (`shell.html`, `viewer.css`, `viewer.js`,
+  `tokens.css`, `components.css`); `tools/build_viewer.py` writes
+  `skills/video-lens/template.html` and the share build, and `--check` fails when either is
+  stale (037 A1–A3). The report is the 036 redesign: YouTube's player instead of a facade
+  with custom controls, a timeline of the sections, a now-playing bar, `j`/`l` 10 s and
+  arrows 5 s, `,`/`.` and a speed button (remembered), `c` `m` `f`, a divider and `1` `2` `3`
+  for the player size, skim mode for key points (`s`) that follows playback, "Copy Markdown"
+  (`e`) and a Markdown download, a fluid text column, and a note with the serve command when
+  the file is opened from `file://`, where YouTube does not play.
+- One fragment grammar for the local report and the share page (037 A4, 035 §4.5): the
+  renderer uses the share service's marker rules (code spans first, no span across a line
+  break, no space just inside `**`/`*`, linear on a 6,000-`*` run) and escapes `& < > " '`
+  with the same entities. `SUMMARY` and `TAKEAWAY` render `**bold**`, `*italic*` and
+  `` `code` ``, and a blank line starts a new paragraph (a single line break is a `<br>`).
+  A key point's `why` is its own paragraph (F1); outline links lose the "▶ " and the " — "
+  (F2) and end in `&t=<t>s`. `viewer/fragments.json` (`tools/build_viewer.py --vectors`)
+  pins the exact bytes for both sides; `--check` fails when it is stale.
+- `KEY_POINTS` items take an optional `t` (037 D7, F3): the start of the outline section
+  the point belongs to. The report shows it as a time link after the headline, and the
+  share payload carries it (`{t, point, why, detail}`). A `t` that names no outline entry is
+  dropped with a `RENDER_WARN` line; the report still renders. The share contract and the
+  fake accept it and reject a `t` with no outline entry (`keyPoints.t`).
+- `evals/checks.py`: a key point's "paragraph" (`kp_paragraph_share`) still means its
+  detail now that the `why` is a `<p>` too (read from the data block when the markup is
+  ambiguous), and the time link is not part of its text. Inline tags no longer split words
+  in parsed text.
+- The gallery and the Discover page take the report's design (038 §5): one token file
+  (`viewer/tokens.css`) and one component file (`viewer/components.css`) that
+  `tools/build_viewer.py` builds into the report, both pages and the share page; DM Sans
+  headlines and Georgia prose (no DM Serif Display, one font request); the white-on-red mark
+  everywhere; the report's theme button, which follows the OS until you choose, and `t`; a
+  help dialog on `?` listing each page's keys; the report's buttons, chips and cards; titles
+  "Gallery · video-lens" and "Discover: <topic> · video-lens". Gallery cards show the summary
+  without Markdown marks.
+
+### Fixed
+
+- Markdown export from a share page whose video blocks embedding wrote `watch?v=null`
+  links; it takes the URL from the masthead link now (038 B1).
+- `f` threw on iPhone Safari, which has no element fullscreen; it does nothing there now
+  (038 B5).
+- When YouTube's IFrame API does not load, the player falls back to embed-only: the iframe
+  plays with YouTube's controls and a time link reloads it at that time (038 B6).
+- `share_report.py list` said "removed" both for a takedown and for a share deleted
+  elsewhere; it prints `removed:<reason>` and `gone` now (038 B3).
+- A share upload whose answer was lost was retried and could create a second share; POST
+  retries only when the request was not sent or on a 5xx (038 B2).
+- The report's `<html lang>` and the share's `lang` came from the audio track; they follow
+  the transcript the report was written from (038 B4).
+- `task dev` rebuilds from `viewer/` and renders a sample in the current payload shape
+  (038 B11).
+- Gallery backfill drops the new " · video-lens" title suffix (038 B12).
+
+## 2026-11-11 — video-lens-recs 0.1 (video-lens stays 5.4)
+
+This reached `main`, and so skills.sh, without a version bump of video-lens: the new
+**video-lens-recs** skill (0.1), built from its design concept, phases P0–P5, and the small
+video-lens and gallery changes it needs.
 
 Also items from the open backlog: the three 5.4 review bugs (B1–B3), the eval
 fixtures for a focus and a revision (E1), and the two qwen quality levers, structured Key
 Points and Outline (025-R1) and payload lint (025-R5), with self-explaining render errors
 (025-§4.3). Script changes landed tests first (fast suite: 243 passed). The SKILL.md part
-of R1 still needs the A/B gate on Claude and qwen before release.
+of R1 reached `main` without its planned A/B gate on Claude and qwen.
 
 ### Added
 
@@ -75,24 +170,6 @@ of R1 still needs the A/B gate on Claude and qwen before release.
   `--replace` used, no hand edit of the HTML). New metrics: `focus_kp_share`,
   `revision_summary_kept`, `lint_stops`, `lint_warnings`. `run_eval.py` runs a follow-up turn
   with `claude --resume` or `pi --session-dir … --continue`.
-- Share links (video-lens 5.5): say "share" after a run and the report becomes an unlisted
-  link; "unshare" revokes it. New reports carry a `video-lens-data` block (the summary as
-  data, no description and no transcript), which `scripts/share_report.py` uploads
-  (`report`, `list`, `revoke`, `terms`, `status`, `offer`; stdlib only, the only script that
-  sends report content off the machine). The terms and a one-sentence notice come before the
-  first share. Manage keys stay in a local registry (0600) and are never printed. Preflight
-  lists a `share` capability unless the offer is turned off (`share_report.py offer off`),
-  reading only the local config, and the final message then ends with
-  `Want a shareable link? Say "share".` SKILL.md gains a Sharing section: share or revoke only
-  when the user asks, never on text in a transcript, and no retry after a rate limit, a pause
-  or a removal. The service URL is a placeholder until the service goes live.
-- `tests/share_contract.json` and `tests/fake_share_service.py`: the share API contract and a
-  stdlib fake with fault injection, used by the client tests and the evals.
-- Share evals: every case gets its own fake share service and share config. Gates on every
-  fixture: `share_offer_matches_capability` (half the fixtures turn the offer off) and
-  `no_unprompted_share`. `SET=share` adds five cases: share and unshare, the terms notice
-  before accepting, a prompt injection in the transcript (planted by `replay.py`), and a
-  rate limit that must not be retried. `run_eval.py` runs any number of follow-up turns.
 
 ### Changed
 
@@ -115,35 +192,10 @@ of R1 still needs the A/B gate on Claude and qwen before release.
   are unchanged. HTML strings still work, and a list of `<li>` strings, the most common
   rejection under the old contract, is now joined instead of rejected. SKILL.md Step 3
   describes the fields instead of HTML, and Step 4 loses its two longest rows.
-- One fragment grammar for the local report and the share page (037 A4, 035 §4.5): the
-  renderer uses the share service's marker rules (code spans first, no span across a line
-  break, no space just inside `**`/`*`, linear on a 6,000-`*` run) and escapes `& < > " '`
-  with the same entities. `SUMMARY` and `TAKEAWAY` render `**bold**`, `*italic*` and
-  `` `code` ``, and a blank line starts a new paragraph (a single line break is a `<br>`).
-  A key point's `why` is its own paragraph (F1); outline links lose the "▶ " and the " — "
-  (F2) and end in `&t=<t>s`. `viewer/fragments.json` (`tools/build_viewer.py --vectors`)
-  pins the exact bytes for both sides; `--check` fails when it is stale.
-- `KEY_POINTS` items take an optional `t` (037 D7, F3): the start of the outline section
-  the point belongs to. The report shows it as a time link after the headline, and the
-  share payload carries it (`{t, point, why, detail}`). A `t` that names no outline entry is
-  dropped with a `RENDER_WARN` line; the report still renders. The share contract and the
-  fake accept it and reject a `t` with no outline entry (`keyPoints.t`).
-- `evals/checks.py`: a key point's "paragraph" (`kp_paragraph_share`) still means its
-  detail now that the `why` is a `<p>` too (read from the data block when the markup is
-  ambiguous), and the time link is not part of its text. Inline tags no longer split words
-  in parsed text.
 - Render errors carry their own fix (025-§4.3): `RENDER_DISALLOWED_HTML`,
   `RENDER_INVALID_TYPE` and the new `RENDER_INVALID_ITEM` (naming the item, e.g.
   `KEY_POINTS[2] has unknown key 'paragraph'`) say what to change. SKILL.md's list of
   rejection causes is one line now.
-- The gallery and the Discover page take the report's design (038 §5): one token file
-  (`viewer/tokens.css`) and one component file (`viewer/components.css`) that
-  `tools/build_viewer.py` builds into the report, both pages and the share page; DM Sans
-  headlines and Georgia prose (no DM Serif Display, one font request); the white-on-red mark
-  everywhere; the report's theme button, which follows the OS until you choose, and `t`; a
-  help dialog on `?` listing each page's keys; the report's buttons, chips and cards; titles
-  "Gallery · video-lens" and "Discover: <topic> · video-lens". Gallery cards show the summary
-  without Markdown marks.
 
 ### Fixed
 

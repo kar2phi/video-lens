@@ -40,10 +40,16 @@ video-lens/
     run_eval.py            ← agent eval on real videos (task eval), A/B compare; one fake share service per case
     replay.py              ← records the fetch scripts' output once, replays it (evals/cache/)
     run_recs_eval.py       ← video-lens-recs eval (task eval-recs); fixtures in gitignored evals/recs_fixtures/
+  viewer/                  ← report source of truth: shell.html, viewer.css, viewer.js, tokens.css,
+                             components.css, mark.svg, fragments.json. Edit here, then
+                             `python3 tools/build_viewer.py` (rewrites template.html; --check in task test),
+                             then the private repo's `task assets` for the share build
+  tools/
+    build_viewer.py        ← builds template.html and the share build from viewer/
   skills/
     video-lens/
       SKILL.md             ← skill prompt (source of truth)
-      template.html        ← HTML report template (source of truth)
+      template.html        ← HTML report template, GENERATED from viewer/ (never edit by hand)
       scripts/
         share_report.py    ← share client: the only script that uploads, and only on request
         share_payload.py   ← payload v1 validator (the Worker's schema in Python; renderer, client, fake)
