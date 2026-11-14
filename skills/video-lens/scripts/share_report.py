@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from share_payload import TEXT_LIMITED, SchemaError, validate_payload  # noqa: E402
 
 DEFAULT_SERVICE_URL = "https://video-lens.org"
-BODY_LIMIT = 128 * 1024
+BODY_LIMIT = 64 * 1024  # the contract's bodyLimit (041 F1.1)
 REQUIRED_KEYS = ("v", "videoId", "title", "summary", "takeaway", "keyPoints", "outline")
 RETRIES = 3
 BACKOFF = 0.5
@@ -253,7 +253,11 @@ def raise_for(resp: Response, base: str) -> None:
         raise ShareError("SHARE_PAUSED", "new shares are paused on the service; try again tomorrow")
     if code == "removed":
         reason = resp.body.get("reason") or "other"
-        raise ShareError("SHARE_REMOVED", f"{reason}: the operator removed this share; it cannot be updated")
+        raise ShareError("SHARE_REMOVED", f"{reason}: the operator removed this report from the service; "
+                                          "it cannot be shared or updated again")
+    if code == "blocked":
+        raise ShareError("SHARE_BLOCKED", "the operator blocked sharing from this install; "
+                                          "see https://video-lens.org/legal/terms")
     if code == "video":
         raise ShareError("SHARE_VIDEO", "YouTube says this video does not exist, so it cannot be shared")
     if code == "auth":
@@ -338,7 +342,7 @@ def cmd_report(args) -> int:
     install = ensure_install(cfg)
     body = {"terms": cfg["terms_accepted"], "payload": payload}
     if len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > BODY_LIMIT:
-        raise ShareError("SHARE_INPUT", "the report is too large to share (128 KiB limit)")
+        raise ShareError("SHARE_INPUT", "the report is too large to share (64 KiB limit)")
 
     shares = load_registry()
     source = str(path)

@@ -75,6 +75,7 @@ class FakeState:
         self.counters = {}
         self.caps = {"install": 30, "ip": 60, "global": 1000}
         self.paused = False
+        self.blocked = set()
         self.gone = {CONTRACT["goneVideoId"]}
         self.faults = []
         self.fail_every = 0
@@ -95,6 +96,8 @@ class FakeState:
             self.paused = False
         elif name == "set_cap":
             self.caps[args["name"]] = int(args["n"])
+        elif name == "block_install":
+            self.blocked.add(args["install"])
         elif name == "video_gone":
             self.gone.add(args["videoId"])
         elif name == "takedown":
@@ -233,6 +236,8 @@ class Handler(BaseHTTPRequestHandler):
         # 033 §7.1 step 1: switch and day counters before the body is read.
         if st.paused:
             raise ApiError("paused")
+        if install in st.blocked:
+            raise ApiError("blocked")
         ip = self.client_address[0]
         if st.count("g:w") > st.caps["global"]:
             raise ApiError("paused")
@@ -256,6 +261,10 @@ class Handler(BaseHTTPRequestHandler):
         if payload["videoId"] in st.gone:
             raise ApiError("video")
         sha = payload_sha(payload)
+        # 041 F4 (a): content that was taken down cannot be shared again.
+        gone = next((s for s in st.shares.values() if s["status"] == "removed" and s["sha"] == sha), None)
+        if gone:
+            raise ApiError("removed", reason=gone["reason"])
         now = int(time.time())
         base = f"http://{self.headers.get('Host')}"
         if share_id is None:

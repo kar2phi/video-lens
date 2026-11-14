@@ -5,16 +5,16 @@
     "Base URL is the runner's. Lengths count Unicode code points after NFC normalisation.",
     "The install ID travels only in the X-VL-Install header (default: the runner's own; {install2} is a second one). Placeholders in flows: {payload}, {payload:PATCH}, {terms}, {install2}, {id}, {key},",
     "{id2}, {key2}; 'save' copies response fields into those names. 'op' steps are runner actions:",
-    "takedown(id, reason), pause, unpause, set_cap(name, n), video_gone(videoId).",
+    "takedown(id, reason), pause, unpause, set_cap(name, n), video_gone(videoId), block_install(install).",
     "keyPoints[].t (037 D7) is optional: an integer 0..86400 that equals the t of one outline entry, else field keyPoints.t.",
     "It comes first in the normalised key point ({t, point, why, detail}; timedKeyPoint), which matters because the payload is hashed."
   ],
   "version": 1,
   "terms": "2026-11-01",
-  "bodyLimit": 131072,
+  "bodyLimit": 65536,
   "installHeader": "X-VL-Install",
   "errors": {
-    "schema": 400, "terms": 400, "video": 400, "auth": 401, "not_found": 404,
+    "schema": 400, "terms": 400, "video": 400, "auth": 401, "blocked": 403, "not_found": 404,
     "removed": 410, "size": 413, "rate": 429, "paused": 503
   },
   "reasons": ["illegal", "copyright", "spam", "personal_data", "other"],
@@ -165,7 +165,7 @@
        "expect": {"status": 400, "json": {"error": "schema", "field": "body"}}},
       {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}", "extra": 1}},
        "expect": {"status": 400, "json": {"error": "schema", "field": "body"}}},
-      {"request": {"method": "POST", "path": "/api/v1/shares", "rawBody": "@131073"},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "rawBody": "@65537"},
        "expect": {"status": 413, "json": {"error": "size"}}}]},
 
     {"name": "video that YouTube says does not exist", "steps": [
@@ -181,8 +181,27 @@
        "expect": {"status": 200, "json": {"id": "{id}", "status": "removed", "reason": "spam"}}},
       {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 410, "json": {"error": "removed", "reason": "spam"}}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "headers": {"X-VL-Install": "{install2}"},
+                   "body": {"terms": "{terms}", "payload": "{payload}"}},
+       "expect": {"status": 410, "json": {"error": "removed", "reason": "spam"}}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{minimalPayload}"}},
+       "expect": {"status": 201}},
       {"request": {"method": "DELETE", "path": "/api/v1/shares/{id}", "auth": "{key}"},
        "expect": {"status": 200, "json": {"deleted": true}}}]},
+
+    {"name": "blocked install", "steps": [
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{payload}"}},
+       "expect": {"status": 201}, "save": {"id": "id", "key": "manageKey"}},
+      {"op": "block_install", "args": {"install": "{install}"}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "body": {"terms": "{terms}", "payload": "{minimalPayload}"}},
+       "expect": {"status": 403, "json": {"error": "blocked"}}},
+      {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "payload": "{minimalPayload}"}},
+       "expect": {"status": 403, "json": {"error": "blocked"}}},
+      {"request": {"method": "GET", "path": "/api/v1/shares/{id}", "auth": "{key}"},
+       "expect": {"status": 200, "json": {"status": "live"}}},
+      {"request": {"method": "POST", "path": "/api/v1/shares", "headers": {"X-VL-Install": "{install2}"},
+                   "body": {"terms": "{terms}", "payload": "{minimalPayload}"}},
+       "expect": {"status": 201}}]},
 
     {"name": "kill switch", "steps": [
       {"op": "pause"},

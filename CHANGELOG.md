@@ -47,6 +47,10 @@ design (no change to what they do).
   and date in the data block (NFC, no control or bidi characters; the page keeps the
   original) and prints `RENDER_WARN: not shareable as is: …` when a report would not pass;
   `share_report.py report` checks before any request and names the field, size and limit.
+- Share contract: the body limit is 64 KiB (was 128 KiB; the largest real share measured was
+  12.5 KB). A report that was taken down cannot be shared again, not even with `--new-link`
+  (`SHARE_REMOVED`, 410). A new error `blocked` (403, `SHARE_BLOCKED`) when the operator has
+  blocked sharing from an install. The fake share service and the contract flows cover both.
 
 ### Changed
 

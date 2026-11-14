@@ -434,7 +434,7 @@ def test_too_many_outline_entries_name_the_count(env):
     assert [x for x in env.api_log() if "/shares" in x] == []
 
 
-def test_body_over_128_kib_is_rejected_locally(env, monkeypatch):
+def test_body_over_the_limit_is_rejected_locally(env, monkeypatch):
     env.accept()
     monkeypatch.setattr(sr, "BODY_LIMIT", 100)
     code, _, err = env.run("report", env.report())
@@ -449,6 +449,8 @@ def test_body_over_128_kib_is_rejected_locally(env, monkeypatch):
     ({"status": 400, "error": "video"}, "ERROR:SHARE_VIDEO:"),
     ({"status": 413, "error": "size"}, "ERROR:SHARE_INPUT:"),
     ({"status": 503, "error": "paused"}, "ERROR:SHARE_PAUSED:"),
+    ({"status": 403, "error": "blocked"}, "ERROR:SHARE_BLOCKED:"),
+    ({"status": 410, "error": "removed", "reason": "spam"}, "ERROR:SHARE_REMOVED: spam"),
     ({"status": 429, "error": "rate", "retryAfter": 3600}, "ERROR:SHARE_RATE:"),
     ({"status": 418, "error": "teapot"}, "ERROR:SHARE_HTTP:"),
 ])
@@ -476,6 +478,19 @@ def test_removed_share_cannot_be_updated(env):
         env.fake.state.op("takedown", {"id": share_id, "reason": "copyright"})
     code, _, err = env.run("report", path)
     assert code == 1 and err.startswith("ERROR:SHARE_REMOVED: copyright")
+
+
+def test_removed_content_cannot_be_shared_again(env):
+    """041 F4 (a): the same report as a new link is refused too, and the registry keeps what it had."""
+    env.accept()
+    path = env.report()
+    share_id = lines(env.run("report", path)[1], "SHARE_ID:")[0]
+    before = env.registry()
+    with env.fake.state.lock:
+        env.fake.state.op("takedown", {"id": share_id, "reason": "spam"})
+    code, _, err = env.run("report", path, "--new-link")
+    assert code == 1 and err.startswith("ERROR:SHARE_REMOVED: spam")
+    assert env.registry() == before
 
 
 def test_put_with_an_unknown_share_is_auth(env):
