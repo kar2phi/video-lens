@@ -275,3 +275,13 @@ def test_gallery_help_lists_its_keys_and_the_four_parts():
     assert "analysis" not in about
     for part in ("summary", "takeaway", "key points", "timed outline"):
         assert part in about, part
+
+
+# 038 D6: one title pattern, "<page> · video-lens".
+def test_page_titles_follow_one_pattern():
+    assert "<title>Gallery · video-lens</title>" in (ROOT / "skills/video-lens-gallery/index.html").read_text()
+    assert "<title>{{VIDEO_TITLE}} · video-lens</title>" in (ROOT / "viewer/shell.html").read_text()
+    sys.path.insert(0, str(ROOT / "skills" / "video-lens-recs" / "scripts"))
+    import page
+    src = Path(page.__file__).read_text()
+    assert '"PAGE_TITLE": _e(f"Discover: {data[\'label\']} · video-lens"),' in src

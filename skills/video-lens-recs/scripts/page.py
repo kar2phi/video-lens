@@ -450,7 +450,7 @@ def page_html(data: dict, items: list, also: list, cfg: dict, date: str) -> str:
             "windowDays": data["window_days"], "picks": sum(it["section"] != "waiting" for it in items),
             "videoIds": [it["candidate"]["videoId"] for it in items]}
     values = {
-        "PAGE_TITLE": _e(f"Discover — {data['label']} · {date}"),
+        "PAGE_TITLE": _e(f"Discover: {data['label']} · video-lens"),
         "TOPIC_LABEL": _e(data["label"]),
         "SUBTITLE": _e(f"last {data['window_days']} days · {date}"),
         "NAV": "".join(nav),
