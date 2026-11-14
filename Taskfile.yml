@@ -84,7 +84,7 @@ tasks:
     cmd: python3 -m pytest tests/ -v
 
   dev:
-    desc: Run template dev server with sample content
+    desc: Rebuild template.html from viewer/ and serve a sample report (v1 payload)
     cmds:
       - python3 scripts/yt_template_dev.py
       - bash skills/video-lens/scripts/serve_report.sh ~/Downloads/video-lens/reports/video-lens_sample_output.html

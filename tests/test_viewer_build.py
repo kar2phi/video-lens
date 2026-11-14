@@ -132,3 +132,18 @@ def test_share_build_refuses_an_unclean_source(tmp_path, edit):
 def test_share_mode_needs_an_out_dir_and_has_no_check():
     assert _run("--mode", "share").returncode != 0
     assert _run("--mode", "share", "--check", "--out", "/nonexistent").returncode != 0
+
+
+def test_dev_sample_is_v1_and_renders_without_warnings(tmp_path, monkeypatch, capsys):
+    """038 B11: `task dev` exercises the current payload shape (v1 arrays, key-point t)."""
+    import importlib.util
+    root = Path(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location("yt_template_dev", root / "scripts" / "yt_template_dev.py")
+    dev = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(dev)
+    assert isinstance(dev.CONTENT["KEY_POINTS"], list) and isinstance(dev.CONTENT["OUTLINE"], list)
+    assert all({"point", "why", "detail", "t"} <= set(k) for k in dev.CONTENT["KEY_POINTS"])
+    import render_report as rr
+    monkeypatch.setattr(rr, "METADATA_DIR", tmp_path / "metadata")
+    rr.render_from_payload(dev.CONTENT, str(tmp_path / "sample.html"))
+    assert "RENDER_WARN" not in capsys.readouterr().err
