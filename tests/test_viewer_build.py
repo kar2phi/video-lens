@@ -115,7 +115,7 @@ def test_include_points_do_not_collide_with_render_slots():
 
 # ── 037 A3: the share build ──
 
-SHARE_SLOTS = {"ASSET_CSS", "ASSET_FONTS", "ASSET_JS", "DURATION_S", "HEAD_EXTRA", "KEY_POINTS", "LANG",
+SHARE_SLOTS = {"AI_MODEL", "ASSET_CSS", "ASSET_FONTS", "ASSET_JS", "DURATION_S", "HEAD_EXTRA", "KEY_POINTS", "LANG",
                "META_LINE", "OUTLINE", "PLAYER_PANEL", "REPORT_URL", "SUMMARY", "TAKEAWAY", "VIDEO_TITLE",
                "VIDEO_URL"}
 
