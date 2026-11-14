@@ -548,7 +548,11 @@
         .map(function (n) { return n.textContent; }).join(" ").replace(/\s+/g, " ").replace(/^\s*—\s*/, "").trim();
     }
     function markdown() {
-      var watch = "https://www.youtube.com/watch?v=" + (facade ? facade.getAttribute("data-video-id") : "");
+      // The masthead link, not the facade: a "noembed" share page renders the facade without
+      // data-video-id, and the link is always there, built from the validated ID.
+      var ytLink = document.querySelector("a.yt-link[href]");
+      var watch = ytLink ? ytLink.getAttribute("href")
+        : "https://www.youtube.com/watch?v=" + ((facade && facade.getAttribute("data-video-id")) || "");
       var title = document.querySelector("h1").textContent.trim();
       var metaLine = document.querySelector(".meta-facts");
       var lines = ["# " + title, ""];
