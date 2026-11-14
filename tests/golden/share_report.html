@@ -461,7 +461,10 @@ kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px soli
     var ready = false;
     var pending = null;
     var captions = false;
+    var embedOnly = false;
+    var apiTimer = null;
     var listeners = [];
+    var API_TIMEOUT = 10000;
 
     function tell(state) { listeners.forEach(function (cb) { cb(state); }); }
     function fail() {
@@ -479,6 +482,22 @@ kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px soli
       facade.appendChild(link);
       tell("failed");
     }
+    function embedSrc(start, autoplay) {
+      var src = "https://www.youtube-nocookie.com/embed/" + videoId + "?enablejsapi=1&rel=0&playsinline=1";
+      if (/^https?:/.test(location.origin)) src += "&origin=" + encodeURIComponent(location.origin);
+      if (autoplay) src += "&autoplay=1";
+      if (start) src += "&start=" + Math.floor(start);
+      return src;
+    }
+    function apiMissing() {
+      // The IFrame API did not load (a blocker, the network): the iframe still plays with
+      // YouTube's own controls, but nothing here can follow or steer it. Say so by dropping the
+      // timeline and the now-playing bar; a time link reloads the iframe at that time.
+      clearTimeout(apiTimer);
+      if (ready || embedOnly || !frame) return;
+      embedOnly = true;
+      tell("embedonly");
+    }
 
     var player = {
       available: function () { return !!videoId; },
@@ -488,20 +507,18 @@ kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px soli
       onState: function (cb) { listeners.push(cb); },
       load: function (start, autoplay) {
         if (frame || !videoId) return;
-        var src = "https://www.youtube-nocookie.com/embed/" + videoId + "?enablejsapi=1&rel=0&playsinline=1";
-        if (/^https?:/.test(location.origin)) src += "&origin=" + encodeURIComponent(location.origin);
-        if (autoplay) src += "&autoplay=1";
-        if (start) src += "&start=" + start;
         frame = document.createElement("iframe");
         frame.id = "yt-player";
         frame.title = "YouTube video player";
-        frame.src = src;
+        frame.src = embedSrc(start, autoplay);
         frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
         frame.setAttribute("allowfullscreen", "");
         facade.textContent = "";
         facade.classList.add("loaded");
         facade.appendChild(frame);
         function attach() {
+          clearTimeout(apiTimer);
+          if (embedOnly || !frame) return;
           api = new window.YT.Player(frame, {
             events: {
               onReady: function () {
@@ -520,11 +537,14 @@ kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px soli
           window.onYouTubeIframeAPIReady = attach;
           var script = document.createElement("script");
           script.src = "https://www.youtube.com/iframe_api";
+          script.onerror = apiMissing;
+          apiTimer = setTimeout(apiMissing, API_TIMEOUT);
           document.head.appendChild(script);
         }
       },
       seek: function (t) {
         if (ready) { api.seekTo(t, true); api.playVideo(); }
+        else if (embedOnly) frame.src = embedSrc(t, true);
         else if (frame) pending = t;
         else player.load(t, true);
       },
@@ -705,7 +725,7 @@ kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px soli
     player.onState(function (state) {
       if (state === "ready" && rate !== 1) player.rate(rate);
       if (state === "playing") started = true;
-      if (state === "failed") {
+      if (state === "failed" || state === "embedonly") {
         if (timeline) timeline.remove();
         if (nowbar) nowbar.hidden = true;
         setActive(-1);
