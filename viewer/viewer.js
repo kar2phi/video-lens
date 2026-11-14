@@ -435,15 +435,81 @@
           if (folder === "reports") { parts.pop(); dir = parts.join("/"); urlPath = "reports/" + name; }
           try { dir = decodeURIComponent(dir); } catch (e) { /* keep the encoded path */ }
           dir = dir.replace(/^\/([A-Za-z]:)/, "$1"); // file:///C:/Users/… on Windows
-          var cmd = $("file-cmd");
+          var command = "python3 -m http.server 8765" + (dir ? ' --directory "' + dir.replace(/"/g, '\\"') + '"' : "");
           var here = $("file-link");
-          if (cmd && dir) cmd.textContent = 'cd "' + dir + '" && python3 -m http.server 8765';
-          if (here) { here.href += urlPath; here.textContent += "/" + urlPath; } // the shell holds the host
+          if ($("file-cmd")) $("file-cmd").textContent = command;
           note.hidden = false;
+          if (here) { // the shell holds the host; the script only appends the path
+            var host = here.href;
+            here.href = host + urlPath;
+            serveNote(command, host, here);
+          }
         } else {
           player.load(0, false);
         }
       }
+    }
+
+    // The file:// note, as the pre-A1 template had it: copy the command, watch the port, and once
+    // a server answers, open the served report after a countdown the reader can stop.
+    function serveNote(command, host, here) {
+      var copy = $("file-copy");
+      var state = $("file-state");
+      var count = $("file-count");
+      if (copy) copy.addEventListener("click", function () {
+        function fallback() {
+          var range = document.createRange();
+          range.selectNodeContents($("file-cmd"));
+          window.getSelection().removeAllRanges();
+          window.getSelection().addRange(range);
+          var ok = false;
+          try { ok = document.execCommand("copy"); } catch (e) { /* the command stays selected */ }
+          flash(copy, ok ? "Copied ✓" : "Selected");
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(command).then(function () { flash(copy, "Copied ✓"); }, fallback);
+        } else {
+          fallback();
+        }
+      });
+      if (!here || !state || !count || !window.fetch) return;
+      var up = null, stayed = false, timer = null;
+      function stop() { clearInterval(timer); timer = null; count.textContent = ""; }
+      function setUp(on) {
+        if (up === on) return;
+        up = on;
+        state.textContent = on ? "Running ✓" : "Not running";
+        state.setAttribute("data-up", on ? "yes" : "no");
+        here.setAttribute("aria-disabled", on ? "false" : "true");
+        if (!on) { stop(); return; }
+        // Inside a frame (a preview) the page never navigates away on its own.
+        if (stayed || window.self !== window.top) return;
+        var s = 3;
+        var stay = document.createElement("button");
+        stay.type = "button";
+        stay.textContent = "Stay";
+        stay.addEventListener("click", function () { stayed = true; stop(); });
+        function tick() {
+          if (s <= 0) { stop(); location.href = here.href; return; }
+          count.textContent = "Opening in " + s + " s… ";
+          count.appendChild(stay);
+          s--;
+        }
+        tick();
+        timer = setInterval(tick, 1000);
+      }
+      function check() {
+        // no-cors: the answer is opaque, but it only arrives if something listens on the port.
+        fetch(host, { mode: "no-cors", cache: "no-store" }).then(function () { setUp(true); }, function () { setUp(false); });
+      }
+      // The link stays clickable while "Not running": a browser may refuse the probe from file://.
+      check();
+      setInterval(check, 2000);
+    }
+    function flash(button, text) {
+      var old = button.textContent;
+      button.textContent = text;
+      setTimeout(function () { button.textContent = old; }, 1600);
     }
 
     // A click inside the player moves keyboard focus into YouTube's frame. Take it back when
