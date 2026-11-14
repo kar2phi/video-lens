@@ -216,3 +216,24 @@ def test_local_pages_use_one_type_system(rel):
     assert fonts == ["https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap"], fonts
     css = _outside_tokens(text)
     assert not re.findall(r"font-family:\s*['\"]?(?!var\(|inherit)[^;']*DM Sans", css), "name the font through var(--sans)"
+
+
+# 038 D3: one brand mark (viewer/mark.svg): a red circle and a white "VL", in both themes, for the
+# favicon of every page and every mark drawn in a page.
+MARK_RE = re.compile(r"<svg[^>]*>(<circle[^>]*/><text[^>]*>VL</text>)</svg>")
+
+
+def _marks(text):
+    decoded = text.replace("%23", "#").replace("'", '"')
+    return MARK_RE.findall(decoded)
+
+
+@pytest.mark.parametrize("rel", ["viewer/shell.html", *bv.TOKEN_PAGES])
+def test_every_mark_is_the_one_mark(rel):
+    canonical = _marks((ROOT / "viewer" / "mark.svg").read_text())
+    assert len(canonical) == 1 and 'fill="#c0392b"' in canonical[0] and 'fill="#fff"' in canonical[0]
+    text = (ROOT / rel).read_text()
+    found = _marks(text)
+    assert found and set(found) == set(canonical), rel
+    assert text.count("VL</text>") == len(found), "a VL mark that is not the canonical one"
+    assert 'rel="icon"' in text and "ffd700" not in text
