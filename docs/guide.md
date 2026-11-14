@@ -83,13 +83,13 @@ report is written in the same format.
 
 After a report is ready, say "share" to get an unlisted link to it. Nothing is uploaded unless
 you ask. Before the first share you see the terms and agree to them: anyone with the link can
-read the summary, the service operator can read it too and may remove it, and a random install
+read the summary, the service operator may look at it and may remove it, and a random install
 ID plus a hashed IP address are used to limit abuse. What is uploaded is the summary itself
 (summary, takeaway, key points, outline, tags) and the video's facts (title, channel, duration,
 date, language), never the transcript or the video description.
 
 Say "unshare" to revoke the link, "which reports are shared" to list your links with their
-views, and "stop offering links" to drop the closing "Want a shareable link?" line. The key that
+visitors and page loads, and "stop offering links" to drop the closing "Want a shareable link?" line. The key that
 revokes a link stays on your machine (`~/.local/share/video-lens/share/`); without it, a link
 can only be removed through the notice form on the service's site. Reports made before sharing
 existed cannot be shared; run the video again. The client is

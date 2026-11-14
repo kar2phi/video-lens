@@ -269,7 +269,7 @@ def test_list_states(env):
     env.accept()
     a, b, c = env.report("a.html"), env.report("b.html"), env.report("c.html")
     ids = [lines(env.run("report", p)[1], "SHARE_ID:")[0] for p in (a, b, c)]
-    env.fake.state.shares[ids[0]]["views"] = 7
+    env.fake.state.shares[ids[0]]["views"] = {"loads": 7, "visitors": 3}
     with b.open("a", encoding="utf-8") as f:
         f.write("\n")
     with env.fake.state.lock:
@@ -277,12 +277,21 @@ def test_list_states(env):
 
     code, out, err = env.run("list")
     assert code == 0, err
-    rows = {r.split()[0]: r.split(maxsplit=4) for r in lines(out, "SHARE:")}
-    assert rows[ids[0]][1:4] == ["7", rows[ids[0]][2], "current"]
-    assert rows[ids[0]][4] == 'What are skills? & <why> "quotes"'
-    assert len(rows[ids[0]][2]) == 10 and rows[ids[0]][2][4] == "-"
-    assert rows[ids[1]][3] == "outdated"
-    assert rows[ids[2]][3] == "removed:spam"
+    rows = {r.split()[0]: r.split(maxsplit=5) for r in lines(out, "SHARE:")}
+    assert rows[ids[0]][1:5] == ["3", "7", rows[ids[0]][3], "current"]
+    assert rows[ids[0]][5] == 'What are skills? & <why> "quotes"'
+    assert len(rows[ids[0]][3]) == 10 and rows[ids[0]][3][4] == "-"
+    assert rows[ids[1]][1:3] == ["0", "0"] and rows[ids[1]][4] == "outdated"
+    assert rows[ids[2]][4] == "removed:spam"
+
+
+def test_list_reads_an_old_service_answer(env):
+    """A service from before 045 answered views as one number: the loads."""
+    env.accept()
+    share_id = lines(env.run("report", env.report())[1], "SHARE_ID:")[0]
+    env.fake.state.shares[share_id]["views"] = 5
+    rows = [r.split(maxsplit=5) for r in lines(env.run("list")[1], "SHARE:")]
+    assert rows[0][1:3] == ["0", "5"]
 
 
 def test_list_shows_the_takedown_reason_and_gone(env):
@@ -294,9 +303,9 @@ def test_list_shows_the_takedown_reason_and_gone(env):
     del env.fake.state.shares[ids[1]]   # deleted elsewhere: the service answers 401
     code, out, err = env.run("list")
     assert code == 0, err
-    rows = {r.split()[0]: r.split(maxsplit=4) for r in lines(out, "SHARE:")}
-    assert rows[ids[0]][3] == "removed:copyright"
-    assert rows[ids[1]][3] == "gone"
+    rows = {r.split()[0]: r.split(maxsplit=5) for r in lines(out, "SHARE:")}
+    assert rows[ids[0]][4] == "removed:copyright"
+    assert rows[ids[1]][4] == "gone"
 
 
 def test_list_empty(env):
@@ -439,6 +448,7 @@ def test_body_over_the_limit_is_rejected_locally(env, monkeypatch):
     monkeypatch.setattr(sr, "BODY_LIMIT", 100)
     code, _, err = env.run("report", env.report())
     assert code == 1 and err.startswith("ERROR:SHARE_INPUT:")
+    assert "a revision with --replace" in err   # 044 W11: the same way forward as a long field
     assert env.api_log() == ["GET /api/v1/health 200"]
 
 

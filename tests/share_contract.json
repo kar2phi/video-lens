@@ -7,10 +7,13 @@
     "{id2}, {key2}; 'save' copies response fields into those names. 'op' steps are runner actions:",
     "takedown(id, reason), pause, unpause, set_cap(name, n), video_gone(videoId), block_install(install).",
     "keyPoints[].t (037 D7) is optional: an integer 0..86400 that equals the t of one outline entry, else field keyPoints.t.",
-    "It comes first in the normalised key point ({t, point, why, detail}; timedKeyPoint), which matters because the payload is hashed."
+    "It comes first in the normalised key point ({t, point, why, detail}; timedKeyPoint), which matters because the payload is hashed.",
+    "GET of a share answers views as {loads, visitors}: counted page loads and distinct visitors (video-lens-core 045).",
+    "Text may not contain controls, bidi overrides or isolates, or the invisible U+061C, U+200B, U+200E/F, U+2028/9,",
+    "U+2060-U+2064 and U+FEFF (041 F12); U+200C and U+200D (ZWNJ, ZWJ) are allowed."
   ],
   "version": 1,
-  "terms": "2026-11-01",
+  "terms": "2026-11-14",
   "bodyLimit": 65536,
   "installHeader": "X-VL-Install",
   "errors": {
@@ -70,7 +73,8 @@
     {"name": "hostile text is text", "patch": {"summary": "<script>window.__pwned=1</script> <img src=x onerror=1>"}},
     {"name": "both notes", "patch": {"notes": ["lang-fallback", "local-transcript"]}},
     {"name": "outline max t", "patch": {"outline": [{"t": 86400, "title": "End", "detail": ""}]}},
-    {"name": "key point t names an outline entry", "patch": {"keyPoints": [{"t": 754, "point": "P"}, {"point": "Q", "t": 0}]}}
+    {"name": "key point t names an outline entry", "patch": {"keyPoints": [{"t": 754, "point": "P"}, {"point": "Q", "t": 0}]}},
+    {"name": "ZWNJ and ZWJ stay", "patch": {"title": "\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645 \ud83d\udc69\u200d\ud83d\udcbb"}}
   ],
   "invalidPatches": [
     {"name": "unknown key", "patch": {"html": "<b>x</b>"}, "field": "html"},
@@ -110,6 +114,12 @@
     {"name": "bidi override", "patch": {"title": "a‮b"}, "field": "title"},
     {"name": "bidi isolate", "patch": {"channel": "a⁧b"}, "field": "channel"},
     {"name": "control char in key point", "patch": {"keyPoints": [{"point": "a\u001bb"}]}, "field": "keyPoints"},
+    {"name": "zero width space", "patch": {"summary": "sc\u200bam"}, "field": "summary"},
+    {"name": "byte order mark", "patch": {"takeaway": "a\ufeffb"}, "field": "takeaway"},
+    {"name": "direction mark", "patch": {"title": "a\u200fb"}, "field": "title"},
+    {"name": "line separator", "patch": {"channel": "a\u2028b"}, "field": "channel"},
+    {"name": "word joiner in outline", "patch": {"outline": [{"t": 0, "title": "a\u2060b"}]}, "field": "outline"},
+    {"name": "arabic letter mark", "patch": {"keyPoints": [{"point": "a\u061cb"}]}, "field": "keyPoints"},
     {"name": "key point t matches no outline entry", "patch": {"keyPoints": [{"t": 5, "point": "P"}]}, "field": "keyPoints.t"},
     {"name": "key point t not an integer", "patch": {"keyPoints": [{"t": "754", "point": "P"}]}, "field": "keyPoints.t"},
     {"name": "key point t with an empty outline", "patch": {"keyPoints": [{"t": 0, "point": "P"}], "outline": []}, "field": "keyPoints.t"}
@@ -130,7 +140,7 @@
        "expect": {"status": 201, "json": {"id": "id", "url": "shareUrl", "manageKey": "key", "sha": "sha"}},
        "save": {"id": "id", "key": "manageKey", "sha": "sha"}},
       {"request": {"method": "GET", "path": "/api/v1/shares/{id}", "auth": "{key}"},
-       "expect": {"status": 200, "json": {"id": "{id}", "status": "live", "views": 0, "created": "int", "updated": "int"}}},
+       "expect": {"status": 200, "json": {"id": "{id}", "status": "live", "views": {"loads": 0, "visitors": 0}, "created": "int", "updated": "int"}}},
       {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "payload": "{payload}"}},
        "expect": {"status": 200, "json": {"id": "{id}", "url": "shareUrl", "updated": "int", "sha": "{sha}"}}},
       {"request": {"method": "PUT", "path": "/api/v1/shares/{id}", "auth": "{key}", "body": {"terms": "{terms}", "payload": "{payload:{\"takeaway\": \"Changed.\"}}"}},

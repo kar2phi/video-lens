@@ -201,9 +201,10 @@ VECTOR_CASES = [
         "summary": "*" * 6000, "takeaway": "*" * 2000,
         "keyPoints": [_kp("*" * 600, "*" * 1500, "*" * 4000)],
         "outline": [_ol(0, "*" * 300, "*" * 1500)]}),
+    # U+FEFF and U+2028 are no longer allowed in a payload (041 F12); the inline-marker tests keep them.
     ("unicode and JavaScript whitespace", {
-        "summary": "\ufeffCafé **naïve** *😀* 人工知能\ufeff\n\n\u3000Second\u00a0para\u3000",
-        "takeaway": "*\ufeffx* *x\u00a0* **\u2003y** *\u2028z* stay text; *a\u2028b* is italic.",
+        "summary": "\u3000Café **naïve** *😀* 人工知能\u00a0\n\n\u3000Second\u00a0para\u3000",
+        "takeaway": "*\u00a0x* *x\u00a0* **\u2003y** *\u3000z* stay text; *a\u3000b* is italic.",
         "keyPoints": [_kp("Emoji 🎙 **bold**", "*😀*", "`😀` **é**")],
         "outline": [_ol(0, "Tab\tand **mark**", "人工知能 *em*")]}),
 ]

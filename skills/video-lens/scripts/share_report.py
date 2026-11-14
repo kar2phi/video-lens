@@ -2,14 +2,15 @@
 """Share a video-lens report as an unlisted link (stdlib only).
 
     share_report.py report PATH [--new-link]            create, or update the existing link
-    share_report.py list                                own shares with views, from the service
+    share_report.py list                                own shares with visitors and loads, from the service
     share_report.py revoke (ID | URL | PATH)
     share_report.py terms [--accept]                    show the terms; record acceptance
     share_report.py offer (on | off)                    the closing offer line in the skill
 
 This is the only video-lens script that sends report content off the machine, and it does so
 only when the user asks. Output on stdout: `SHARE_URL: <url>`, `SHARE_ID: <id>`,
-`REVOKED: <id>`, `SHARE: <id> <views> <updated> <state> <title>`, where state is `current`,
+`REVOKED: <id>`, `SHARE: <id> <visitors> <loads> <updated> <state> <title>`, where visitors are the
+distinct visitors and loads the page loads (bots and link previews are not counted), state is `current`,
 `outdated` (the report changed since), `removed:<reason>` (taken down by the operator, with one of
 the service's fixed reason codes) or `gone` (the service no longer knows the link).
 Errors on stderr: `ERROR:SHARE_<CODE>: <message>`; exit 2 for SHARE_TERMS, else 1.
@@ -53,6 +54,9 @@ REASON_RE = re.compile(r"[a-z][a-z_]{0,31}")
 VERSION_RE = re.compile(r'^\s*version:\s*"?([^"\s]+)"?\s*$', re.M)
 
 TERMS_EXIT = 2
+# 044 W11: over the body limit, the same way forward as a field over its limit.
+TOO_LARGE = ("the report is too large to share (64 KiB limit). Shorten the summary, key points or outline "
+             "(a revision with --replace), then share again.")
 
 
 class ShareError(Exception):
@@ -246,7 +250,7 @@ def raise_for(resp: Response, base: str) -> None:
         raise ShareError("SHARE_TERMS", f"the terms of the share service changed; read {terms_url(base)} "
                                         "and accept them with `share_report.py terms --accept`")
     if code == "size":
-        raise ShareError("SHARE_INPUT", "the report is too large to share")
+        raise ShareError("SHARE_INPUT", TOO_LARGE)
     if code == "rate":
         raise ShareError("SHARE_RATE", f"share limit reached; try again {_wait_text(resp.headers.get('Retry-After'))}")
     if code == "paused":
@@ -342,7 +346,7 @@ def cmd_report(args) -> int:
     install = ensure_install(cfg)
     body = {"terms": cfg["terms_accepted"], "payload": payload}
     if len(json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > BODY_LIMIT:
-        raise ShareError("SHARE_INPUT", "the report is too large to share (64 KiB limit)")
+        raise ShareError("SHARE_INPUT", TOO_LARGE)
 
     shares = load_registry()
     source = str(path)
@@ -407,7 +411,7 @@ def cmd_list(args) -> int:
     for s in load_registry():
         resp = request("GET", f"{base}/api/v1/shares/{s['id']}", key=s.get("manageKey"))
         if resp.status == 401:
-            info = {"status": "gone", "reason": None, "views": 0, "updated": s.get("updated")}
+            info = {"status": "gone", "reason": None, "views": {}, "updated": s.get("updated")}
         else:
             raise_for(resp, base)
             info = resp.body
@@ -419,13 +423,15 @@ def cmd_list(args) -> int:
         else:
             mtime, size = _stat(Path(s.get("source", "")))
             state = "current" if (mtime, size) == (s.get("mtime"), s.get("size")) else "outdated"
-        views = info.get("views") if isinstance(info.get("views"), int) else 0
-        rows.append({"id": s["id"], "url": s.get("url", ""), "views": views,
+        views = info.get("views")
+        views = views if isinstance(views, dict) else {"loads": views} if isinstance(views, int) else {}
+        count = lambda k: views[k] if isinstance(views.get(k), int) and not isinstance(views.get(k), bool) else 0  # noqa: E731
+        rows.append({"id": s["id"], "url": s.get("url", ""), "visitors": count("visitors"), "loads": count("loads"),
                      "updated": _day(info.get("updated") or s.get("updated")), "state": state,
                      "reason": info.get("reason"), "title": s.get("title", ""), "source": s.get("source", "")})
     for r in rows:
         title = " ".join(str(r["title"]).split())
-        out(f"SHARE: {r['id']} {r['views']} {r['updated']} {r['state']} {title}")
+        out(f"SHARE: {r['id']} {r['visitors']} {r['loads']} {r['updated']} {r['state']} {title}")
     if not rows:
         out("SHARES: none")
     return 0
@@ -495,7 +501,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("path")
     r.add_argument("--new-link", action="store_true", help="make a fresh link and delete the old one")
     r.set_defaults(func=cmd_report)
-    lst = sub.add_parser("list", help="own shares with views")
+    lst = sub.add_parser("list", help="own shares with visitors and loads")
     lst.set_defaults(func=cmd_list)
     rv = sub.add_parser("revoke", help="delete a link (ID, URL or report path)")
     rv.add_argument("target")

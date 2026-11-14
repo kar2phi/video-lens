@@ -73,7 +73,7 @@ class FakeState:
     def reset(self):
         self.shares = {}
         self.counters = {}
-        self.caps = {"install": 30, "ip": 60, "global": 1000}
+        self.caps = {"install": 30, "ip": 60, "global": 300}
         self.paused = False
         self.blocked = set()
         self.gone = {CONTRACT["goneVideoId"]}
@@ -86,6 +86,9 @@ class FakeState:
         day_key = (_utc_day(), key)
         self.counters[day_key] = self.counters.get(day_key, 0) + 1
         return self.counters[day_key]
+
+    def counted(self, key):
+        return self.counters.get((_utc_day(), key), 0)
 
     def op(self, name, args):
         if name == "reset":
@@ -239,7 +242,8 @@ class Handler(BaseHTTPRequestHandler):
         if install in st.blocked:
             raise ApiError("blocked")
         ip = self.client_address[0]
-        if st.count("g:w") > st.caps["global"]:
+        # g:w counts stored writes only; it is read here and raised below (video-lens-core 045, 044 W1).
+        if st.counted("g:w") >= st.caps["global"]:
             raise ApiError("paused")
         if st.count(f"i:{install}") > st.caps["install"] or st.count(f"p:{ip}") > st.caps["ip"]:
             raise ApiError("rate")
@@ -270,12 +274,14 @@ class Handler(BaseHTTPRequestHandler):
         if share_id is None:
             share_id, key = _b64(16), _b64(32)
             st.shares[share_id] = {"payload": payload, "sha": sha, "install": install, "status": "live",
-                                   "reason": None, "created": now, "updated": now, "views": 0,
+                                   "reason": None, "created": now, "updated": now, "views": {"loads": 0, "visitors": 0},
                                    "manage_hash": hashlib.sha256(key.encode()).digest()}
+            st.count("g:w")
             return 201, {"id": share_id, "url": f"{base}/s/{share_id}/", "manageKey": key, "sha": sha}, {}
         share = st.shares[share_id]
         if share["sha"] != sha:
             share.update(payload=payload, sha=sha, updated=now)
+            st.count("g:w")
         return 200, {"id": share_id, "url": f"{base}/s/{share_id}/", "updated": share["updated"], "sha": sha}, {}
 
 

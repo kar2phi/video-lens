@@ -24,8 +24,11 @@ MODEL_RE = re.compile(r"^[A-Za-z0-9._:/ -]*$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 NOTES = {"lang-fallback", "local-transcript"}
 # C0 and C1 controls (tab and newline allowed), bidi embeddings and overrides (U+202A–U+202E),
-# isolates (U+2066–U+2069), and lone surrogates (which JSON can carry but UTF-8 cannot).
-FORBIDDEN_RE = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f‪-‮⁦-⁩\ud800-\udfff]")
+# isolates (U+2066–U+2069), lone surrogates (which JSON can carry but UTF-8 cannot), and invisible
+# characters (041 F12): U+061C, U+200B, U+200E/F, U+2028/9, U+2060–U+2064, U+FEFF. Not U+200C/D
+# (ZWNJ, ZWJ): Persian words and emoji need them.
+FORBIDDEN_RE = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f\u061c\u200b\u200e\u200f\u2028\u2029"
+                          "\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff\ud800-\udfff]")
 
 # key: (min length, max length, required); lengths in code points after NFC
 TEXT_FIELDS = {
@@ -77,7 +80,7 @@ def _text(value, lo, hi, field, where=None):
         raise SchemaError(field, f"{where} is not text")
     value = unicodedata.normalize("NFC", value)
     if FORBIDDEN_RE.search(value):
-        raise SchemaError(field, f"{where} contains a control or text-direction character")
+        raise SchemaError(field, f"{where} contains a control, invisible or text-direction character")
     if len(value) > hi:
         raise SchemaError(field, f"{where} has {len(value)} of {hi} characters")
     if len(value) < lo:

@@ -487,8 +487,8 @@
    "published": "",
    "lang": "",
    "tags": [],
-   "summary": "\ufeffCaf\u00e9 **na\u00efve** *\ud83d\ude00* \u4eba\u5de5\u77e5\u80fd\ufeff\n\n\u3000Second\u00a0para\u3000",
-   "takeaway": "*\ufeffx* *x\u00a0* **\u2003y** *\u2028z* stay text; *a\u2028b* is italic.",
+   "summary": "\u3000Caf\u00e9 **na\u00efve** *\ud83d\ude00* \u4eba\u5de5\u77e5\u80fd\u00a0\n\n\u3000Second\u00a0para\u3000",
+   "takeaway": "*\u00a0x* *x\u00a0* **\u2003y** *\u3000z* stay text; *a\u3000b* is italic.",
    "keyPoints": [
     {
      "point": "Emoji \ud83c\udf99 **bold**",
@@ -511,7 +511,7 @@
    "outline": "<li><a class=\"ts\" data-t=\"0\" href=\"https://www.youtube.com/watch?v=AAAAAAAAAAA&amp;t=0s\" target=\"_blank\" rel=\"noopener noreferrer\">0:00</a> <span class=\"outline-title\">Tab\tand mark</span><span class=\"outline-detail\">\u4eba\u5de5\u77e5\u80fd em</span></li>",
    "keyPoints": "<li><strong>Emoji \ud83c\udf99 bold</strong><p><em>\ud83d\ude00</em></p><p><code>\ud83d\ude00</code> <strong>\u00e9</strong></p></li>",
    "summary": "<p>Caf\u00e9 <strong>na\u00efve</strong> <em>\ud83d\ude00</em> \u4eba\u5de5\u77e5\u80fd</p>\n<p>Second\u00a0para</p>",
-   "takeaway": "<p>*\ufeffx* *x\u00a0* **\u2003y** *\u2028z* stay text; <em>a\u2028b</em> is italic.</p>"
+   "takeaway": "<p>*\u00a0x* *x\u00a0* **\u2003y** *\u3000z* stay text; <em>a\u3000b</em> is italic.</p>"
   }
  }
 ]

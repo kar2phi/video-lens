@@ -51,6 +51,12 @@ design (no change to what they do).
   12.5 KB). A report that was taken down cannot be shared again, not even with `--new-link`
   (`SHARE_REMOVED`, 410). A new error `blocked` (403, `SHARE_BLOCKED`) when the operator has
   blocked sharing from an install. The fake share service and the contract flows cover both.
+- Share contract, terms 2026-11-14: `GET` of a share answers `views` as `{loads, visitors}`,
+  and `share_report.py list` prints `SHARE: <id> <visitors> <loads> <updated> <state> <title>`.
+  Shared text may not contain invisible characters (zero width space, direction marks,
+  U+2028/9, word joiners, U+FEFF, U+061C); ZWNJ and ZWJ stay allowed. A report over the
+  64 KiB limit now gets the same hint as a field over its limit: shorten it with a revision.
+  The share page's AI label names the model (`{{AI_MODEL}}` in the share shell).
 
 ### Changed
 
