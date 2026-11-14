@@ -74,6 +74,9 @@ task eval AGENT=claude    # real agent runs on the fixture videos
 Tests, evals and the repo layout: [docs/development.md](docs/development.md). PRs welcome; the
 sources of truth are `skills/*/SKILL.md` and `viewer/`.
 
+Found a bug or have an idea? [Open an issue](https://github.com/kar2phi/video-lens/issues/new/choose)
+from the bug or feature template, or send a pull request.
+
 ## License
 
 MIT

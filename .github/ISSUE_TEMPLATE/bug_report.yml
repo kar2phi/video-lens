@@ -1,0 +1,24 @@
+name: Bug report
+description: Something does not work as described.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you got. Paste any error output.
+    validations:
+      required: true
+  - type: input
+    id: video
+    attributes:
+      label: Video link
+      description: If it is about one video. Public videos only.
+  - type: input
+    id: setup
+    attributes:
+      label: Setup
+      description: Agent and model, OS, and how you installed (npx skills or a clone).
+      placeholder: Claude Code with Opus, macOS 15, npx skills
+    validations:
+      required: true
