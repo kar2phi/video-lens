@@ -547,10 +547,14 @@ kbd { font: 500 0.76rem/1 var(--mono); background: var(--pane); border: 1px soli
       },
       fullscreen: function () {
         if (!frame) return;
+        // iPhone Safari has no element fullscreen API on a div; the player's own button still works.
+        var exit = document.exitFullscreen || document.webkitExitFullscreen;
+        var enter = facade.requestFullscreen || facade.webkitRequestFullscreen;
         if (document.fullscreenElement || document.webkitFullscreenElement) {
-          (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-        } else {
-          (facade.requestFullscreen || facade.webkitRequestFullscreen).call(facade);
+          if (exit) exit.call(document);
+        } else if (enter) {
+          var p = enter.call(facade);
+          if (p && p.catch) p.catch(function () { /* refused: nothing to undo */ });
         }
       },
     };
