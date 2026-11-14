@@ -57,6 +57,7 @@ design (no change to what they do).
   U+2028/9, word joiners, U+FEFF, U+061C); ZWNJ and ZWJ stay allowed. A report over the
   64 KiB limit now gets the same hint as a field over its limit: shorten it with a revision.
   The share page's AI label names the model (`{{AI_MODEL}}` in the share shell).
+- Issue templates for bugs and feature ideas; the README says how to report one.
 
 ### Changed
 
