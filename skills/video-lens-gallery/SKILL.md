@@ -11,7 +11,7 @@ license: MIT
 allowed-tools: Bash Read
 metadata:
   author: kar2phi
-  version: "2.2"
+  version: "2.3"
 ---
 
 # video-lens-gallery

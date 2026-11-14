@@ -18,7 +18,8 @@ it was reconstructed from.
   download. On a phone the player stays at the top, with Read and Outline tabs.
 - **One design** for the report, the gallery, the Discover page and the share page.
 
-Gallery 2.2 and recs 0.1 keep their versions so far.
+With it: video-lens-gallery **2.3** and video-lens-recs **0.2**, whose pages take the new
+design (no change to what they do).
 
 ### Added
 

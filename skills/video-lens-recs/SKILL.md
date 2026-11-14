@@ -6,7 +6,7 @@ compatibility: "Requires Python 3 and yt-dlp. Optional: a Google Takeout export 
 allowed-tools: Bash Read Write
 metadata:
   author: kar2phi
-  version: "0.1"
+  version: "0.2"
 ---
 
 You recommend YouTube videos on a topic the user cares about. Scripts fetch, filter, score and render; you judge relevance and write a one-line reason per pick. You never write HTML, and you never recommend a video that is not in the candidate table.
