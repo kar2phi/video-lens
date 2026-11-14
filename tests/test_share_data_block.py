@@ -93,6 +93,24 @@ def test_language_fallback_drops_lang(tmp_path, no_sidecar):
     assert data["notes"] == ["lang-fallback"] and data["lang"] == ""
 
 
+def test_report_language_is_the_transcript_track_not_the_audio(tmp_path, no_sidecar):
+    """038 B4: Spanish subtitles on an English talk give a Spanish report."""
+    no_sidecar.mkdir()
+    (no_sidecar / "bjdBVZa66oU.json").write_text(json.dumps({"durationS": 754, "lang": "en"}))
+    (no_sidecar / "bjdBVZa66oU.transcript.json").write_text(json.dumps({"lang": "es", "fallback": False}))
+    html = render(tmp_path, golden_payload())
+    assert block(html)["lang"] == "es"
+    assert '<html lang="es"' in html
+
+
+def test_a_recorded_fallback_drops_lang(tmp_path, no_sidecar):
+    no_sidecar.mkdir()
+    (no_sidecar / "bjdBVZa66oU.json").write_text(json.dumps({"lang": "en"}))
+    (no_sidecar / "bjdBVZa66oU.transcript.json").write_text(json.dumps({"lang": "en", "fallback": True}))
+    html = render(tmp_path, golden_payload())
+    assert block(html)["lang"] == "" and '<html lang=""' in html
+
+
 @pytest.mark.parametrize("sidecar", [{"durationS": True}, {"durationS": -1}, {"durationS": 90000},
                                      {"durationS": "754"}, {"lang": "english"}, "not a dict"])
 def test_bad_sidecar_values_are_left_out(tmp_path, no_sidecar, sidecar):

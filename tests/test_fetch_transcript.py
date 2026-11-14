@@ -1,6 +1,7 @@
 """Fast tests for fetch_transcript.py (024-T1): track selection and the error contract,
 against fake transcript lists shaped like what youtube-transcript-api returned for the
 fixture videos in evals/fixtures.json. No network."""
+import json
 import sys
 from pathlib import Path
 
@@ -151,3 +152,31 @@ def test_a_list_failure_keeps_its_mapped_code(monkeypatch, capsys):
     with pytest.raises(SystemExit):
         fetch_transcript.main()
     assert capsys.readouterr().out.startswith("ERROR:CAPTIONS_DISABLED")
+
+
+def _run_id(monkeypatch, capsys, tmp_path, tracks, *args):
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    monkeypatch.setattr(fetch_transcript, "_fetch_html_metadata", lambda v: ("T", "C", "", "", ""))
+    monkeypatch.setattr(fetch_transcript, "list_transcripts", lambda v: tracks)
+    monkeypatch.setattr(sys, "argv", ["fetch_transcript.py", "bjdBVZa66oU", *args])
+    try:
+        fetch_transcript.main()
+        status = 0
+    except SystemExit as e:
+        status = e.code
+    capsys.readouterr()
+    return status, tmp_path / "video-lens" / "metadata" / "bjdBVZa66oU.transcript.json"
+
+
+def test_the_chosen_track_language_is_recorded_for_the_renderer(monkeypatch, capsys, tmp_path):
+    status, record = _run_id(monkeypatch, capsys, tmp_path, MANUAL, "de")
+    assert status == 0
+    assert json.loads(record.read_text()) == {"videoId": "bjdBVZa66oU", "lang": "de", "fallback": False}
+    status, record = _run_id(monkeypatch, capsys, tmp_path, MANUAL, "ja")
+    assert json.loads(record.read_text())["fallback"] is True
+
+
+def test_a_failed_fetch_leaves_no_language_record(monkeypatch, capsys, tmp_path):
+    _run_id(monkeypatch, capsys, tmp_path, MANUAL, "de")
+    status, record = _run_id(monkeypatch, capsys, tmp_path, [Track("en", fetch_error=IpBlocked("vid"))])
+    assert status == 1 and not record.exists()

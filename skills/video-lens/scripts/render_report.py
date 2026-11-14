@@ -505,9 +505,7 @@ def _build_share_data(data: dict, meta: dict, items: dict) -> dict:
     duration_s = sidecar.get("durationS")
     if isinstance(duration_s, bool) or not isinstance(duration_s, int) or not 0 <= duration_s <= 86400:
         duration_s = None
-    lang = str(sidecar.get("lang", ""))
-    if "lang-fallback" in notes or not SHARE_LANG_RE.fullmatch(lang):
-        lang = ""   # the summary follows the transcript, which then is not the audio's language
+    lang = _report_lang(data, meta["videoId"])
     model = meta["agentModel"]
     created = meta["generationDate"]
     return {
@@ -532,12 +530,33 @@ def _build_share_data(data: dict, meta: dict, items: dict) -> dict:
     }
 
 
-def _page_lang(data: dict, video_id: str) -> str:
-    """`<html lang>`: the report is written in the transcript's language. The sidecar names
-    the audio's language, which is the transcript's unless the language fell back; else ""."""
-    lang = str(_sidecar(video_id).get("lang", ""))
-    fallback = SHARE_NOTES[0][0] in str(data.get("META_LINE", ""))
-    return lang if SHARE_LANG_RE.fullmatch(lang) and not fallback else ""
+def _transcript_lang(video_id: str) -> dict | None:
+    """fetch_transcript.py's record of the chosen track ({"lang", "fallback"}), or None."""
+    if not VIDEO_ID_RE.fullmatch(video_id):
+        return None
+    try:
+        record = json.loads((METADATA_DIR / f"{video_id}.transcript.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return record if isinstance(record, dict) else None
+
+
+def _report_lang(data: dict, video_id: str) -> str:
+    """The report's language, for `<html lang>` and the share data (038 B4). The report is
+    written in the transcript's language: the chosen caption track's, as fetch_transcript.py
+    recorded it; without that record (a local transcription), the audio's from the yt-dlp
+    sidecar. "" when the requested language fell back (the model may have translated) or the
+    value is not a language tag."""
+    if SHARE_NOTES[0][0] in str(data.get("META_LINE", "")):
+        return ""
+    record = _transcript_lang(video_id)
+    if record is not None:
+        if record.get("fallback") is True:
+            return ""
+        lang = str(record.get("lang", ""))
+    else:
+        lang = str(_sidecar(video_id).get("lang", ""))
+    return lang if SHARE_LANG_RE.fullmatch(lang) else ""
 
 
 def _duration_seconds(data: dict, video_id: str) -> int:
@@ -924,7 +943,7 @@ def sanitise_payload(data: dict, output_path: str = "") -> dict:
 
     meta = _build_meta_dict(data, clean["KEY_POINTS"], output_path)
     clean["VIDEO_LENS_META"] = _serialize_meta(meta)
-    clean["LANG"] = _page_lang(data, meta["videoId"])
+    clean["LANG"] = _report_lang(data, meta["videoId"])
     clean["DURATION_S"] = str(_duration_seconds(data, meta["videoId"]))
     share_data = _build_share_data(data, meta, v1) if len(v1) == 2 else None
     if share_data is not None:

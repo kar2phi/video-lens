@@ -2,11 +2,16 @@
 """Fetch YouTube transcript and basic HTML metadata.
 
 Usage: python3 fetch_transcript.py VIDEO_ID [LANG_PREF]
+
+On success it leaves $XDG_CACHE_HOME/video-lens/metadata/<VIDEO_ID>.transcript.json with the
+chosen track's language, from which render_report.py takes the report's language.
 """
 import argparse
 import datetime
 import html as html_lib
 import json
+import os
+import pathlib
 import re
 import sys
 import urllib.parse
@@ -134,6 +139,37 @@ def pick_transcript(tlist, lang_pref):
     return fallback, f'LANG_WARN: Requested language "{lang_pref}" not available; using {fallback.language_code}'
 
 
+def _language_file(video_id):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id or ""):
+        return None
+    cache = os.environ.get("XDG_CACHE_HOME") or os.path.join(os.path.expanduser("~"), ".cache")
+    return pathlib.Path(cache) / "video-lens" / "metadata" / f"{video_id}.transcript.json"
+
+
+def forget_language(video_id):
+    path = _language_file(video_id)
+    try:
+        if path:
+            path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def record_language(video_id, lang, fallback):
+    """The chosen track's language, beside fetch_metadata.py's sidecar (its own file: the two
+    scripts run at once). render_report.py takes the report's language from it (038 B4): the
+    report is written in the transcript's language, which is not always the audio's. Best-effort."""
+    path = _language_file(video_id)
+    if not path:
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path.write_text(json.dumps({"videoId": video_id, "lang": str(lang or ""), "fallback": fallback}),
+                        encoding="utf-8")
+    except OSError:
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("video_id")
@@ -153,6 +189,7 @@ def main():
     if not title:
         title = f"YouTube video {video_id}"
 
+    forget_language(video_id)   # a failed fetch must not leave an older run's language behind
     # The list call can succeed while the download is blocked, so both share one error map.
     try:
         transcript_obj, lang_warn = pick_transcript(list_transcripts(video_id), lang_pref)
@@ -163,6 +200,7 @@ def main():
     if lang_warn:
         print(lang_warn)
     lang = transcript_obj.language_code
+    record_language(video_id, lang, fallback=bool(lang_warn))
 
     # Detect entry type once before the loop
     use_dict = isinstance(transcript[0], dict) if transcript else False
