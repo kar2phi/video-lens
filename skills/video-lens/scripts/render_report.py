@@ -49,6 +49,9 @@ from datetime import date, datetime, timezone
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, urlparse
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from share_payload import SchemaError, clean_text, share_tag_ok, validate_payload  # noqa: E402
+
 EXPECTED_KEYS = {
     "VIDEO_ID", "VIDEO_TITLE", "VIDEO_URL", "SUMMARY",
     "KEY_POINTS", "TAKEAWAY", "OUTLINE", "DESCRIPTION_SECTION",
@@ -493,17 +496,6 @@ SHARE_MODEL_RE = re.compile(r"^[A-Za-z0-9._:/ -]{0,80}$")
 SHARE_NOTES = (("Requested language not available", "lang-fallback"),
                ("transcribed locally", "local-transcript"))
 
-def share_tag_ok(tag: str) -> bool:
-    """Share tag pattern (033 §5.1, O7), the Python form of the Worker's
-    /^[\\p{Ll}\\p{Lo}\\p{Lm}\\p{Nd}][\\p{Ll}\\p{Lo}\\p{Lm}\\p{Nd}\\p{Mn}\\p{Mc} +#.-]{0,29}$/u."""
-    if not isinstance(tag, str) or not 1 <= len(tag) <= 30:
-        return False
-    first = {"Ll", "Lo", "Lm", "Nd"}
-    rest = first | {"Mn", "Mc"}
-    return unicodedata.category(tag[0]) in first and all(
-        c in " +#.-" or unicodedata.category(c) in rest for c in tag[1:])
-
-
 def _build_share_data(data: dict, meta: dict, items: dict) -> dict:
     """Payload v1 from the same values the meta block uses (033 §5.2). `items` holds the
     KEY_POINTS and OUTLINE arrays already in v1 shape (items_to_v1)."""
@@ -521,12 +513,13 @@ def _build_share_data(data: dict, meta: dict, items: dict) -> dict:
     return {
         "v": 1,
         "videoId": meta["videoId"],
-        "title": meta["title"].strip(),
-        "channel": meta["channel"].strip(),
+        # From YouTube, not the model: cleaned to what the service takes (038 B13).
+        "title": clean_text(meta["title"]).strip(),
+        "channel": clean_text(meta["channel"]).strip(),
         "channelId": meta.get("channelId", ""),
-        "duration": meta["duration"].strip(),
+        "duration": clean_text(meta["duration"]).strip(),
         "durationS": duration_s,
-        "published": meta["publishDate"].strip(),
+        "published": clean_text(meta["publishDate"]).strip(),
         "lang": lang,
         "tags": [tag for tag in (unicodedata.normalize("NFC", t) for t in meta["tags"]) if share_tag_ok(tag)][:5],
         "summary": str(data.get("SUMMARY", "")).strip(),
@@ -933,8 +926,14 @@ def sanitise_payload(data: dict, output_path: str = "") -> dict:
     clean["VIDEO_LENS_META"] = _serialize_meta(meta)
     clean["LANG"] = _page_lang(data, meta["videoId"])
     clean["DURATION_S"] = str(_duration_seconds(data, meta["videoId"]))
-    clean["VIDEO_LENS_DATA"] = _serialize_share_data(
-        _build_share_data(data, meta, v1) if len(v1) == 2 else None)
+    share_data = _build_share_data(data, meta, v1) if len(v1) == 2 else None
+    if share_data is not None:
+        try:
+            validate_payload(share_data)
+        except SchemaError as e:
+            # The report is saved and the block written; share_report.py names the same problem.
+            print(f"RENDER_WARN: not shareable as is: {e.detail}", file=sys.stderr)
+    clean["VIDEO_LENS_DATA"] = _serialize_share_data(share_data)
 
     return clean
 

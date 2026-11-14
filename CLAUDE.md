@@ -46,6 +46,7 @@ video-lens/
       template.html        ← HTML report template (source of truth)
       scripts/
         share_report.py    ← share client: the only script that uploads, and only on request
+        share_payload.py   ← payload v1 validator (the Worker's schema in Python; renderer, client, fake)
     video-lens-gallery/
       SKILL.md             ← gallery skill prompt (source of truth)
       index.html           ← gallery viewer (source of truth)

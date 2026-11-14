@@ -22,10 +22,12 @@ import secrets
 import sys
 import threading
 import time
-import unicodedata
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "skills" / "video-lens" / "scripts"))
+from share_payload import SchemaError, validate_payload  # noqa: E402,F401  (the one Python copy, 038 B13)
 
 CONTRACT = json.loads((Path(__file__).resolve().parent / "share_contract.json").read_text(encoding="utf-8"))
 TERMS = CONTRACT["terms"]
@@ -35,127 +37,6 @@ REASONS = set(CONTRACT["reasons"])
 VERSION = "fake-1"
 
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{22}$")
-VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
-CHANNEL_ID_RE = re.compile(r"^UC[A-Za-z0-9_-]{22}$")
-LANG_RE = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$")
-MODEL_RE = re.compile(r"^[A-Za-z0-9._:/ -]*$")
-DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-NOTES = {"lang-fallback", "local-transcript"}
-FORBIDDEN_RE = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f‪-‮⁦-⁩\ud800-\udfff]")
-
-# key: (min length, max length, required); every string is checked by _text
-TEXT_FIELDS = {
-    "title": (1, 300, True), "channel": (0, 200, False), "duration": (0, 40, False),
-    "published": (0, 40, False), "summary": (1, 6000, True), "takeaway": (1, 2000, True),
-    "model": (0, 80, False),
-}
-KEY_ORDER = ["v", "videoId", "title", "channel", "channelId", "duration", "durationS", "published",
-             "lang", "tags", "summary", "takeaway", "keyPoints", "outline", "model", "notes", "created"]
-KP_FIELDS = {"point": (1, 600), "why": (0, 1500), "detail": (0, 4000)}
-OL_FIELDS = {"title": (1, 300), "detail": (0, 1500)}
-
-
-def share_tag_ok(tag: str) -> bool:
-    """Share tag pattern (033 §5.1, O7), the Python form of the Worker's
-    /^[\\p{Ll}\\p{Lo}\\p{Lm}\\p{Nd}][\\p{Ll}\\p{Lo}\\p{Lm}\\p{Nd}\\p{Mn}\\p{Mc} +#.-]{0,29}$/u."""
-    if not isinstance(tag, str) or not 1 <= len(tag) <= 30:
-        return False
-    first = {"Ll", "Lo", "Lm", "Nd"}
-    rest = first | {"Mn", "Mc"}
-    return unicodedata.category(tag[0]) in first and all(
-        c in " +#.-" or unicodedata.category(c) in rest for c in tag[1:])
-
-
-class SchemaError(Exception):
-    def __init__(self, field):
-        super().__init__(field)
-        self.field = field
-
-
-def _int(value, lo, hi):
-    return isinstance(value, int) and not isinstance(value, bool) and lo <= value <= hi
-
-
-def _text(value, lo, hi, field):
-    if not isinstance(value, str):
-        raise SchemaError(field)
-    value = unicodedata.normalize("NFC", value)
-    if FORBIDDEN_RE.search(value) or not lo <= len(value) <= hi:
-        raise SchemaError(field)
-    return value
-
-
-def validate_payload(p):
-    """The validated, normalised payload in canonical key order, or SchemaError(field)."""
-    if not isinstance(p, dict):
-        raise SchemaError("payload")
-    for key in p:
-        if key not in KEY_ORDER:
-            raise SchemaError(key)
-    for key in ("v", "videoId", "title", "summary", "takeaway", "keyPoints", "outline"):
-        if key not in p:
-            raise SchemaError(key)
-    out = {}
-    if p["v"] != 1 or isinstance(p["v"], bool):
-        raise SchemaError("v")
-    out["v"] = 1
-    if not isinstance(p["videoId"], str) or not VIDEO_ID_RE.fullmatch(p["videoId"]):
-        raise SchemaError("videoId")
-    out["videoId"] = p["videoId"]
-    for key, (lo, hi, _required) in TEXT_FIELDS.items():
-        out[key] = _text(p.get(key, ""), lo, hi, key)
-    if not MODEL_RE.fullmatch(out["model"]):
-        raise SchemaError("model")
-    for key, pattern in (("channelId", CHANNEL_ID_RE), ("lang", LANG_RE), ("created", DATE_RE)):
-        value = p.get(key, "")
-        if not isinstance(value, str) or (value and not pattern.fullmatch(value)):
-            raise SchemaError(key)
-        out[key] = value
-    duration_s = p.get("durationS")
-    if duration_s is not None and not _int(duration_s, 0, 86400):
-        raise SchemaError("durationS")
-    out["durationS"] = duration_s
-    tags = p.get("tags", [])
-    if not isinstance(tags, list) or len(tags) > 5 or not all(isinstance(t, str) and share_tag_ok(unicodedata.normalize("NFC", t)) for t in tags):
-        raise SchemaError("tags")
-    out["tags"] = [unicodedata.normalize("NFC", t) for t in tags]
-    notes = p.get("notes", [])
-    if not isinstance(notes, list) or len(notes) > 2 or len(set(notes)) != len(notes) or not set(notes) <= NOTES:
-        raise SchemaError("notes")
-    out["notes"] = list(notes)
-    out["keyPoints"] = _items(p["keyPoints"], "keyPoints", 1, 20, KP_FIELDS, optional_t=True)
-    out["outline"] = _items(p["outline"], "outline", 0, 100, OL_FIELDS, timed=True)
-    # D7: a key point's t must name one outline entry
-    starts = {o["t"] for o in out["outline"]}
-    if any("t" in k and k["t"] not in starts for k in out["keyPoints"]):
-        raise SchemaError("keyPoints.t")
-    return {key: out[key] for key in KEY_ORDER}
-
-
-def _items(items, field, lo, hi, fields, timed=False, optional_t=False):
-    """`timed`: t is required (outline). `optional_t`: t may be left out (keyPoints, D7); it
-    comes first in the normalised item, as in the Worker, because the payload is hashed."""
-    if not isinstance(items, list) or not lo <= len(items) <= hi:
-        raise SchemaError(field)
-    out = []
-    for item in items:
-        if not isinstance(item, dict) or not set(item) <= set(fields) | ({"t"} if timed or optional_t else set()):
-            raise SchemaError(field)
-        clean = {}
-        if timed:
-            if not _int(item.get("t"), 0, 86400):
-                raise SchemaError(field)
-            clean["t"] = item["t"]
-        elif optional_t and "t" in item:
-            if not _int(item["t"], 0, 86400):
-                raise SchemaError(field + ".t")
-            clean["t"] = item["t"]
-        for name, (a, b) in fields.items():
-            if a and name not in item:
-                raise SchemaError(field)
-            clean[name] = _text(item.get(name, ""), a, b, field)
-        out.append(clean)
-    return out
 
 
 def payload_sha(payload):

@@ -305,6 +305,7 @@ video-lens/
         render_report.py
         serve_report.sh
         share_report.py   ← turns a report into an unlisted link, only on request
+        share_payload.py  ← checks a report against the share service's limits
         transcribe_local.py ← local Whisper fallback (optional deps: mlx-whisper + ffmpeg)
     video-lens-gallery/
       SKILL.md          ← gallery skill prompt (source of truth)

@@ -401,6 +401,39 @@ def test_video_id_mismatch_and_missing_keys(env):
     assert code == 1 and err.startswith("ERROR:SHARE_SCHEMA: takeaway")
 
 
+def test_bidi_title_and_channel_share_after_the_clean_up(env):
+    env.accept()
+    path = env.report(VIDEO_TITLE="\u202bمرحبا\u202c title", CHANNEL="Chan\u2067nel\u2069\x07")
+    code, out, err = env.run("report", path)
+    assert code == 0, err
+    share_id = lines(out, "SHARE_ID:")[0]
+    stored = env.fake.state.shares[share_id]["payload"]
+    assert stored["title"] == "مرحبا title" and stored["channel"] == "Channel"
+    # The visible page keeps YouTube's title as it was (escaped).
+    assert "\u202bمرحبا\u202c title" in path.read_text(encoding="utf-8")
+
+
+def test_over_long_summary_fails_locally_and_names_field_and_limit(env, capsys):
+    env.accept()
+    path = env.report(SUMMARY="word " * 1300)
+    assert "RENDER_WARN: not shareable as is: summary has 6499 of 6000 characters" in capsys.readouterr().err
+    code, _, err = env.run("report", path)
+    assert code == 1
+    assert err.startswith("ERROR:SHARE_SCHEMA: summary: summary has 6499 of 6000 characters")
+    assert "--replace" in err
+    assert [x for x in env.api_log() if "/shares" in x] == []
+
+
+def test_too_many_outline_entries_name_the_count(env):
+    env.accept()
+    outline = [{"t": i * 10, "title": f"Part {i}", "detail": ""} for i in range(101)]
+    path = env.report(OUTLINE=outline, KEY_POINTS=[{"point": "P", "why": "W", "detail": ""}])
+    env.capsys.readouterr()   # the renderer's RENDER_WARN
+    code, _, err = env.run("report", path)
+    assert code == 1 and err.startswith("ERROR:SHARE_SCHEMA: outline: outline has 101 entries; 0–100 are allowed")
+    assert [x for x in env.api_log() if "/shares" in x] == []
+
+
 def test_body_over_128_kib_is_rejected_locally(env, monkeypatch):
     env.accept()
     monkeypatch.setattr(sr, "BODY_LIMIT", 100)
@@ -544,6 +577,7 @@ def test_runs_as_a_script_with_the_stdlib_only(env, tmp_path):
                           capture_output=True, text=True, env=environ, timeout=30)
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.strip() == "OFFER: on"
-    imports = {line.split()[1].split(".")[0] for line in (SCRIPTS / "share_report.py").read_text().splitlines()
-               if line.startswith(("import ", "from "))}
-    assert imports <= set(sys.stdlib_module_names)
+    for script in ("share_report.py", "share_payload.py"):
+        imports = {line.split()[1].split(".")[0] for line in (SCRIPTS / script).read_text().splitlines()
+                   if line.startswith(("import ", "from "))}
+        assert imports <= set(sys.stdlib_module_names) | {"share_payload"}, script

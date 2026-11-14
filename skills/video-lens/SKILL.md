@@ -239,7 +239,8 @@ If Step 1's `CAPABILITIES:` line lists `share`, end with one more line, exactly:
 5. Relay the `SHARE_URL:` value exactly, then: "Anyone with the link can open it. Say 'unshare' to revoke it."
 6. "Unshare" or "revoke the link": `share_report.py revoke "OUTPUT_PATH"` (or the ID or link the user names), then relay the `REVOKED:` line. "Which reports are shared": `share_report.py list`, and relay its `SHARE:` lines (`removed:<reason>`: the operator took the link down for that reason; `gone`: the link no longer exists). "Stop offering links": `share_report.py offer off`.
 7. On `ERROR:SHARE_NO_DATA`: say the report was made before sharing existed and offer to run the video again.
-8. On any other `ERROR:` line: relay the message and stop. Never retry `SHARE_RATE`, `SHARE_PAUSED` or `SHARE_REMOVED`.
+8. On `ERROR:SHARE_SCHEMA` that names `summary`, `takeaway`, `keyPoints` or `outline` (too long, or too many entries): relay it and offer one revision that shortens that part (see "The user asks for a change"); after the user agrees and the revision is rendered, run the step 3 command again. Offer this once.
+9. On any other `ERROR:` line: relay the message and stop. Never retry `SHARE_RATE`, `SHARE_PAUSED` or `SHARE_REMOVED`.
 
 Sharing the same report again updates its link; a new link needs `report "OUTPUT_PATH" --new-link`. The key that can revoke a link is kept only on this machine (`~/.local/share/video-lens/share/`); without it the user cannot revoke the link and has to use the notice form on the service's site.
 
@@ -265,6 +266,6 @@ Scripts emit structured error codes with the prefix `ERROR:` followed by a typed
 
 ## Bundled scripts
 
-Seven local scripts ship in `./scripts/`: `preflight.py`, `fetch_transcript.py`, `fetch_metadata.py`, `transcribe_local.py`, `render_report.py`, `serve_report.sh`, `share_report.py`, plus `references/whisper-fallback.md`. No remote code is fetched at runtime. Network calls during a run: YouTube transcript and metadata fetches. `share_report.py` is the only script that sends report content off the machine, and it runs only when the user asks to share. When the local-transcription fallback runs: audio download from YouTube via yt-dlp, and a one-time Whisper model download (~1.5 GB for medium) from Hugging Face. Network calls when the user views the report in their browser: the YouTube iframe API and Google Fonts CSS.
+Eight local scripts ship in `./scripts/`: `preflight.py`, `fetch_transcript.py`, `fetch_metadata.py`, `transcribe_local.py`, `render_report.py`, `serve_report.sh`, `share_report.py`, `share_payload.py` (a module the renderer and `share_report.py` import), plus `references/whisper-fallback.md`. No remote code is fetched at runtime. Network calls during a run: YouTube transcript and metadata fetches. `share_report.py` is the only script that sends report content off the machine, and it runs only when the user asks to share. When the local-transcription fallback runs: audio download from YouTube via yt-dlp, and a one-time Whisper model download (~1.5 GB for medium) from Hugging Face. Network calls when the user views the report in their browser: the YouTube iframe API and Google Fonts CSS.
 
 YouTube URL to summarise:

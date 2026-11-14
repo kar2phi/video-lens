@@ -35,6 +35,9 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from share_payload import TEXT_LIMITED, SchemaError, validate_payload  # noqa: E402
+
 DEFAULT_SERVICE_URL = "https://example.com"
 BODY_LIMIT = 128 * 1024
 REQUIRED_KEYS = ("v", "videoId", "title", "summary", "takeaway", "keyPoints", "outline")
@@ -323,6 +326,12 @@ def cmd_report(args) -> int:
     base = service_url(cfg)
     path = resolve_report(args.path)
     payload = read_payload(path)
+    try:
+        validate_payload(payload)   # the service's own check, before anything is sent (038 B13)
+    except SchemaError as e:
+        hint = (" Shorten that part of the report (a revision with --replace), then share again."
+                if e.field.split(".")[0] in TEXT_LIMITED else "")
+        raise ShareError("SHARE_SCHEMA", f"{e.field}: {e.detail}; the share service does not accept it.{hint}")
     if not cfg["terms_accepted"]:
         raise ShareError("SHARE_TERMS", f"accept the terms first: read {terms_url(base)}, "
                                         "then run `share_report.py terms --accept`")
