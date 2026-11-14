@@ -136,6 +136,14 @@ of R1 still needs the A/B gate on Claude and qwen before release.
   `RENDER_INVALID_TYPE` and the new `RENDER_INVALID_ITEM` (naming the item, e.g.
   `KEY_POINTS[2] has unknown key 'paragraph'`) say what to change. SKILL.md's list of
   rejection causes is one line now.
+- The gallery and the Discover page take the report's design (038 §5): one token file
+  (`viewer/tokens.css`) and one component file (`viewer/components.css`) that
+  `tools/build_viewer.py` builds into the report, both pages and the share page; DM Sans
+  headlines and Georgia prose (no DM Serif Display, one font request); the white-on-red mark
+  everywhere; the report's theme button, which follows the OS until you choose, and `t`; a
+  help dialog on `?` listing each page's keys; the report's buttons, chips and cards; titles
+  "Gallery · video-lens" and "Discover: <topic> · video-lens". Gallery cards show the summary
+  without Markdown marks.
 
 ### Fixed
 
