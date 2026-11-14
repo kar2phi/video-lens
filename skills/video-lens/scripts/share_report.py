@@ -38,7 +38,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from share_payload import TEXT_LIMITED, SchemaError, validate_payload  # noqa: E402
 
-DEFAULT_SERVICE_URL = "https://example.com"
+DEFAULT_SERVICE_URL = "https://video-lens.org"
 BODY_LIMIT = 128 * 1024
 REQUIRED_KEYS = ("v", "videoId", "title", "summary", "takeaway", "keyPoints", "outline")
 RETRIES = 3
