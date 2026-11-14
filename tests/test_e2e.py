@@ -756,7 +756,20 @@ def test_backfill_meta_reads_the_037_report_shape(tmp_path):
     assert (meta["channel"], meta["duration"], meta["publishDate"]) == ("Test Channel", "10 min", "Jan 01 2025")
     assert meta["summary"] == "E2E test summary."
     assert meta["keywords"] == ["First point", "Second"]
-    assert meta["title"].startswith("Test Video Title")
+    assert meta["title"] == "Test Video Title"   # 038 B12: no " · video-lens"
+
+
+@pytest.mark.parametrize("title,expected", [
+    ("<title>Talk &amp; more · video-lens</title>", "Talk & more"),
+    ("<title>Talk &amp; more &middot; video-lens</title>", "Talk & more"),
+    ("<title>Old talk — video-lens</title>", "Old talk"),
+    ("<title>Old talk - video-lens</title>", "Old talk"),
+    ("<title>A · B</title>", "A · B"),
+])
+def test_backfill_title_drops_the_site_suffix_in_both_shapes(title, expected):
+    sys.path.insert(0, str(GALLERY_SCRIPT_DIR))
+    import backfill_meta
+    assert backfill_meta.extract_title(title) == expected
 
 
 # --- preflight ---

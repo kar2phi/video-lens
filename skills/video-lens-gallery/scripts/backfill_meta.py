@@ -45,8 +45,8 @@ def extract_title(html: str) -> str:
     m = re.search(r'<title[^>]*>(.*?)</title>', html, re.DOTALL | re.IGNORECASE)
     if m:
         raw = m.group(1).strip()
-        # Remove " — video-lens" suffix if present
-        raw = re.sub(r'\s*[—–-]+\s*video.lens\s*$', '', raw, flags=re.IGNORECASE)
+        # Remove the site suffix: " · video-lens" (036 shell) or " — video-lens" (older reports)
+        raw = re.sub(r'\s*(?:[—–-]+|·|&middot;|&#183;)\s*video.lens\s*$', '', raw, flags=re.IGNORECASE)
         return unescape_html(raw)
     return ""
 
