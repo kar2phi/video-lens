@@ -5,59 +5,9 @@
    Serif (Georgia) is the prose the report says: summary, takeaway, key-point text. */
 
 :root {
-  --paper: #f9f9f7;
-  --pane: #f0f0ee;
-  --text: #1a1a1a;
-  --strong: #111;
-  --muted: #555;
-  --label: #696966;
-  --line: #e0e0dc;
-  --pane-line: #d6d6d2;
-  --accent: #c0392b;
-  --on-accent: #fff;
-  --accent-soft: rgba(192, 57, 43, 0.07);
-  --video: #101010;
-  --on-video: #f0ede8;
-  --sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --serif: Georgia, 'Times New Roman', serif;
-  --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  /* Colors and fonts come from tokens.css (inlined before this file, or linked on the share page). */
   --pad: clamp(1.25rem, 8%, 3.5rem); /* of the pane, not of the window: the pane's width is the reader's choice */
   --stage-h: 0px;
-  color-scheme: light;
-}
-
-/* Dark: the OS setting, unless the reader chose light. The same values again for a chosen dark. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #1c1916;
-    --pane: #14110f;
-    --text: #d0cdc8;
-    --strong: #f0ede8;
-    --muted: #9a948f;
-    --label: #8f8983;
-    --line: #2c2925;
-    --pane-line: #2a2520;
-    --accent: #e05a4a;
-    --on-accent: #14110f;
-    --accent-soft: rgba(224, 90, 74, 0.1);
-    --video: #000;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --paper: #1c1916;
-  --pane: #14110f;
-  --text: #d0cdc8;
-  --strong: #f0ede8;
-  --muted: #9a948f;
-  --label: #8f8983;
-  --line: #2c2925;
-  --pane-line: #2a2520;
-  --accent: #e05a4a;
-  --on-accent: #14110f;
-  --accent-soft: rgba(224, 90, 74, 0.1);
-  --video: #000;
-  color-scheme: dark;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -313,7 +263,7 @@ dialog {
   font: 400 0.88rem/1.6 var(--sans);
 }
 dialog:focus { outline: none; }
-dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+dialog::backdrop { background: var(--backdrop); }
 dialog h2 { margin: 1.3rem 0 0.6rem; }
 dialog h2:first-of-type { margin-top: 0; }
 dialog p { margin: 0; }

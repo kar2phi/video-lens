@@ -19,53 +19,91 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      --left-bg: #f0f0ee;
-      --left-text: #1a1a1a;
-      --left-heading: #999;
-      --left-meta: #555;
-      --left-link: #c0392b;
-      --left-border: #ddd;
-      --right-bg: #f9f9f7;
-      --right-text: #1a1a1a;
-      --right-border: #e0e0e0;
-      --toggle-bg: #ddd;
-      --toggle-text: #444;
-      --card-bg: #fff;
-      --card-border: #e0e0de;
-      --card-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      --chip-bg: #efefed;
-      --chip-active-bg: #ffeaea;
-      --chip-active-color: #c0392b;
-      --placeholder-bg: #e8e8e6;
-    }
+/* TOKENS: generated from viewer/tokens.css by tools/build_viewer.py; do not edit, rebuild */
+/* video-lens design tokens: the one source of color and font for every page (038 §5 D1).
+   tools/build_viewer.py inlines this file into the local report (with viewer.css), the gallery
+   (skills/video-lens-gallery/index.html) and the Discover page (skills/video-lens-recs/template.html),
+   and the share build emits it for the site pages of the share service (video-lens-core).
+   No other stylesheet defines a color token; a test fails when one does.
+   Dark follows the OS unless the reader chose light ([data-theme] on <html>); script-free pages
+   have no data-theme and simply follow the OS. */
 
-    [data-theme="dark"] {
-      --left-bg: #14110f;
-      --left-text: #f0ede8;
-      --left-heading: #6a6460;
-      --left-meta: #8a8480;
-      --left-link: #e05a4a;
-      --left-border: #2a2520;
-      --right-bg: #1c1916;
-      --right-text: #d0cdc8;
-      --right-border: #2c2925;
-      --toggle-bg: #2a2520;
-      --toggle-text: #c0bdb8;
-      --card-bg: #211e1b;
-      --card-border: #2e2b28;
-      --card-shadow: 0 1px 4px rgba(0,0,0,0.3);
-      --chip-bg: #2a2520;
-      --chip-active-bg: #3a1a1a;
-      --chip-active-color: #e05a4a;
-      --placeholder-bg: #2a2520;
-    }
+:root {
+  --paper: #f9f9f7;      /* page background */
+  --pane: #f0f0ee;       /* side panes, bars, code, placeholders */
+  --card: #fff;          /* cards on the paper */
+  --text: #1a1a1a;
+  --strong: #111;
+  --muted: #555;
+  --label: #696966;      /* small uppercase labels */
+  --line: #e0e0dc;       /* rules on the paper */
+  --pane-line: #d6d6d2;  /* rules and button borders on a pane */
+  --accent: #c0392b;
+  --on-accent: #fff;
+  --accent-soft: rgba(192, 57, 43, 0.07);
+  --video: #101010;
+  --on-video: #f0ede8;
+  --term: #1c1916;       /* terminal blocks (landing page) */
+  --term-text: #f0ede8;
+  --term-muted: #9a948f;
+  --term-accent: #e05a4a;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow: 0 1px 2px rgba(20, 15, 10, 0.06), 0 12px 40px -12px rgba(20, 15, 10, 0.22);
+  --backdrop: rgba(0, 0, 0, 0.4);
+  --sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: Georgia, 'Times New Roman', serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+
+/* Dark: the OS setting, unless the reader chose light. The same values again for a chosen dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1c1916;
+    --pane: #14110f;
+    --card: #211e1b;
+    --text: #d0cdc8;
+    --strong: #f0ede8;
+    --muted: #9a948f;
+    --label: #8f8983;
+    --line: #2c2925;
+    --pane-line: #2a2520;
+    --accent: #e05a4a;
+    --on-accent: #14110f;
+    --accent-soft: rgba(224, 90, 74, 0.1);
+    --video: #000;
+    --term: #110e0c;
+    --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.3);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 48px -12px rgba(0, 0, 0, 0.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #1c1916;
+  --pane: #14110f;
+  --card: #211e1b;
+  --text: #d0cdc8;
+  --strong: #f0ede8;
+  --muted: #9a948f;
+  --label: #8f8983;
+  --line: #2c2925;
+  --pane-line: #2a2520;
+  --accent: #e05a4a;
+  --on-accent: #14110f;
+  --accent-soft: rgba(224, 90, 74, 0.1);
+  --video: #000;
+  --term: #110e0c;
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.3);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 48px -12px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+/* END TOKENS */
 
     html { scroll-behavior: smooth; scroll-padding-top: 120px; }
 
     body {
-      background: var(--right-bg);
-      color: var(--right-text);
+      background: var(--paper);
+      color: var(--text);
       font-family: 'DM Sans', system-ui, sans-serif;
       font-size: 15px;
       line-height: 1.6;
@@ -74,8 +112,8 @@
     }
 
     header {
-      background: var(--left-bg);
-      border-bottom: 1px solid var(--left-border);
+      background: var(--pane);
+      border-bottom: 1px solid var(--pane-line);
       padding: 14px 24px 12px;
       position: sticky;
       top: 0;
@@ -85,65 +123,64 @@
     .logo {
       font-family: 'DM Serif Display', Georgia, serif;
       font-size: 20px;
-      color: var(--left-text);
+      color: var(--strong);
       text-decoration: none;
       letter-spacing: -0.02em;
       white-space: nowrap;
     }
     .logo svg { vertical-align: middle; margin-right: 6px; border-radius: 50%; }
-    .logo .sep { color: var(--left-heading); margin: 0 6px; }
+    .logo .sep { color: var(--label); margin: 0 6px; }
     .title-block { min-width: 0; }
     .title-block h1 {
       font-family: 'DM Serif Display', Georgia, serif;
       font-weight: 400;
       font-size: 20px;
-      color: var(--left-text);
+      color: var(--strong);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .subtitle { font-size: 12px; color: var(--left-meta); }
+    .subtitle { font-size: 12px; color: var(--muted); }
     .head-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-    .gallery-link { font-size: 13px; color: var(--left-link); text-decoration: none; white-space: nowrap; }
+    .gallery-link { font-size: 13px; color: var(--accent); text-decoration: none; white-space: nowrap; }
     .gallery-link:hover { text-decoration: underline; }
     .icon-btn {
       width: 30px; height: 30px; border-radius: 50%;
-      border: 1.5px solid rgba(0, 0, 0, 0.13);
-      background: transparent; color: #666; cursor: pointer;
+      border: 1px solid var(--pane-line);
+      background: transparent; color: var(--muted); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
-    [data-theme="dark"] .icon-btn { border-color: rgba(255,255,255,0.15); color: #c0bdb8; }
     nav { display: flex; flex-wrap: wrap; gap: 6px; max-width: 980px; margin: 10px auto 0; }
     .nav-pill {
       font-size: 12px; font-weight: 500;
       padding: 3px 10px; border-radius: 20px;
-      background: var(--chip-bg); color: var(--left-meta);
+      background: var(--paper); color: var(--muted);
       text-decoration: none; white-space: nowrap;
     }
-    .nav-pill span { color: var(--left-heading); margin-left: 2px; }
-    .nav-pill:hover { background: var(--chip-active-bg); color: var(--chip-active-color); }
+    .nav-pill span { color: var(--label); margin-left: 2px; }
+    .nav-pill:hover { background: var(--accent-soft); color: var(--accent); }
 
     main { max-width: 980px; margin: 0 auto; padding: 24px; }
     section + section { margin-top: 28px; }
     section h2 {
       font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--left-heading); margin-bottom: 12px;
+      color: var(--label); margin-bottom: 12px;
     }
-    .empty { color: var(--left-meta); }
+    .empty { color: var(--muted); }
 
     .pick {
       display: grid;
       grid-template-columns: 240px 1fr;
       gap: 18px;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
+      background: var(--card);
+      border: 1px solid var(--line);
       border-radius: 8px;
-      box-shadow: var(--card-shadow);
+      box-shadow: var(--shadow-sm);
       padding: 14px;
       margin-bottom: 12px;
     }
     .thumb {
       position: relative; display: block;
       width: 100%; padding-top: 56.25%;
-      background: var(--placeholder-bg);
+      background: var(--pane);
       border-radius: 6px; overflow: hidden;
       align-self: start;
     }
@@ -158,46 +195,46 @@
     .pick h3 {
       font-family: 'DM Serif Display', Georgia, serif;
       font-weight: 400; font-size: 17px; line-height: 1.3;
-      color: var(--left-text);
+      color: var(--strong);
       display: flex; gap: 10px; align-items: baseline;
     }
     .pick h3 a { color: inherit; text-decoration: none; }
-    .pick h3 a:hover { color: var(--left-link); }
+    .pick h3 a:hover { color: var(--accent); }
     .num {
       font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 12px; font-weight: 600; color: #fff;
-      background: var(--left-link);
+      font-size: 12px; font-weight: 600; color: var(--on-accent);
+      background: var(--accent);
       min-width: 22px; height: 22px; border-radius: 11px;
       display: inline-flex; align-items: center; justify-content: center;
       flex-shrink: 0; padding: 0 6px;
     }
-    .pick-meta { font-size: 13px; color: var(--left-meta); }
+    .pick-meta { font-size: 13px; color: var(--muted); }
     .chips { display: flex; flex-wrap: wrap; gap: 5px; }
     .chip {
       font-size: 11px; font-weight: 500;
       padding: 2px 8px; border-radius: 12px;
-      background: var(--chip-bg); color: var(--left-meta);
+      background: var(--paper); color: var(--muted);
     }
-    .chip-perf { background: var(--chip-active-bg); color: var(--chip-active-color); }
+    .chip-perf { background: var(--accent-soft); color: var(--accent); }
     .chip-waiting { font-style: italic; }
-    .reason { font-size: 14px; color: var(--right-text); }
+    .reason { font-size: 14px; color: var(--text); }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
     .btn {
       font-family: inherit; font-size: 12px; font-weight: 500;
       padding: 5px 12px; border-radius: 6px;
-      border: 1px solid var(--right-border);
-      background: transparent; color: var(--right-text);
+      border: 1px solid var(--line);
+      background: transparent; color: var(--text);
       cursor: pointer; text-decoration: none; white-space: nowrap;
     }
-    .btn:hover { border-color: var(--left-link); color: var(--left-link); }
-    .btn-primary { background: var(--left-link); border-color: var(--left-link); color: #fff; }
-    .btn-primary:hover { opacity: 0.88; color: #fff; }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    .btn-primary:hover { opacity: 0.88; color: var(--on-accent); }
     .btn-small { font-size: 11px; padding: 3px 9px; flex-shrink: 0; }
 
     .also summary {
       cursor: pointer; list-style: none;
       font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--left-heading);
+      color: var(--label);
     }
     .also summary::-webkit-details-marker { display: none; }
     .also summary::before { content: '▸ '; }
@@ -205,28 +242,28 @@
     .also summary span { font-weight: 500; margin-left: 2px; }
     .also ol {
       list-style: none; margin-top: 12px;
-      background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px;
+      background: var(--card); border: 1px solid var(--line); border-radius: 8px;
     }
     .also li {
       display: flex; align-items: center; gap: 12px;
-      padding: 9px 14px; border-top: 1px solid var(--card-border);
+      padding: 9px 14px; border-top: 1px solid var(--line);
     }
     .also li:first-child { border-top: none; }
     .also-main { min-width: 0; flex: 1; display: flex; flex-direction: column; }
-    .also-main a { color: var(--left-text); text-decoration: none; font-weight: 500; }
-    .also-main a:hover { color: var(--left-link); }
-    .also-meta { font-size: 12px; color: var(--left-meta); }
-    .also-reason { font-size: 13px; color: var(--right-text); }
+    .also-main a { color: var(--strong); text-decoration: none; font-weight: 500; }
+    .also-main a:hover { color: var(--accent); }
+    .also-meta { font-size: 12px; color: var(--muted); }
+    .also-reason { font-size: 13px; color: var(--text); }
 
     footer {
       max-width: 980px; margin: 8px auto 40px; padding: 14px 24px 0;
-      border-top: 1px solid var(--right-border);
-      font-size: 12px; color: var(--left-heading);
+      border-top: 1px solid var(--line);
+      font-size: 12px; color: var(--label);
     }
 
     #toast {
       position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
-      background: var(--left-text); color: var(--right-bg);
+      background: var(--strong); color: var(--paper);
       font-size: 13px; padding: 7px 14px; border-radius: 6px;
       opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s;
     }

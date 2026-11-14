@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Build the viewer from its single source in viewer/ (stdlib only).
 
-  python3 tools/build_viewer.py --mode local          write skills/video-lens/template.html
-  python3 tools/build_viewer.py --check               exit 1 when template.html is stale
-  python3 tools/build_viewer.py --mode share --out D  write D/shell.html, D/viewer.css, D/viewer.js
+  python3 tools/build_viewer.py --mode local          write skills/video-lens/template.html and the
+                                                      tokens block of the gallery and Discover pages
+  python3 tools/build_viewer.py --check               exit 1 when any of those is stale
+  python3 tools/build_viewer.py --mode share --out D  write D/shell.html, D/viewer.css, D/viewer.js, D/tokens.css
   python3 tools/build_viewer.py --vectors             write viewer/fragments.json (035 §4.5)
 
 --check also fails when viewer/fragments.json differs from what --vectors writes.
+
+viewer/tokens.css is the one source of color and font tokens (038 §5 D1). The local report and
+the share viewer.css carry it in front of viewer.css; the gallery and Discover pages (single-file
+pages, hand-written otherwise) carry it between TOKENS_BEGIN and TOKENS_END in their <style>.
 
 The share shell keeps the Worker's slots ({{NAME}}, filled in one pass) and links the two
 assets through {{ASSET_CSS}} / {{ASSET_JS}} (and {{ASSET_FONTS}}); nothing in it is inline code.
@@ -29,10 +34,44 @@ def _keep_mode(shell, mode):
     return re.sub(r"<!-- @%s -->\n?|<!-- @end -->\n?" % mode, "", shell)
 
 
+def read_tokens(root):
+    return (Path(root) / "viewer" / "tokens.css").read_text(encoding="utf-8")
+
+
+def viewer_css(root):
+    """tokens.css, then viewer.css: the report's whole stylesheet."""
+    return read_tokens(root) + "\n" + (Path(root) / "viewer" / "viewer.css").read_text(encoding="utf-8")
+
+
+# The single-file pages that carry the tokens inline, between these two lines of their <style>.
+TOKEN_PAGES = ("skills/video-lens-gallery/index.html", "skills/video-lens-recs/template.html")
+TOKENS_BEGIN = "/* TOKENS: generated from viewer/tokens.css by tools/build_viewer.py; do not edit, rebuild */\n"
+TOKENS_END = "/* END TOKENS */\n"
+
+
+def inline_tokens(page, tokens, name="page"):
+    """page with the block between TOKENS_BEGIN and TOKENS_END replaced by tokens."""
+    if page.count(TOKENS_BEGIN) != 1 or page.count(TOKENS_END) != 1:
+        raise SystemExit("%s must contain the TOKENS begin and end lines exactly once" % name)
+    head, rest = page.split(TOKENS_BEGIN)
+    _, tail = rest.split(TOKENS_END)
+    return head + TOKENS_BEGIN + tokens + TOKENS_END + tail
+
+
+def build_token_pages(root):
+    """{path: text} for the gallery and Discover pages with the current tokens."""
+    tokens = read_tokens(root)
+    out = {}
+    for rel in TOKEN_PAGES:
+        p = Path(root) / rel
+        out[p] = inline_tokens(p.read_text(encoding="utf-8"), tokens, rel)
+    return out
+
+
 def build_local(root):
     src = Path(root) / "viewer"
     shell = _keep_mode((src / "shell.html").read_text(encoding="utf-8"), "local")
-    css = (src / "viewer.css").read_text(encoding="utf-8")
+    css = viewer_css(root)
     js = (src / "viewer.js").read_text(encoding="utf-8")
     for token in ("{{VL_CSS}}", "{{VL_JS}}"):
         if shell.count(token) != 1:
@@ -60,17 +99,18 @@ SHARE_FORBIDDEN = [
 ]
 
 
-def share_problems(shell, css, js):
+def share_problems(shell, css, js, tokens=""):
     """The share lint: a list of what is wrong with a built share output (empty = clean)."""
     problems = []
     for what, pattern in SHARE_FORBIDDEN:
         if re.search(pattern, shell):
             problems.append("shell.html contains " + what)
+    assets = (("viewer.css", css), ("viewer.js", js), ("tokens.css", tokens))
     for what, pattern in SHARE_FORBIDDEN[:3]:
-        for name, text in (("viewer.css", css), ("viewer.js", js)):
+        for name, text in assets:
             if re.search(pattern, text):
                 problems.append("%s contains %s" % (name, what))
-    for name, text in (("viewer.css", css), ("viewer.js", js)):
+    for name, text in assets:
         if "{{" in text:
             problems.append("%s contains a slot" % name)
     if 'data-vl-mode="share"' not in shell:
@@ -79,16 +119,18 @@ def share_problems(shell, css, js):
 
 
 def build_share(root):
-    """(shell, css, js) for the share page. The shell's slots are the Worker's to fill."""
+    """(shell, css, js, tokens) for the share page and the site. The shell's slots are the Worker's
+    to fill. css already starts with the tokens; tokens alone is for the site's own pages."""
     src = Path(root) / "viewer"
     shell = _keep_mode((src / "shell.html").read_text(encoding="utf-8"), "share")
     shell = shell.replace("{{VL_MODE}}", "share")   # a constant of this build, not a Worker slot
-    css = (src / "viewer.css").read_text(encoding="utf-8")
+    css = viewer_css(root)
     js = (src / "viewer.js").read_text(encoding="utf-8")
-    problems = share_problems(shell, css, js)
+    tokens = read_tokens(root)
+    problems = share_problems(shell, css, js, tokens)
     if problems:
         raise SystemExit("share build is not clean:\n  " + "\n  ".join(problems))
-    return shell, css, js
+    return shell, css, js, tokens
 
 
 # ── 035 §4.5: fragment vectors ──
@@ -213,25 +255,29 @@ def main(argv=None):
         built = build_share(a.root)   # refuses an unclean source before anything is written
         outdir = Path(a.out)
         outdir.mkdir(parents=True, exist_ok=True)
-        for name, text in zip(("shell.html", "viewer.css", "viewer.js"), built):
+        for name, text in zip(("shell.html", "viewer.css", "viewer.js", "tokens.css"), built):
             (outdir / name).write_bytes(text.encode("utf-8"))
-        print("wrote %s/{shell.html,viewer.css,viewer.js}" % outdir)
+        print("wrote %s/{shell.html,viewer.css,viewer.js,tokens.css}" % outdir)
         return 0
     out = build_local(a.root)
     dest = target(a.root)
+    pages = build_token_pages(a.root)
     if a.check:
-        cur = dest.read_bytes() if dest.exists() else None
-        if cur != out.encode("utf-8"):
-            print("STALE: %s differs from the viewer/ sources; run: python3 tools/build_viewer.py --mode local" % dest, file=sys.stderr)
-            return 1
+        for path, text in [(dest, out), *pages.items()]:
+            cur = path.read_bytes() if path.exists() else None
+            if cur != text.encode("utf-8"):
+                print("STALE: %s differs from the viewer/ sources; run: python3 tools/build_viewer.py --mode local" % path, file=sys.stderr)
+                return 1
         vec = vectors_path(a.root)
         if (vec.read_bytes() if vec.exists() else None) != build_vectors(a.root).encode("utf-8"):
             print("STALE: %s differs from the renderer; run: python3 tools/build_viewer.py --vectors" % vec, file=sys.stderr)
             return 1
-        print("template.html and fragments.json are current")
+        print("template.html, the gallery and Discover tokens, and fragments.json are current")
         return 0
-    dest.write_bytes(out.encode("utf-8"))
-    print("wrote %s" % dest)
+    for path, text in [(dest, out), *pages.items()]:
+        if not path.exists() or path.read_bytes() != text.encode("utf-8"):
+            path.write_bytes(text.encode("utf-8"))
+            print("wrote %s" % path)
     return 0
 
 

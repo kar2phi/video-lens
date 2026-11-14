@@ -21,6 +21,9 @@ def _copy_tree(tmp):
     (tmp / "skills" / "video-lens").mkdir(parents=True)
     shutil.copy(ROOT / "skills" / "video-lens" / "template.html",
                 tmp / "skills" / "video-lens" / "template.html")
+    for rel in bv.TOKEN_PAGES:
+        (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(ROOT / rel, tmp / rel)
     return tmp
 
 
@@ -54,6 +57,55 @@ def test_check_detects_edited_source(tmp_path):
     assert _run("--check", "--root", str(root)).returncode == 0
 
 
+@pytest.mark.parametrize("rel", bv.TOKEN_PAGES)
+def test_check_detects_stale_tokens_in_a_page(tmp_path, rel):
+    root = _copy_tree(tmp_path)
+    page = root / rel
+    page.write_text(page.read_text().replace("--paper: #f9f9f7;", "--paper: #fff;", 1))
+    r = _run("--check", "--root", str(root))
+    assert r.returncode == 1 and rel in r.stderr
+    assert _run("--mode", "local", "--root", str(root)).returncode == 0
+    assert page.read_bytes() == (ROOT / rel).read_bytes()
+
+
+def test_tokens_are_inlined_everywhere():
+    tokens = (ROOT / "viewer" / "tokens.css").read_text()
+    assert tokens in (ROOT / "skills" / "video-lens" / "template.html").read_text()
+    for rel in bv.TOKEN_PAGES:
+        assert bv.TOKENS_BEGIN + tokens + bv.TOKENS_END in (ROOT / rel).read_text(), rel
+
+
+def test_inline_tokens_needs_both_markers_once():
+    with pytest.raises(SystemExit):
+        bv.inline_tokens("<style></style>", ":root{}")
+    with pytest.raises(SystemExit):
+        bv.inline_tokens(bv.TOKENS_BEGIN + bv.TOKENS_END + bv.TOKENS_END, ":root{}")
+
+
+# 038 D1: a color token (a custom property whose value is a color or a shadow) is defined in
+# viewer/tokens.css and nowhere else.
+COLOR_TOKEN = re.compile(r"--[\w-]+\s*:\s*[^;{}]*(?:#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|color-mix\()")
+
+
+def _outside_tokens(text):
+    if bv.TOKENS_BEGIN in text:
+        head, rest = text.split(bv.TOKENS_BEGIN)
+        text = head + rest.split(bv.TOKENS_END)[1]
+    return text
+
+
+@pytest.mark.parametrize("rel", ["viewer/viewer.css", "viewer/shell.html", "viewer/viewer.js", *bv.TOKEN_PAGES])
+def test_no_color_token_outside_tokens_css(rel):
+    found = COLOR_TOKEN.findall(_outside_tokens((ROOT / rel).read_text()))
+    assert not found, "%s defines color tokens; move them to viewer/tokens.css: %s" % (rel, found)
+
+
+def test_color_token_lint_catches_a_definition():
+    assert COLOR_TOKEN.search(":root { --card-bg: #fff; }")
+    assert COLOR_TOKEN.search("--x: 0 1px rgba(0,0,0,.1)")
+    assert not COLOR_TOKEN.search("color: var(--accent); --pad: clamp(1rem, 8%, 3rem);")
+
+
 def test_include_points_do_not_collide_with_render_slots():
     shell = (ROOT / "viewer" / "shell.html").read_text()
     assert shell.count("{{VL_CSS}}") == 1 and shell.count("{{VL_JS}}") == 1
@@ -74,11 +126,13 @@ def _share(tmp, root=ROOT):
     return r, out
 
 
-def test_share_build_writes_the_three_files(tmp_path):
+def test_share_build_writes_the_four_files(tmp_path):
     r, out = _share(tmp_path)
     assert r.returncode == 0, r.stderr
-    assert sorted(p.name for p in out.iterdir()) == ["shell.html", "viewer.css", "viewer.js"]
-    assert (out / "viewer.css").read_bytes() == (ROOT / "viewer" / "viewer.css").read_bytes()
+    assert sorted(p.name for p in out.iterdir()) == ["shell.html", "tokens.css", "viewer.css", "viewer.js"]
+    tokens = (ROOT / "viewer" / "tokens.css").read_bytes()
+    assert (out / "tokens.css").read_bytes() == tokens
+    assert (out / "viewer.css").read_bytes() == tokens + b"\n" + (ROOT / "viewer" / "viewer.css").read_bytes()
     assert (out / "viewer.js").read_bytes() == (ROOT / "viewer" / "viewer.js").read_bytes()
 
 
@@ -109,7 +163,7 @@ def test_share_output_is_free_of_the_old_player_fonts_and_inline_code(tmp_path):
 def test_share_build_is_deterministic(tmp_path):
     _, a = _share(tmp_path / "a")
     _, b = _share(tmp_path / "b")
-    for name in ("shell.html", "viewer.css", "viewer.js"):
+    for name in ("shell.html", "viewer.css", "viewer.js", "tokens.css"):
         assert (a / name).read_bytes() == (b / name).read_bytes()
 
 

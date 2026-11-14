@@ -48,6 +48,9 @@ def test_check_fails_on_stale_vectors(tmp_path):
     shutil.copytree(ROOT / "viewer", tmp_path / "viewer")
     (tmp_path / "skills" / "video-lens").mkdir(parents=True)
     shutil.copy(ROOT / "skills" / "video-lens" / "template.html", tmp_path / "skills" / "video-lens")
+    for rel in bv.TOKEN_PAGES:
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(ROOT / rel, tmp_path / rel)
     run = lambda *a: subprocess.run([sys.executable, str(BUILD), *a, "--root", str(tmp_path)],  # noqa: E731
                                     capture_output=True, text=True)
     assert run("--check").returncode == 0
