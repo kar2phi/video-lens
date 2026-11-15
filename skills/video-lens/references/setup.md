@@ -2,7 +2,7 @@
 
 Read this when preflight prints `SETUP_NEEDED:`, a script prints `ERROR:LIBRARY_MISSING`,
 `ERROR:YTDLP_MISSING` or `ERROR:WHISPER_MISSING`, or the user asks to install or update
-video-lens's packages. `SETUP` below means `python3 "SCRIPTS_DIR/setup.py"`, with
+video-lens's packages (§1–§4), or when preflight prints `SKILL_OUTDATED:` (§5). `SETUP` below means `python3 "SCRIPTS_DIR/setup.py"`, with
 `SCRIPTS_DIR` from preflight.
 
 `setup.py` installs into video-lens's own Python environment,
@@ -64,4 +64,21 @@ preflight prints `LIBRARY_OUTDATED:`, or a transcript fetch fails with
 instead, the upgrade still works: the scripts prefer video-lens's own folder once it holds the
 package.
 
-To update the skills themselves: `npx skills update`.
+## 5. Updating video-lens
+
+Read this when preflight prints `SKILL_OUTDATED:` (a newer video-lens is out), after the
+report, or when the user asks to update the skills. The line ends in `via npx` or `via manual`:
+
+- `via npx`: offer `npx skills update video-lens video-lens-gallery video-lens-recs` (if the
+  CLI rejects the names, plain `npx skills update`). Ask first, as in §1, and run it only on a
+  yes.
+- `via manual`: run nothing. Tell the user how: from a clone, `git pull` and then
+  `task install-skill-local AGENT=<agent>` again; otherwise reinstall with
+  `npx skills add kar2phi/video-lens`.
+
+After an update, the instructions loaded in this session are still the old ones: say a new
+session picks up the new version. Do not rerun the report.
+
+The check runs at most once a day and can be turned off with
+`VIDEO_LENS_NO_UPDATE_CHECK=1` in the shell profile. Tell the user so if they ask; never set
+it without being asked.

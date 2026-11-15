@@ -24,6 +24,8 @@ Stdout on success (lines that apply only):
     SETUP_NEEDED: transcript-api[, yt-dlp]   # youtube-transcript-api is in neither this Python
                                  # nor the venv; yt-dlp is listed when it is missing too
     LIBRARY_OUTDATED: youtube-transcript-api <found> (known good: <version>)
+    SKILL_OUTDATED: <installed> (latest: <v>[, minimum: <v>]) via npx|manual
+                                 # a newer video-lens is out (058); checked once a day
     CAPABILITIES: a, b, …        # whisper (Apple Silicon: the local fallback can run),
                                  # mlx-whisper, ffmpeg, yt-dlp | yt-dlp-outdated,
                                  # share (the closing share offer is on); may be empty
@@ -48,6 +50,7 @@ import tempfile
 import time
 from urllib.parse import parse_qs, urlparse
 
+import update_check
 from transcribe_local import MIN_YTDLP, whisper_platform_supported, ytdlp_version
 from venv_env import module_available, module_version, parse_version, ytdlp_path
 
@@ -400,6 +403,12 @@ def main() -> int:
         print(f"SETUP_NEEDED: {', '.join(setup_needed)}")
     if outdated:
         print(f"LIBRARY_OUTDATED: {outdated}")
+    try:
+        skill_outdated = update_check.check(scripts_dir.parent)
+    except Exception:  # second guard (058 §2.3): preflight never fails on the check
+        skill_outdated = None
+    if skill_outdated:
+        print(f"SKILL_OUTDATED: {skill_outdated}")
     print(f"CAPABILITIES: {', '.join(probe_capabilities())}")
     print(f"START_EPOCH: {start_epoch}")
     print(f"SCRIPTS_DIR: {scripts_dir}")

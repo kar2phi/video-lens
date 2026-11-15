@@ -45,6 +45,13 @@ npx skills remove video-lens video-lens-gallery video-lens-recs
 Installed from a clone: `git pull`, then the same `task install-skill-local AGENT=…` again. To
 remove it, delete the `video-lens*` folders from that agent's skills directory.
 
+video-lens tells you when a newer version is out. At most once a day, when a report starts, it
+fetches one small file, `version.json`, from this repo on GitHub (raw.githubusercontent.com).
+That is a plain GET: GitHub sees your IP address, and nothing about you or your videos is sent.
+If you are behind, the agent mentions it in one line after the report and offers the update. It
+never updates without asking. To turn the check off, set `VIDEO_LENS_NO_UPDATE_CHECK=1` in your
+shell profile; it is also off when `CI` is set.
+
 Removing the skill leaves your reports in `~/Downloads/video-lens/` and your share settings and
 manage keys where `share_report.py` keeps them. Revoke shares first ("unshare", or "list my
 shares") if you want them gone: without the manage key a share can only be removed through the

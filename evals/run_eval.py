@@ -193,7 +193,9 @@ def share_state(fixture, state_dir: pathlib.Path, service_url: str) -> dict:
     if share.get("terms"):
         cfg["terms_accepted"] = SHARE_TERMS
     env = {"XDG_CONFIG_HOME": str(state_dir / "config"), "XDG_DATA_HOME": str(state_dir / "data"),
-           "VIDEO_LENS_SHARE_URL": service_url}
+           "VIDEO_LENS_SHARE_URL": service_url,
+           # 058 §2.6: no GitHub call and no extra preflight line, so runs stay comparable.
+           "VIDEO_LENS_NO_UPDATE_CHECK": "1"}
     if cfg:
         path = state_dir / "config" / "video-lens" / "share.json"
         path.parent.mkdir(parents=True, mode=0o700)

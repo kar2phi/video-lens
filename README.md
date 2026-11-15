@@ -42,6 +42,10 @@ its own folder doesn't have them.
 Works in any agent that reads [SKILL.md](https://agentskills.io). To install from a clone or as
 a Raycast command, see [docs/guide.md](docs/guide.md#install-from-a-clone).
 
+Once a day at most, video-lens asks GitHub whether a newer version is out and tells you; it sends
+nothing about you and never updates without asking
+([what it checks, and how to turn it off](docs/guide.md#updating-and-removing)).
+
 <details>
 <summary><b>Requirements</b></summary>
 

@@ -95,6 +95,15 @@ chat list relayed unchanged, and the page served. With labels it also reports pr
 and @10. Recorded fixtures contain your topics and library, so they live in the gitignored
 `evals/recs_fixtures/`; the `synthetic` fixture uses made-up channels.
 
+## Releasing
+
+The installed skill compares its version with `version.json` at the repo root, fetched from
+`main` (058). In the same commit, bump `metadata.version` in `skills/video-lens/SKILL.md` and
+`latest` in `version.json`; `tests/test_update_check.py` fails when they differ. Change
+`minimum` only on purpose: when older installs really break (the share contract changes, YouTube
+breaks an old fetch path, a security fix). Gallery and recs version bumps are independent and
+leave `version.json` alone. Tests and evals run with `VIDEO_LENS_NO_UPDATE_CHECK=1`.
+
 ---
 
 ## Repo layout
@@ -109,6 +118,7 @@ video-lens/
         fetch_transcript.py
         fetch_metadata.py
         preflight.py
+        update_check.py   ← once a day, tells the user when a newer video-lens is out (058)
         render_report.py
         serve_report.sh
         share_report.py   ← turns a report into an unlisted link, only on request
