@@ -9,7 +9,7 @@ your browser with the video playing beside the text. Click any line to jump ther
 **[video-lens.org](https://video-lens.org)** has the rest: an example report, every feature,
 privacy, and all the ways to install.
 
-<a href="https://video-lens.org"><img src="docs/video-lens-report.png" alt="A video-lens report: the video and its outline on the left, the summary and takeaway on the right" width="760"></a>
+<a href="https://video-lens.org"><img src="docs/video-lens-report.webp" alt="A video-lens report: the video and its outline on the left, the summary and takeaway on the right" width="760"></a>
 
 ## Install
 
