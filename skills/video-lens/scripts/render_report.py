@@ -489,8 +489,9 @@ def _serialize_meta(meta: dict) -> str:
     return json.dumps(meta, ensure_ascii=True).replace("</", "<\\/")
 
 
-# Share payload v1 (033 §5). The Worker is the only full validator; the renderer only
-# keeps the optional fields in shape so a valid report never fails on them.
+# Share payload v1 (033 §5). share_payload.py validates it in full before an upload (038 B13)
+# and the Worker again on receipt; the renderer only keeps the optional fields in shape so a
+# valid report never fails on them.
 SHARE_LANG_RE = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$")
 SHARE_MODEL_RE = re.compile(r"^[A-Za-z0-9._:/ -]{0,80}$")
 SHARE_NOTES = (("Requested language not available", "lang-fallback"),
