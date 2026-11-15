@@ -2,8 +2,8 @@
 
 All notable changes to **video-lens** and the bundled **video-lens-gallery** skill.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). There are no
-git tags in this repo — versions here track the `metadata.version` field of
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Releases are
+tagged from 5.5 on (`v5.5`). Earlier versions here track the `metadata.version` field of
 `skills/video-lens/SKILL.md`, read out of the history at each commit. The gallery skill
 carries its own version; it is called out wherever it moved. Each entry lists the commits
 it was reconstructed from.
@@ -16,7 +16,8 @@ it was reconstructed from.
 - **A new report.** YouTube's own player beside the text, a section bar under it, the
   playing section highlighted, `j`/`l` for 10 s, a speed button, and Markdown copy and
   download. On a phone the player stays at the top, with Read and Outline tabs.
-- **One design** for the report, the gallery, the Discover page and the share page.
+- **One design** for the report, the gallery, the recommendations page and the share page,
+  with the top bar and theme menu of video-lens.org.
 
 With it: video-lens-gallery **2.3** and video-lens-recs **0.2**, whose pages take the new
 design (no change to what they do).
@@ -61,13 +62,19 @@ design (no change to what they do).
 
 ### Changed
 
-- The website's look on every page (049). The gallery and the recommendations page share the
+- One design for every page (038 §5, 049). One token file (`viewer/tokens.css`) and one
+  component file (`viewer/components.css`) that `tools/build_viewer.py` builds into the
+  report, the gallery, the recommendations page and the share page; DM Sans headlines and
+  Georgia prose (no DM Serif Display, one font request); the white-on-red mark everywhere;
+  the report's buttons, chips and cards. The gallery and the recommendations page share the
   top bar of video-lens.org: the mark and name, a two-item switch between **Gallery** and
   **Recommendations** (was a "Discover →" link and a "Discover" header), help and theme. The
   theme button opens the site's menu everywhere, the report included: Light, Dark or Auto
-  (Auto forgets the choice and follows the system; `t` still flips light and dark). The help
-  dialog's About is the same text on every page, with links to video-lens.org and GitHub.
-  The recommendations page is called that in its title and in the chat.
+  (Auto forgets the choice and follows the system; `t` still flips light and dark). A help
+  dialog on `?` lists each page's keys; its About is the same text on every page, with links
+  to video-lens.org and GitHub. Titles "Gallery · video-lens" and
+  "Recommendations: <topic> · video-lens"; the chat calls the page Recommendations too.
+  Gallery cards show the summary without Markdown marks.
 - Markdown download: the file is named by when it was saved, then the video's title
   (`2026-11-14-153210_skill_issue_andrej_karpathy.md`), instead of the report's file name or
   `video-lens-report.md`.
@@ -79,8 +86,9 @@ design (no change to what they do).
   with custom controls, a timeline of the sections, a now-playing bar, `j`/`l` 10 s and
   arrows 5 s, `,`/`.` and a speed button (remembered), `c` `m` `f`, a divider and `1` `2` `3`
   for the player size, skim mode for key points (`s`) that follows playback, "Copy Markdown"
-  (`e`) and a Markdown download, a fluid text column, and a note with the serve command when
-  the file is opened from `file://`, where YouTube does not play.
+  (`e`) and a Markdown download, a fluid text column, and, when the file is opened from
+  `file://` (where YouTube does not play), a panel with the serve command to copy, the local
+  server's state, and an open link with a countdown once the server answers.
 - One fragment grammar for the local report and the share page (037 A4, 035 §4.5): the
   renderer uses the share service's marker rules (code spans first, no span across a line
   break, no space just inside `**`/`*`, linear on a 6,000-`*` run) and escapes `& < > " '`
@@ -98,14 +106,14 @@ design (no change to what they do).
   detail now that the `why` is a `<p>` too (read from the data block when the markup is
   ambiguous), and the time link is not part of its text. Inline tags no longer split words
   in parsed text.
-- The gallery and the Discover page take the report's design (038 §5): one token file
-  (`viewer/tokens.css`) and one component file (`viewer/components.css`) that
-  `tools/build_viewer.py` builds into the report, both pages and the share page; DM Sans
-  headlines and Georgia prose (no DM Serif Display, one font request); the white-on-red mark
-  everywhere; the report's theme button, which follows the OS until you choose, and `t`; a
-  help dialog on `?` listing each page's keys; the report's buttons, chips and cards; titles
-  "Gallery · video-lens" and "Discover: <topic> · video-lens". Gallery cards show the summary
-  without Markdown marks.
+- SKILL.md (051 §4.1): Step 4 lists the rules that make the renderer reject a first render
+  (3–8 key points, a detail on at least half, increasing outline times inside the video,
+  3–5 tags, a takeaway that does not repeat the summary); Length adjustments is a table; the
+  `ERROR:SHARE_*` row defers to Sharing, which continues after `SHARE_TERMS`,
+  `SHARE_NO_DATA` and `SHARE_SCHEMA`; a `not shareable as is` warning is said to come back on
+  a share. The trailing input lines left from the slash-command days are gone (video-lens
+  and recs). Gallery: step 1 prints both script paths and the later steps take them as
+  literals, since each Bash call is a fresh shell.
 
 ### Fixed
 
@@ -124,6 +132,15 @@ design (no change to what they do).
 - `task dev` rebuilds from `viewer/` and renders a sample in the current payload shape
   (038 B11).
 - Gallery backfill drops the new " · video-lens" title suffix (038 B12).
+- The `file://` panels of the report and the gallery offered `python3 -m http.server 8765`,
+  which serves the library to the whole network; the command binds `127.0.0.1` now, as
+  `serve_report.sh` does (051 F1).
+- `share_report.py list` stopped with `SHARE_HTTP` past about 20 shares, when Cloudflare's
+  rate limit answered 429. From the 15th share on it pauses 0.6 s between requests, and a
+  429 without the service's own error waits 10 s and repeats that request once (051 F2).
+- `share_report.py`: `SHARE_BLOCKED` links the configured service's terms, `SHARE_PAUSED`
+  says "try again later" (a pause has no set end), and a 429 from Cloudflare says to wait a
+  minute (051 F3).
 
 ## 2026-11-11 — video-lens-recs 0.1 (video-lens stays 5.4)
 
