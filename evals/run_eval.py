@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real-video eval: run an agent on the fixture videos, then validate every report and trace.
 
-    python3 evals/run_eval.py --agent claude                    # slim set, working-tree skill
+    python3 evals/run_eval.py --agent claude                    # slim set, working-tree skill, Opus 5.5 medium
     python3 evals/run_eval.py --agent pi --model qwen3.8:27b-mxfp8    # local qwen through pi
     python3 evals/run_eval.py --agent claude --ref HEAD         # the committed skill (A/B arm)
     python3 evals/run_eval.py --agent claude --only smoke --runs 2
@@ -64,6 +64,24 @@ LIBRARY = pathlib.Path.home() / "Downloads" / "video-lens"
 BLOCKED_RE = re.compile(r"IpBlocked|RequestBlocked|ERROR:(IP|REQUEST)_BLOCKED")
 PI_NOISE = tuple('{"type":"%s"' % t for t in
                  ("message_update", "tool_execution_update", "turn_end", "agent_end"))
+# Without --model the claude CLI takes the account's default model, which can be Fable: a
+# full set then uses up the plan's five-hour limit. The claude arm is pinned instead, and
+# Fable needs VIDEO_LENS_EVAL_ALLOW_FABLE=1.
+CLAUDE_EVAL_MODEL = "claude-opus-5-5"
+CLAUDE_EVAL_EFFORT = "medium"
+
+
+def pin_claude_model(args) -> None:
+    """Set the claude arm's model (--model, else VIDEO_LENS_EVAL_MODEL, else Opus) and its
+    effort (medium unless --agent-args has --effort); refuse Fable unless allowed."""
+    if args.agent != "claude":
+        return
+    args.model = args.model or os.environ.get("VIDEO_LENS_EVAL_MODEL") or CLAUDE_EVAL_MODEL
+    if "fable" in args.model.lower() and os.environ.get("VIDEO_LENS_EVAL_ALLOW_FABLE") != "1":
+        sys.exit(f"--model {args.model}: evals do not run on Fable. "
+                 "Set VIDEO_LENS_EVAL_ALLOW_FABLE=1 to override.")
+    if "--effort" not in shlex.split(args.agent_args or ""):
+        args.agent_args = f"{args.agent_args or ''} --effort {CLAUDE_EVAL_EFFORT}".strip()
 
 
 def load_fixtures(selected_set: str, only):
@@ -516,7 +534,8 @@ def compare(path_a, path_b) -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--agent", choices=("claude", "pi"), default="claude")
-    ap.add_argument("--model", help="passed through as --model (default: the CLI's own default)")
+    ap.add_argument("--model", help="passed through as --model (claude default: "
+                    f"{CLAUDE_EVAL_MODEL} at --effort {CLAUDE_EVAL_EFFORT}; never Fable)")
     ap.add_argument("--ref", help="git ref of the skill to test (default: the working tree)")
     ap.add_argument("--set", default="slim", choices=("slim", "full", "share"))
     ap.add_argument("--only", help="comma-separated fixture names (overrides --set)")
@@ -532,6 +551,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     if args.compare:
         return compare(*args.compare)
+    pin_claude_model(args)
     # One run at a time: every run writes to and moves reports out of the same live library,
     # so a second run takes the other's reports of a shared fixture video.
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)

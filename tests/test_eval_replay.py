@@ -95,3 +95,25 @@ def test_both_arms_find_the_copied_scripts_not_the_installed_skill(tmp_path):
                              capture_output=True, text=True).stdout.strip()
         assert out == str(target / "scripts"), ref
         assert "video-lens-gallery/scripts" in skill_md   # the gallery loop is left alone
+
+
+def test_claude_arm_is_pinned_to_opus_medium_and_refuses_fable(monkeypatch):
+    import argparse
+    import pytest
+    import run_eval
+    monkeypatch.delenv("VIDEO_LENS_EVAL_MODEL", raising=False)
+    monkeypatch.delenv("VIDEO_LENS_EVAL_ALLOW_FABLE", raising=False)
+    args = argparse.Namespace(agent="claude", model=None, agent_args=None)
+    run_eval.pin_claude_model(args)
+    assert (args.model, args.agent_args) == ("claude-opus-5-5", "--effort medium")
+    args = argparse.Namespace(agent="claude", model=None, agent_args="--effort high")
+    run_eval.pin_claude_model(args)
+    assert args.agent_args == "--effort high"
+    for model in ("claude-fable-5-2", "fable"):
+        with pytest.raises(SystemExit):
+            run_eval.pin_claude_model(argparse.Namespace(agent="claude", model=model, agent_args=None))
+    monkeypatch.setenv("VIDEO_LENS_EVAL_ALLOW_FABLE", "1")
+    run_eval.pin_claude_model(argparse.Namespace(agent="claude", model="fable", agent_args=None))
+    pi = argparse.Namespace(agent="pi", model=None, agent_args=None)
+    run_eval.pin_claude_model(pi)
+    assert pi.model is None

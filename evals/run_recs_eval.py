@@ -648,7 +648,8 @@ def main(argv=None) -> int:
     p.add_argument("--only")
     p = sub.add_parser("run", help="run an agent on the fixtures")
     p.add_argument("--agent", choices=("claude", "pi"), default="claude")
-    p.add_argument("--model")
+    p.add_argument("--model", help=f"claude default: {run_eval.CLAUDE_EVAL_MODEL} at --effort "
+                   f"{run_eval.CLAUDE_EVAL_EFFORT}; never Fable")
     p.add_argument("--ref", help="git ref of the skills to test (default: the working tree)")
     p.add_argument("--only", help="comma-separated fixture names")
     p.add_argument("--runs", type=int, default=1)
@@ -662,6 +663,8 @@ def main(argv=None) -> int:
     p.add_argument("run_a")
     p.add_argument("run_b")
     args = ap.parse_args(argv)
+    if args.cmd == "run":
+        run_eval.pin_claude_model(args)
     return {"record": record, "label": label, "prior": prior, "run": run, "rejudge": rejudge,
             "compare": compare}[args.cmd](args)
 

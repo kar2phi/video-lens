@@ -40,6 +40,9 @@ real service.
 `task eval` loads the skill from the working tree (or `REF=<git ref>`) into a throwaway
 directory, so your installed copy is never touched. Each report is moved out of
 `~/Downloads/video-lens` right after its run, and the gallery index is rebuilt at the end.
+The Claude arm runs on `claude-opus-5-5` at `--effort medium` unless `MODEL=` says otherwise,
+never on the account's default model. Fable is refused (it uses up the plan's limit); set
+`VIDEO_LENS_EVAL_ALLOW_FABLE=1` to override.
 
 Each case is checked against **gates**: report served, no `template.html` read, no hand-written
 HTML, first render accepted or fixed on the one retry, written in the transcript's language,

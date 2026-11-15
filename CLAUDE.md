@@ -83,7 +83,7 @@ task test-real            # real YouTube fetches for evals/fixtures.json, no LLM
 task eval AGENT=claude    # real agent runs, validated (AGENT=pi MODEL=qwen3.8:27b-mxfp8 for local qwen)
 ```
 
-Judge SKILL.md changes with `task eval` on both arms (`REF=HEAD` vs working tree) and `task eval-compare`, on Claude *and* qwen. For `skills/video-lens-recs/SKILL.md` the same with `task eval-recs` / `task eval-recs-compare`.
+Judge SKILL.md changes with `task eval` on both arms (`REF=HEAD` vs working tree) and `task eval-compare`, on Claude *and* qwen. The Claude arm runs on Opus 5.5 at medium effort; never run evals on Fable. For `skills/video-lens-recs/SKILL.md` the same with `task eval-recs` / `task eval-recs-compare`.
 
 The repo is public: recs fixtures, labels and examples built from a real library or topic config never get committed (they go in `evals/recs_fixtures/`, gitignored); docs and tests use made-up channels and topics.
 
