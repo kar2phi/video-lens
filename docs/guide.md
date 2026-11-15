@@ -86,7 +86,8 @@ you ask. Before the first share you see the terms and agree to them: anyone with
 read the summary, the service operator may look at it and may remove it, and a random install
 ID plus a hashed IP address are used to limit abuse. What is uploaded is the summary itself
 (summary, takeaway, key points, outline, tags) and the video's facts (title, channel, duration,
-date, language), never the transcript or the video description.
+date, language), never the transcript or the video description. The shared page shows the
+video's title and channel as YouTube gives them, and counts its visitors and page loads.
 
 Say "unshare" to revoke the link, "which reports are shared" to list your links with their
 visitors and page loads, and "stop offering links" to drop the closing "Want a shareable link?" line. The key that
@@ -156,5 +157,12 @@ to let Raycast control that terminal (macOS Automation permission).
   YouTube for a while; wait and try again.
 - **yt-dlp fails on a video.** Update it (`pip install -U yt-dlp`); builds older than 2026.8.19
   cannot download audio. Some videos also need [Deno](https://deno.com) (`brew install deno`).
+- **Port 8765 is busy.** Reports are served from `http://localhost:8765`. When another program
+  holds that port, the run stops with `ERROR:SERVE_PORT_BUSY` and names it; stop it and run
+  again. A server that video-lens started earlier for the same folder is taken over.
+- **The report opened as a file** (`file://…`), so the video does not play: YouTube's player
+  needs a web address. The page shows the command that serves the folder
+  (`python3 -m http.server 8765 --bind 127.0.0.1 --directory …`) with a Copy button, and
+  opens the served page by itself once the server answers. The gallery does the same.
 - **YouTube Shorts** are not supported.
 - **Windows** is best effort: fixes are welcome, but it is not tested.

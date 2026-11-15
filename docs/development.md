@@ -119,7 +119,7 @@ video-lens/
         build_index.py    ← builds manifest.json and copies index.html
     video-lens-recs/
       SKILL.md          ← recommendations skill prompt (source of truth)
-      template.html     ← Discover page template
+      template.html     ← Recommendations page template
       references/setup.md ← first-run setup, read only during setup
       scripts/
         recs.py           ← CLI: recommend, render, resolve, feedback, topics, account, stats

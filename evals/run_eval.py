@@ -2,7 +2,7 @@
 """Real-video eval: run an agent on the fixture videos, then validate every report and trace.
 
     python3 evals/run_eval.py --agent claude                    # slim set, working-tree skill
-    python3 evals/run_eval.py --agent pi --model qwen3.6:27b    # local qwen through pi
+    python3 evals/run_eval.py --agent pi --model qwen3.8:27b-mxfp8    # local qwen through pi
     python3 evals/run_eval.py --agent claude --ref HEAD         # the committed skill (A/B arm)
     python3 evals/run_eval.py --agent claude --only smoke --runs 2
     python3 evals/run_eval.py --compare evals/results/A evals/results/B

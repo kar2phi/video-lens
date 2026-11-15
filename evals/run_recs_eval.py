@@ -7,7 +7,7 @@ against labels (026 §12.3).
     python3 evals/run_recs_eval.py label ai-week               # yes / maybe / no per candidate
     python3 evals/run_recs_eval.py prior                       # precision of the prior alone, weight variants
     python3 evals/run_recs_eval.py run --agent claude          # every fixture, working-tree skill
-    python3 evals/run_recs_eval.py run --agent pi --model qwen3.6:27b --ref HEAD
+    python3 evals/run_recs_eval.py run --agent pi --model qwen3.8:27b-mxfp8 --ref HEAD
     python3 evals/run_recs_eval.py compare evals/results/A evals/results/B
 
 Fixtures live in evals/recs_fixtures/<name>/, which is gitignored: a recorded fixture holds

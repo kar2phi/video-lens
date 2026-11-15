@@ -61,7 +61,7 @@ video-lens/
         build_index.py     ← builds manifest.json and copies index.html
     video-lens-recs/
       SKILL.md             ← recommendations skill prompt (source of truth)
-      template.html        ← Discover page template
+      template.html        ← Recommendations page template
       references/setup.md  ← first-run setup flow
       scripts/             ← recs.py CLI + collect, scoring, yt_sources, page, store, takeout
   tests/
@@ -80,7 +80,7 @@ task dev   # renders template → ~/Downloads/sample_output.html, serves at http
 ```bash
 task test                 # fast, no network
 task test-real            # real YouTube fetches for evals/fixtures.json, no LLM
-task eval AGENT=claude    # real agent runs, validated (AGENT=pi MODEL=qwen3.6:27b for local qwen)
+task eval AGENT=claude    # real agent runs, validated (AGENT=pi MODEL=qwen3.8:27b-mxfp8 for local qwen)
 ```
 
 Judge SKILL.md changes with `task eval` on both arms (`REF=HEAD` vs working tree) and `task eval-compare`, on Claude *and* qwen. For `skills/video-lens-recs/SKILL.md` the same with `task eval-recs` / `task eval-recs-compare`.
