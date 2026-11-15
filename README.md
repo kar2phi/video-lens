@@ -1,10 +1,10 @@
 # video-lens
 
-**Paste a YouTube link into your coding agent. Get a report you read beside the video.**
+**Paste a YouTube link into your agent. Get a report you read beside the video.**
 
-video-lens is a skill for Claude Code, Codex, Cursor and other coding agents. It writes a summary,
-the takeaway, numbered key points and a timestamped outline, and opens them in your browser with
-the video playing beside the text. Click any line to jump there.
+video-lens is a skill for Claude Code, Codex, Cursor and other agents that read SKILL.md. It
+writes a summary, the takeaway, numbered key points and a timestamped outline, and opens them in
+your browser with the video playing beside the text. Click any line to jump there.
 
 **[video-lens.org](https://video-lens.org)** has the rest: an example report, every feature,
 privacy, and all the ways to install.
@@ -29,7 +29,7 @@ a Raycast command, see [docs/guide.md](docs/guide.md#install-from-a-clone).
 
 | Needed for                                  | What                                                                |
 | ------------------------------------------- | ------------------------------------------------------------------- |
-| Running the skill                           | A coding agent that reads SKILL.md, Python 3, macOS or Linux (Windows is best effort) |
+| Running the skill                           | An agent that reads SKILL.md, Python 3, macOS or Linux (Windows is best effort) |
 | Fetching captions                           | `youtube-transcript-api`                                            |
 | Metadata, chapters, audio download          | `yt-dlp` 2026.8.19 or newer (older builds cannot download audio)    |
 | **Optional:** videos without captions       | `mlx-whisper` and `ffmpeg`, Apple Silicon only                      |
