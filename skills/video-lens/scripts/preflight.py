@@ -21,6 +21,9 @@ Stdout on success (lines that apply only):
     VIDEO_ID: <11 chars>
     LANG_CODE: <code or empty>
     EXTRA_REQUEST: <the request verbatim>   # when it asks for more than a language
+    SETUP_NEEDED: transcript-api[, yt-dlp]   # youtube-transcript-api is in neither this Python
+                                 # nor the venv; yt-dlp is listed when it is missing too
+    LIBRARY_OUTDATED: youtube-transcript-api <found> (known good: <version>)
     CAPABILITIES: a, b, …        # whisper (Apple Silicon: the local fallback can run),
                                  # mlx-whisper, ffmpeg, yt-dlp | yt-dlp-outdated,
                                  # share (the closing share offer is on); may be empty
@@ -35,7 +38,6 @@ Stderr + non-zero exit on:
     ERROR:INVALID_INPUT <reason>
 """
 import argparse
-import importlib.util
 import json
 import os
 import pathlib
@@ -47,6 +49,11 @@ import time
 from urllib.parse import parse_qs, urlparse
 
 from transcribe_local import MIN_YTDLP, whisper_platform_supported, ytdlp_version
+from venv_env import module_available, module_version, parse_version, ytdlp_path
+
+# Oldest youtube-transcript-api known to work against YouTube today. Raise it when
+# YouTube breaks older releases; preflight then tells the user to update (057 D7).
+KNOWN_GOOD_TRANSCRIPT_API = "1.2.4"
 
 VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 REPORTS_DIR = pathlib.Path.home() / "Downloads" / "video-lens" / "reports"
@@ -222,16 +229,35 @@ def probe_capabilities() -> list[str]:
     whisper = whisper_platform_supported()
     if whisper:
         caps.append("whisper")
-        if importlib.util.find_spec("mlx_whisper") is not None:
+        if module_available("mlx_whisper"):
             caps.append("mlx-whisper")
     if shutil.which("ffmpeg"):
         caps.append("ffmpeg")
-    if shutil.which("yt-dlp"):
+    if ytdlp_path():
         found = ytdlp_version() if whisper else None
         caps.append("yt-dlp-outdated" if found and found[0] < MIN_YTDLP else "yt-dlp")
     if share_offer_on():
         caps.append("share")
     return caps
+
+
+def setup_status() -> tuple[list[str], str | None]:
+    """What first-run setup should install, and an outdated-library warning.
+
+    Setup is needed only when youtube-transcript-api, which every report needs, is
+    missing; yt-dlp rides along in the same question then. A missing yt-dlp alone
+    never asks again on every run: fetch_metadata.py reports it as a non-fatal note.
+    """
+    needed, outdated = [], None
+    if not module_available("youtube_transcript_api"):
+        needed.append("transcript-api")
+        if not ytdlp_path():
+            needed.append("yt-dlp")
+    else:
+        found = module_version("youtube_transcript_api")
+        if found and parse_version(found) < parse_version(KNOWN_GOOD_TRANSCRIPT_API):
+            outdated = f"youtube-transcript-api {found} (known good: {KNOWN_GOOD_TRANSCRIPT_API})"
+    return needed, outdated
 
 
 def sweep_stale_sidecars(meta_dir: pathlib.Path, now: float | None = None) -> None:
@@ -369,6 +395,11 @@ def main() -> int:
     print(f"LANG_CODE: {lang_code}")
     if extra_request:
         print(f"EXTRA_REQUEST: {extra_request}")
+    setup_needed, outdated = setup_status()
+    if setup_needed:
+        print(f"SETUP_NEEDED: {', '.join(setup_needed)}")
+    if outdated:
+        print(f"LIBRARY_OUTDATED: {outdated}")
     print(f"CAPABILITIES: {', '.join(probe_capabilities())}")
     print(f"START_EPOCH: {start_epoch}")
     print(f"SCRIPTS_DIR: {scripts_dir}")

@@ -24,6 +24,7 @@ import sys
 
 CACHE_DIR = pathlib.Path(__file__).resolve().parent / "cache"
 NETWORK_SCRIPTS = ("fetch_transcript.py", "fetch_metadata.py")
+HELPER_MODULES = ("venv_env.py",)
 STABLE_ERRORS = re.compile(r"^ERROR:(CAPTIONS_DISABLED|NO_TRANSCRIPT|VIDEO_UNAVAILABLE|AGE_RESTRICTED|INVALID_VIDEO_ID)\b", re.M)
 LOG_ENV = "VIDEO_LENS_REPLAY_LOG"
 INJECT_ENV = "VIDEO_LENS_REPLAY_INJECT"
@@ -49,6 +50,9 @@ def install(scripts_dir: pathlib.Path, cache_dir=CACHE_DIR):
     """Replace the network scripts in a skill copy with replay shims."""
     live_dir = scripts_dir / ".live"
     live_dir.mkdir()
+    for name in HELPER_MODULES:   # the live scripts import these from their own directory
+        if (scripts_dir / name).exists():
+            (live_dir / name).write_bytes((scripts_dir / name).read_bytes())
     for name in NETWORK_SCRIPTS:
         live = live_dir / name
         (scripts_dir / name).rename(live)

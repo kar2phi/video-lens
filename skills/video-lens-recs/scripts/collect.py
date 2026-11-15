@@ -173,6 +173,8 @@ def preflight(request: str, topic_flag: str | None = None) -> tuple[list[str], l
     out, err = [], []
     scripts_dir = pathlib.Path(__file__).resolve().parent
     out.append(f"SCRIPTS_DIR: {scripts_dir}")
+    if yt.ytdlp_bin() is None and not os.environ.get(yt.REPLAY_ENV):
+        out.append(f"SETUP_NEEDED: yt-dlp — {yt.setup_hint()}")
     cfg = store.load_config()
     if not store.config_exists() or not cfg["topics"]:
         out.append(f"NEEDS_SETUP: no topics yet. Read {scripts_dir.parent / 'references' / 'setup.md'} and follow it.")
@@ -700,11 +702,12 @@ HINTS = {
                           "Full Disk Access (System Settings → Privacy & Security)",
     "SIGNED_OUT": "sign in to YouTube in the browser, then say \"sync my YouTube\"",
     "BOT_CHECK": "YouTube asked for a bot check; try again later",
-    "YTDLP_MISSING": "install yt-dlp",
 }
 
 
 def _hint(code: str) -> str:
+    if code == "YTDLP_MISSING":
+        return f"yt-dlp not installed — {yt.setup_hint()}"
     return HINTS.get(code, "local checks only this run")
 
 

@@ -21,6 +21,11 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from venv_env import reexec_if_needed, ytdlp_in_venv, ytdlp_path  # noqa: E402
+
+SETUP_PY = pathlib.Path(__file__).resolve().parent / "setup.py"
+
 # Below this, yt-dlp resolves media through YouTube's android_vr client, and YouTube
 # serves only the first ~1 MiB from those URLs — every byte past it 403s. Used solely
 # to turn an opaque "HTTP Error 403" into an actionable hint; never enforced up front,
@@ -74,7 +79,7 @@ def ytdlp_version():
     """
     try:
         out = subprocess.run(
-            ["yt-dlp", "--no-update", "--version"],
+            [ytdlp_path() or "yt-dlp", "--no-update", "--version"],
             capture_output=True, text=True, timeout=15,
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
@@ -97,8 +102,10 @@ def _stale_ytdlp_hint(stderr):
         return ""
     if "403" not in stderr and "Forbidden" not in stderr:
         return ""
+    fix = (f'python3 "{SETUP_PY}" --upgrade yt-dlp' if ytdlp_in_venv()
+           else "brew upgrade yt-dlp, or pip install -U yt-dlp")
     return (f" (yt-dlp {found[1]} is older than {MIN_YTDLP_LABEL} and YouTube now blocks its"
-            f" downloads — run: brew upgrade yt-dlp, or pip install -U yt-dlp)")
+            f" downloads — run: {fix})")
 
 
 def _pick_audio_file(tmp_dir):
@@ -121,7 +128,7 @@ def _download_audio(video_id, tmp_dir):
     # step, burning the transcription budget and returning no structured error.
     try:
         result = subprocess.run(
-            ["yt-dlp", "-f", "bestaudio[ext=m4a]/bestaudio",
+            [ytdlp_path() or "yt-dlp", "-f", "bestaudio[ext=m4a]/bestaudio",
              "--socket-timeout", "30",
              "-o", f"{tmp_dir}/audio.%(ext)s", "--", video_id],
             capture_output=True, text=True, timeout=DOWNLOAD_TIMEOUT_SECONDS,
@@ -161,10 +168,11 @@ def main():
               f" Mac; this is {platform.system()} {platform.machine()}")
         sys.exit(1)
 
+    reexec_if_needed("mlx_whisper")
     try:
         import mlx_whisper
     except ImportError:
-        print("ERROR:WHISPER_MISSING: pip install mlx-whisper")
+        print(f'ERROR:WHISPER_MISSING: mlx-whisper is not installed — run: python3 "{SETUP_PY}" mlx-whisper')
         sys.exit(1)
     if shutil.which("ffmpeg") is None:
         print("ERROR:FFMPEG_MISSING: brew install ffmpeg")
@@ -173,10 +181,11 @@ def main():
         if not pathlib.Path(supplied_audio).expanduser().is_file():
             print(f"ERROR:INVALID_INPUT: audio file not found: {supplied_audio}")
             sys.exit(1)
-    elif shutil.which("yt-dlp") is None:
+    elif ytdlp_path() is None:
         # Not ERROR:YTDLP_MISSING — SKILL.md routes ERROR:YTDLP_* as non-fatal
         # (metadata-only), but here yt-dlp is required to get the audio.
-        print("ERROR:AUDIO_DOWNLOAD_FAILED: yt-dlp not installed — brew install yt-dlp or pip install yt-dlp")
+        print("ERROR:AUDIO_DOWNLOAD_FAILED: yt-dlp not installed —"
+              f' run: python3 "{SETUP_PY}" yt-dlp (or brew install yt-dlp)')
         sys.exit(1)
 
     # Only a directory we created ourselves is ever deleted; a user-supplied file

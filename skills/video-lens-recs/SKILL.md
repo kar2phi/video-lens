@@ -2,7 +2,7 @@
 name: video-lens-recs
 description: Recommend YouTube videos worth watching on a topic — from your subscribed channels and beyond — ranked with reasons, skipping what you've already watched or summarised with video-lens. Activate on "what should I watch about AI", "new Kubernetes videos this week", "recommend cooking videos", "catch me up on my AI channels", "what did I miss on YouTube", "anything good on Rust lately", "set up video recommendations", "import my YouTube takeout", "sync my YouTube", "add this channel to my AI topic", "mute this channel".
 license: MIT
-compatibility: "Requires Python 3 and yt-dlp. Optional: a Google Takeout export of your subscriptions, a logged-in browser for live mode (Firefox recommended), YOUTUBE_API_KEY for Data API search. Works best with video-lens installed: it serves the Recommendations page and summarises the picks you choose. macOS and Linux; Windows best-effort."
+compatibility: "Requires Python 3 and yt-dlp (on PATH, or in the venv video-lens's first-run setup makes; the skill offers that install). Optional: a Google Takeout export of your subscriptions, a logged-in browser for live mode (Firefox recommended), YOUTUBE_API_KEY for Data API search. Works best with video-lens installed: it serves the Recommendations page and summarises the picks you choose. macOS and Linux; Windows best-effort."
 allowed-tools: Bash Read Write
 metadata:
   author: kar2phi
@@ -41,6 +41,7 @@ _sd=$(for d in ~/.agents ~/.claude ~/.copilot ~/.gemini ~/.cursor ~/.windsurf ~/
 Substitute `$USER_REQUEST` with the user's request in their own words, e.g. `"what's new in AI this week"`. The script reads the topic and the time window from it and takes 10–40 s.
 
 - `NEEDS_SETUP:` — no topics yet: go to **Setup**.
+- `SETUP_NEEDED: yt-dlp` — yt-dlp is missing, and most sources need it. Before anything else, relay the command in the line and ask once whether to run it (it installs into video-lens's own folder, not the system Python). On yes, run it and then this step again; on no, carry on and say results are limited.
 - `ERROR:TOPIC_AMBIGUOUS` or `ERROR:TOPIC_UNKNOWN` — if the user's words clearly mean one of the listed topics, rerun with `--topic KEY` before the `--`. Otherwise ask which topic, or offer to create one (**Topics**).
 - `WARN:` lines — mention them in one short line at the end.
 - `NO_CANDIDATES:` — tell the user, suggest a longer window ("this month"), and stop.
@@ -120,6 +121,7 @@ When Step 1 prints `NEEDS_SETUP:`, or the user asks to set up, import a Takeout,
 | `ERROR:TOPIC_AMBIGUOUS`, `ERROR:TOPIC_UNKNOWN` | See Step 1. |
 | `ERROR:SERVE_*` | Relay the chat list and report the error in one line. |
 | `ERROR:RUN_DIR_INVALID`, `ERROR:NO_RUN` | Run Step 1 again. |
+| `ERROR:YTDLP_MISSING`, or a note that names `YTDLP_MISSING` | yt-dlp is not installed. Relay the command from the message and ask once whether to run it; it installs yt-dlp into video-lens's own folder (`~/.local/share/video-lens/venv`), not the system Python. On yes, run it, then Step 1 again. On no, carry on with what works without it. |
 | `ERROR:CHANNEL_NOT_FOUND`, `ERROR:TOPICS_*`, `ERROR:FEEDBACK_*`, `ERROR:RESOLVE_*`, `ERROR:LIVE_SYNC_FAILED` | Report the message; ask the user when it needs a choice. |
 | Any other `ERROR:` | Report the code and message, and stop. |
 

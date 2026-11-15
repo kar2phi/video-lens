@@ -8,6 +8,18 @@ tagged from 5.5 on (`v5.5`). Earlier versions here track the `metadata.version` 
 carries its own version; it is called out wherever it moved. Each entry lists the commits
 it was reconstructed from.
 
+## [Unreleased]
+
+- **Sets itself up.** The install is one line, `npx skills add kar2phi/video-lens`. On the
+  first video, video-lens checks what is missing, says what it would install and asks once.
+  On yes it installs youtube-transcript-api (and yt-dlp, if you want chapters and richer
+  metadata) into its own folder, `~/.local/share/video-lens/venv`, and carries on with the
+  same video. It never touches your system Python, so Homebrew's and Debian's
+  "externally-managed-environment" error no longer applies. mlx-whisper goes in the same
+  way when you accept local transcription. Recommendations find yt-dlp there too.
+- **Update hint.** When the installed youtube-transcript-api is older than a known-good
+  release, the report run says so and offers the update (`setup.py --upgrade`).
+
 ## [5.5] — 2026-11-15
 
 - **Share a report.** Say "share" and the report becomes an unlisted link on

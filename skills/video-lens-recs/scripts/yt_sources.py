@@ -37,6 +37,31 @@ YTDLP_TIMEOUT = 90
 HTTP_TIMEOUT = 20
 USER_AGENT = "Mozilla/5.0 (video-lens-recs)"
 API_BASE = "https://www.googleapis.com/youtube/v3/"
+
+
+def ytdlp_bin() -> str | None:
+    """yt-dlp on PATH, else the one video-lens's first-run setup put in its venv (057 D2).
+
+    Same lookup as video-lens's venv_env.ytdlp_path, repeated here because the skills
+    install separately.
+    """
+    import shutil
+    found = shutil.which("yt-dlp")
+    if found:
+        return found
+    venv = os.environ.get("VIDEO_LENS_VENV") or os.path.join(
+        os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "video-lens", "venv")
+    exe = os.path.join(venv, "Scripts" if os.name == "nt" else "bin",
+                       "yt-dlp.exe" if os.name == "nt" else "yt-dlp")
+    return exe if os.path.isfile(exe) and os.access(exe, os.X_OK) else None
+
+
+def setup_hint() -> str:
+    """How to install yt-dlp: video-lens's setup.py when that skill sits next to this one."""
+    setup = pathlib.Path(__file__).resolve().parents[2] / "video-lens" / "scripts" / "setup.py"
+    if setup.is_file():
+        return f'run: python3 "{setup}" yt-dlp (or brew install yt-dlp)'
+    return "run: brew install yt-dlp (or pipx install yt-dlp)"
 # Search "upload date" filter: today / this week / this month / this year, videos only.
 SEARCH_SP = ((1, "EgQIAhAB"), (7, "EgQIAxAB"), (31, "EgQIBBAB"), (366, "EgQIBRAB"))
 
@@ -142,14 +167,17 @@ def _ytdlp(args, key, browser=None, mode="json", timeout=YTDLP_TIMEOUT):
     replayed = _replay(key)
     if replayed is not None:
         return replayed
-    cmd = ["yt-dlp", "--quiet", "--no-warnings", "--ignore-config"]
+    exe = ytdlp_bin()
+    if exe is None:
+        raise SourceError("YTDLP_MISSING", f"yt-dlp not installed — {setup_hint()}")
+    cmd = [exe, "--quiet", "--no-warnings", "--ignore-config"]
     if browser:
         cmd += ["--cookies-from-browser", browser]
     cmd += list(args)
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except FileNotFoundError:
-        raise SourceError("YTDLP_MISSING", "yt-dlp not installed — brew install yt-dlp or pip install yt-dlp")
+        raise SourceError("YTDLP_MISSING", f"yt-dlp not installed — {setup_hint()}")
     except subprocess.TimeoutExpired:
         raise SourceError("TIMEOUT", f"yt-dlp took over {timeout}s")
     if mode == "lines":

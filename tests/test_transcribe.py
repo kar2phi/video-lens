@@ -146,13 +146,14 @@ def test_whisper_missing_error(tmp_path):
     """With mlx_whisper unimportable, the script prints ERROR:WHISPER_MISSING."""
     stub = tmp_path / "mlx_whisper.py"
     stub.write_text("raise ImportError('stubbed out for test')\n")
-    env = {**os.environ, "PYTHONPATH": str(tmp_path)}
+    env = {**os.environ, "VIDEO_LENS_VENV": str(tmp_path / "no-venv"), "PYTHONPATH": str(tmp_path)}
     result = subprocess.run(
         [sys.executable, str(TRANSCRIBE), VIDEO_ID],
         capture_output=True, text=True, env=env,
     )
     assert result.returncode == 1
-    assert result.stdout.startswith("ERROR:WHISPER_MISSING: pip install mlx-whisper")
+    assert result.stdout.startswith("ERROR:WHISPER_MISSING: mlx-whisper is not installed — run: python3 ")
+    assert result.stdout.rstrip().endswith("setup.py\" mlx-whisper")
 
 
 @needs_apple_silicon
@@ -162,7 +163,7 @@ def test_ffmpeg_missing_error(tmp_path):
     stub.write_text("def transcribe(*a, **k):\n    raise RuntimeError('stub')\n")
     empty_path = tmp_path / "bin"
     empty_path.mkdir()
-    env = {**os.environ, "PYTHONPATH": str(tmp_path), "PATH": str(empty_path)}
+    env = {**os.environ, "VIDEO_LENS_VENV": str(tmp_path / "no-venv"), "PYTHONPATH": str(tmp_path), "PATH": str(empty_path)}
     result = subprocess.run(
         [sys.executable, str(TRANSCRIBE), VIDEO_ID],
         capture_output=True, text=True, env=env,
@@ -182,7 +183,7 @@ def test_ytdlp_missing_is_fatal_download_error(tmp_path):
     ffmpeg = fake_bin / "ffmpeg"
     ffmpeg.write_text("#!/bin/sh\nexit 0\n")
     ffmpeg.chmod(0o755)
-    env = {**os.environ, "PYTHONPATH": str(tmp_path), "PATH": str(fake_bin)}
+    env = {**os.environ, "VIDEO_LENS_VENV": str(tmp_path / "no-venv"), "PYTHONPATH": str(tmp_path), "PATH": str(fake_bin)}
     result = subprocess.run(
         [sys.executable, str(TRANSCRIBE), VIDEO_ID],
         capture_output=True, text=True, env=env,
@@ -198,7 +199,7 @@ def test_leading_dash_video_id_accepted_with_separator(tmp_path):
     `-` must reach the dependency checks instead of dying in argparse."""
     stub = tmp_path / "mlx_whisper.py"
     stub.write_text("raise ImportError('stubbed out for test')\n")
-    env = {**os.environ, "PYTHONPATH": str(tmp_path)}
+    env = {**os.environ, "VIDEO_LENS_VENV": str(tmp_path / "no-venv"), "PYTHONPATH": str(tmp_path)}
     result = subprocess.run(
         [sys.executable, str(TRANSCRIBE), "--model", "tiny", "--", "-Abc123XYZ_w"],
         capture_output=True, text=True, env=env,
@@ -218,7 +219,7 @@ def test_audio_download_failed_error(tmp_path):
         f = fake_bin / tool
         f.write_text(f"#!/bin/sh\n{body}\n")
         f.chmod(0o755)
-    env = {**os.environ, "PYTHONPATH": str(tmp_path),
+    env = {**os.environ, "VIDEO_LENS_VENV": str(tmp_path / "no-venv"), "PYTHONPATH": str(tmp_path),
            "PATH": f"{fake_bin}:{os.environ['PATH']}"}
     result = subprocess.run(
         [sys.executable, str(TRANSCRIBE), VIDEO_ID],

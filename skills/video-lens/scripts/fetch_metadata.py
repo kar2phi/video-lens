@@ -18,6 +18,13 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from venv_env import ytdlp_path  # noqa: E402
+
+_SETUP = pathlib.Path(__file__).resolve().parent / "setup.py"
+YTDLP_MISSING_MSG = (f"ERROR:YTDLP_MISSING: yt-dlp not installed — run: python3 \"{_SETUP}\" yt-dlp"
+                     " (or brew install yt-dlp)")
+
 METADATA_DIR = (
     pathlib.Path(os.environ.get("XDG_CACHE_HOME") or (pathlib.Path.home() / ".cache"))
     / "video-lens" / "metadata"
@@ -114,14 +121,18 @@ def main():
     video_id = args.video_id
     url = f"https://www.youtube.com/watch?v={video_id}"
 
+    ytdlp = ytdlp_path()
+    if ytdlp is None:
+        print(YTDLP_MISSING_MSG)
+        sys.exit(0)
     try:
         result = subprocess.run(
-            ["yt-dlp", "--skip-download", "--quiet", "--no-warnings",
+            [ytdlp, "--skip-download", "--quiet", "--no-warnings",
              "--no-check-formats", "--dump-json", url],
             capture_output=True, text=True, timeout=60,
         )
     except FileNotFoundError:
-        print("ERROR:YTDLP_MISSING: yt-dlp not installed — run: brew install yt-dlp or pip install yt-dlp")
+        print(YTDLP_MISSING_MSG)
         sys.exit(0)
     except subprocess.TimeoutExpired:
         print("ERROR:YTDLP_TIMEOUT: yt-dlp timed out after 60s")

@@ -3,6 +3,10 @@
 Read this only after the user agreed to local transcription (SKILL.md, **Local transcription
 fallback**). yt-dlp downloads the audio and mlx-whisper transcribes it on the Apple Silicon GPU.
 
+When Step 1's `CAPABILITIES:` lacked `mlx-whisper`, install it first (the user's yes covered it):
+`python3 "SCRIPTS_DIR/setup.py" mlx-whisper`, then continue on `SETUP_OK`. On any `ERROR:SETUP_*`,
+follow `references/setup.md` §3.
+
 Wait for 2b's output before running — it supplies `YTDLP_DURATION` and `YTDLP_LANGUAGE`. Then:
 
 ```bash
@@ -14,7 +18,7 @@ python3 "SCRIPTS_DIR/transcribe_local.py" --model medium -- "VIDEO_ID"
 - **Timeouts:** invoke with an explicit 600000 ms timeout. Transcription runs at roughly 4–8 min per hour of video and a first run adds the model download — both count against the 10-minute Bash cap. For videos longer than ~60 min, or any first run where the model must still download, run the command in the background and poll until it finishes.
 - **Output** is `fetch_transcript.py`-compatible (same header block and `[M:SS] text` lines) — use it as the transcript for Steps 3–6 without modification. The extra `SOURCE:` line is informational.
 - **Provenance:** set `META_LINE` explicitly in the Step 4 payload with the ` · 🎙 transcribed locally` suffix: `<channel> · <duration> · <published> · <views> · 🎙 transcribed locally`.
-- **When the download itself is blocked:** if the script returns `ERROR:AUDIO_DOWNLOAD_FAILED`, first check the hint in the message — a yt-dlp older than 2026.8.19 cannot download YouTube audio at all, and `brew upgrade yt-dlp` fixes it. If the download is still blocked after updating, the user can supply the audio themselves:
+- **When the download itself is blocked:** if the script returns `ERROR:AUDIO_DOWNLOAD_FAILED`, first check the hint in the message — a yt-dlp older than 2026.8.19 cannot download YouTube audio at all, and updating it fixes it (the hint names the command: `setup.py --upgrade yt-dlp` when video-lens installed it, else `brew upgrade yt-dlp`). If the download is still blocked after updating, the user can supply the audio themselves:
   ```bash
   python3 "SCRIPTS_DIR/transcribe_local.py" --model medium --audio-file "/path/to/audio.m4a" -- "VIDEO_ID"
   ```

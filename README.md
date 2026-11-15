@@ -15,11 +15,29 @@ privacy, and all the ways to install.
 
 ```bash
 npx skills add kar2phi/video-lens
-pip install youtube-transcript-api 'yt-dlp>=2026.8.19'
-
-# Optional, Apple Silicon: transcribe videos that have no captions
-pip install mlx-whisper && brew install ffmpeg
 ```
+
+Pick all three skills when asked. On the first video, video-lens checks what is missing and asks
+before installing anything. Its Python packages go into its own folder,
+`~/.local/share/video-lens/venv`, not your system Python.
+
+<details>
+<summary><b>Manual install</b></summary>
+
+The same setup by hand, with the script the skill runs:
+
+```bash
+python3 ~/.agents/skills/video-lens/scripts/setup.py transcript-api yt-dlp
+# Optional, Apple Silicon: transcribe videos that have no captions
+python3 ~/.agents/skills/video-lens/scripts/setup.py mlx-whisper && brew install ffmpeg
+```
+
+Adjust the path to where your agent keeps skills (`~/.claude/skills/…` for Claude Code). Add
+`--upgrade` when YouTube breaks an older release. If you'd rather use your own environment,
+install `requirements.txt` into the `python3` your agent runs; the skill uses those packages when
+its own folder doesn't have them.
+
+</details>
 
 Works in any agent that reads [SKILL.md](https://agentskills.io). To install from a clone or as
 a Raycast command, see [docs/guide.md](docs/guide.md#install-from-a-clone).
@@ -37,7 +55,7 @@ a Raycast command, see [docs/guide.md](docs/guide.md#install-from-a-clone).
 | **Optional:** install from a clone          | [Task](https://taskfile.dev) (`brew install go-task`)               |
 | **Optional:** a global hotkey               | [Raycast](https://www.raycast.com), macOS                           |
 
-`requirements.txt` lists the Python packages. The first local transcription downloads a Whisper
+The skill installs the Python packages on first use (see Install). The first local transcription downloads a Whisper
 model. YouTube Shorts are not supported.
 
 </details>

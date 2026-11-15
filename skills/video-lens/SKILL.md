@@ -2,7 +2,7 @@
 name: video-lens
 description: Fetch a YouTube transcript and generate an executive summary, key points, and timestamped topic list as a polished HTML report. Activate on YouTube URLs or requests like "summarize this video", "what's this about", "give me the highlights", "TL;DR this", "digest this video", "watch this for me", "I watched this and want a breakdown", or "make notes on this talk". Supports non-English videos, language selection, and yt-dlp enrichment for chapters, video description, and richer metadata. Falls back to local Whisper transcription when a video has no captions. Can turn a report into an unlisted link on requests like "share this report", "give me a link to this summary", "unshare", "revoke the link".
 license: MIT
-compatibility: "Requires Python 3 and youtube-transcript-api >=0.6.3. Optional but recommended: yt-dlp and deno for enriched metadata and chapters. Local transcription fallback (videos without captions) additionally requires mlx-whisper, ffmpeg, and yt-dlp >=2026.8.19 (Apple Silicon only) — older yt-dlp builds cannot download YouTube audio. Supported on macOS and Linux; Windows is best-effort."
+compatibility: "Requires Python 3.10+ and youtube-transcript-api; on first use the skill offers to install it (and yt-dlp) into its own venv, ~/.local/share/video-lens/venv, after asking. Optional but recommended: yt-dlp and deno for enriched metadata and chapters. Local transcription fallback (videos without captions) additionally requires mlx-whisper, ffmpeg, and yt-dlp >=2026.8.19 (Apple Silicon only) — older yt-dlp builds cannot download YouTube audio. Supported on macOS and Linux; Windows is best-effort."
 allowed-tools: Bash Read Write
 metadata:
   author: kar2phi
@@ -46,6 +46,8 @@ Substitute `$USER_INPUT` with the user's URL or ID as a single argument, followe
 Read the prefixed lines from stdout and keep them for later steps:
 
 - `ERROR:SHORTS_NOT_SUPPORTED` or `ERROR:INVALID_INPUT`: report the message and stop.
+- `SETUP_NEEDED:` — a package every report needs is not installed (first run). Before Step 2, `Read` `references/setup.md` in the skill directory (the parent of `SCRIPTS_DIR`) and follow it: say what is missing, ask once, install on yes, then rerun Step 1 and carry on with the same video.
+- `LIBRARY_OUTDATED:` — the transcript library is older than a known-good release. Non-blocking: tell the user in one line and offer the update from `references/setup.md` §4 after the report (or now, if the fetch in Step 2 fails).
 - `LANG_CODE:` — the transcript language the user asked for; empty when they did not.
 - `EXTRA_REQUEST:` — the user's request, when it asks for more than a language (e.g. a focus). Honour it in Step 3. If it names a transcript language that `LANG_CODE` missed, pass that language's two-letter code as `LANG_CODE` in 2a.
 - `CAPABILITIES:` — what this machine can run; it decides whether the local transcription fallback is offered, and `share` whether the final message offers a link.
@@ -86,7 +88,7 @@ python3 "SCRIPTS_DIR/fetch_metadata.py" -- "VIDEO_ID"
 
 When 2a fails with a fallback-eligible error (see Error Handling), the transcript can usually still be produced locally with Whisper — on an **Apple Silicon Mac** only. Offer the fallback only when Step 1's `CAPABILITIES:` line lists `whisper`; otherwise report the error and stop.
 
-**Ask first.** Report the original error and tell the user the transcription will run locally: roughly 4–8 min per hour of video (estimate from `YTDLP_DURATION`), plus a one-time ~1.5 GB model download if mlx-whisper has not been used before. Proceed only on consent — or straight away if the user already asked for local transcription.
+**Ask first.** Report the original error and tell the user the transcription will run locally: roughly 4–8 min per hour of video (estimate from `YTDLP_DURATION`), plus a one-time ~1.5 GB model download if mlx-whisper has not been used before. When `CAPABILITIES:` lacks `mlx-whisper`, also say that mlx-whisper will be installed into video-lens's own folder first (`setup.py mlx-whisper`, see `references/setup.md`); a yes covers both. Proceed only on consent — or straight away if the user already asked for local transcription.
 
 On consent, `Read` `references/whisper-fallback.md` in the skill directory (the parent of `SCRIPTS_DIR`) and follow it. Its output replaces the 2a transcript for Steps 3–6.
 
@@ -270,11 +272,13 @@ Scripts emit structured error codes with the prefix `ERROR:` followed by a typed
 |---|---|
 | `ERROR:SHORTS_NOT_SUPPORTED`, `ERROR:INVALID_INPUT` | Report the message and stop. (`INVALID_INPUT` comes from preflight, or from `transcribe_local.py` for an unknown model size or missing audio file.) |
 | `ERROR:CAPTIONS_DISABLED`, `ERROR:NO_TRANSCRIPT`, `ERROR:IP_BLOCKED`, `ERROR:PO_TOKEN_REQUIRED` | Report the message, then offer the **Local transcription fallback**. Proceed only if the user agrees or already asked for local transcription; otherwise stop. |
-| `ERROR:VIDEO_UNAVAILABLE`, `ERROR:AGE_RESTRICTED`, `ERROR:INVALID_VIDEO_ID`, `ERROR:LIBRARY_MISSING`, `ERROR:TRANSCRIPT_FETCH_FAILED` | Report the message and stop. For `LIBRARY_MISSING`, print the install command from the message. |
+| `ERROR:LIBRARY_MISSING`, `ERROR:SETUP_*` | Follow `references/setup.md`: ask once, install on yes, then rerun from Step 1 with the same video. |
+| `ERROR:VIDEO_UNAVAILABLE`, `ERROR:AGE_RESTRICTED`, `ERROR:INVALID_VIDEO_ID`, `ERROR:TRANSCRIPT_FETCH_FAILED` | Report the message and stop. For `TRANSCRIPT_FETCH_FAILED`, offer the update in `references/setup.md` §4 first: an outdated library is the usual cause. |
 | `ERROR:REQUEST_BLOCKED`, `ERROR:NETWORK_ERROR` | Retry once. If `REQUEST_BLOCKED` persists, offer the **Local transcription fallback** instead of stopping; if `NETWORK_ERROR` persists, report and stop. |
-| `ERROR:WHISPER_UNSUPPORTED_PLATFORM`, `ERROR:WHISPER_MISSING`, `ERROR:FFMPEG_MISSING`, `ERROR:TRANSCRIBE_FAILED` | Report the code and message (include the install hint when present). Stop. |
-| `ERROR:AUDIO_DOWNLOAD_FAILED` | Report the code and message. When the message carries the outdated-yt-dlp hint, surface `brew upgrade yt-dlp` and offer to retry. Otherwise offer the `--audio-file` escape hatch (see `references/whisper-fallback.md`) before stopping. |
-| `ERROR:YTDLP_*` | Non-fatal — print a one-line note and proceed with 2a metadata and no description context. For `YTDLP_MISSING`, suggest `brew install yt-dlp` or `pip install yt-dlp`. |
+| `ERROR:WHISPER_MISSING` | The user already accepted the fallback: offer to install mlx-whisper (`references/setup.md`), and on yes rerun the fallback. |
+| `ERROR:WHISPER_UNSUPPORTED_PLATFORM`, `ERROR:FFMPEG_MISSING`, `ERROR:TRANSCRIBE_FAILED` | Report the code and message (include the install hint when present). Stop. |
+| `ERROR:AUDIO_DOWNLOAD_FAILED` | Report the code and message. When the message carries the outdated-yt-dlp hint, surface the command it names and offer to run it (ask first) and retry. When it says yt-dlp is not installed, offer `setup.py yt-dlp` (`references/setup.md`). Otherwise offer the `--audio-file` escape hatch (see `references/whisper-fallback.md`) before stopping. |
+| `ERROR:YTDLP_*` | Non-fatal — print a one-line note and proceed with 2a metadata and no description context. For `YTDLP_MISSING`, add one line after the report offering to install yt-dlp for chapters and richer metadata (`references/setup.md`); never stop for it. |
 | `ERROR:RENDER_*`, `ERROR:SERVE_*` | Report the code and message. Stop. Do NOT emit the success line. (A rejected payload gets one fixed retry first, as Step 4 says.) |
 | `ERROR:SHARE_*` | Follow **Sharing**. |
 | `LANG_WARN:` line (not an `ERROR:`) | Fall back to the auto-selected transcript; add the `⚠ Requested language not available` suffix to `META_LINE`. |
@@ -282,4 +286,4 @@ Scripts emit structured error codes with the prefix `ERROR:` followed by a typed
 
 ## Bundled scripts
 
-Eight local scripts ship in `./scripts/`: `preflight.py`, `fetch_transcript.py`, `fetch_metadata.py`, `transcribe_local.py`, `render_report.py`, `serve_report.sh`, `share_report.py`, `share_payload.py` (a module the renderer and `share_report.py` import), plus `references/whisper-fallback.md`. No remote code is fetched at runtime. Network calls during a run: YouTube transcript and metadata fetches. `share_report.py` is the only script that sends report content off the machine, and it runs only when the user asks to share. When the local-transcription fallback runs: audio download from YouTube via yt-dlp, and a one-time Whisper model download (~1.5 GB for medium) from Hugging Face. Network calls when the user views the report in their browser: the YouTube iframe API and Google Fonts CSS.
+Ten local scripts ship in `./scripts/`: `preflight.py`, `fetch_transcript.py`, `fetch_metadata.py`, `transcribe_local.py`, `render_report.py`, `serve_report.sh`, `share_report.py`, `share_payload.py` (a module the renderer and `share_report.py` import), `setup.py` (first-run install) and `venv_env.py` (finds video-lens's own venv), plus `references/setup.md` and `references/whisper-fallback.md`. No remote code is fetched at runtime. `setup.py` runs only after the user agrees and installs from PyPI into `~/.local/share/video-lens/venv`, never into the system Python. Network calls during a run: YouTube transcript and metadata fetches. `share_report.py` is the only script that sends report content off the machine, and it runs only when the user asks to share. When the local-transcription fallback runs: audio download from YouTube via yt-dlp, and a one-time Whisper model download (~1.5 GB for medium) from Hugging Face. Network calls when the user views the report in their browser: the YouTube iframe API and Google Fonts CSS.

@@ -891,8 +891,9 @@ def _fake_machine(monkeypatch, tmp_path, *, apple_silicon, tools=(), mlx=False,
     monkeypatch.setattr(preflight, "whisper_platform_supported", lambda: apple_silicon)
     monkeypatch.setattr(preflight.shutil, "which",
                         lambda name: f"/bin/{name}" if name in tools else None)
-    monkeypatch.setattr(preflight.importlib.util, "find_spec",
-                        lambda name: object() if mlx and name == "mlx_whisper" else None)
+    monkeypatch.setenv("VIDEO_LENS_VENV", str(tmp_path / "no-venv"))
+    monkeypatch.setattr(preflight, "module_available",
+                        lambda name: mlx and name == "mlx_whisper")
     calls = []
 
     def version():

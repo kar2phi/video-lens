@@ -17,6 +17,9 @@ import sys
 import urllib.parse
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from venv_env import reexec_if_needed  # noqa: E402
+
 
 def _json_str(raw):
     """Decode a captured JSON string body; fall back to the raw text."""
@@ -179,10 +182,13 @@ def main():
     video_id = args.video_id
     lang_pref = args.lang_pref
 
+    reexec_if_needed("youtube_transcript_api")
     try:
         import youtube_transcript_api  # noqa: F401
     except ImportError:
-        print("ERROR:LIBRARY_MISSING: pip install 'youtube-transcript-api>=0.6.3'")
+        setup = pathlib.Path(__file__).resolve().parent / "setup.py"
+        print(f"ERROR:LIBRARY_MISSING: youtube-transcript-api is not installed —"
+              f" run: python3 \"{setup}\" transcript-api")
         sys.exit(1)
 
     title, channel, published, views, duration = _fetch_html_metadata(video_id)
