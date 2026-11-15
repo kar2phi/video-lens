@@ -8,7 +8,7 @@ tagged from 5.5 on (`v5.5`). Earlier versions here track the `metadata.version` 
 carries its own version; it is called out wherever it moved. Each entry lists the commits
 it was reconstructed from.
 
-## [5.5] — not yet released
+## [5.5] — 2026-11-15
 
 - **Share a report.** Say "share" and the report becomes an unlisted link on
   [video-lens.org](https://video-lens.org), with the same player beside the text; "unshare"
