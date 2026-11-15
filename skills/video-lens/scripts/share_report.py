@@ -45,6 +45,9 @@ REQUIRED_KEYS = ("v", "videoId", "title", "summary", "takeaway", "keyPoints", "o
 RETRIES = 3
 BACKOFF = 0.5
 TIMEOUT = 20
+LIST_PACE_FROM = 15   # 051 F2: `list` sends one GET per share; the WAF allows 20 per 10 s
+LIST_PACE = 0.6
+EDGE_WAIT = 10        # a 429 from Cloudflare itself (the WAF, Workers Free 1027) carries no JSON error
 
 META_RE = re.compile(r'<script type="application/json" id="video-lens-meta">(.*?)</script>', re.S)
 DATA_RE = re.compile(r'<script type="application/json" id="video-lens-data">(.*?)</script>', re.S)
@@ -254,20 +257,26 @@ def raise_for(resp: Response, base: str) -> None:
     if code == "rate":
         raise ShareError("SHARE_RATE", f"share limit reached; try again {_wait_text(resp.headers.get('Retry-After'))}")
     if code == "paused":
-        raise ShareError("SHARE_PAUSED", "new shares are paused on the service; try again tomorrow")
+        raise ShareError("SHARE_PAUSED", "new shares are paused on the service; try again later")
     if code == "removed":
         reason = resp.body.get("reason") or "other"
         raise ShareError("SHARE_REMOVED", f"{reason}: the operator removed this report from the service; "
                                           "it cannot be shared or updated again")
     if code == "blocked":
         raise ShareError("SHARE_BLOCKED", "the operator blocked sharing from this install; "
-                                          "see https://video-lens.org/legal/terms")
+                                          f"see {terms_url(base)}")
     if code == "video":
         raise ShareError("SHARE_VIDEO", "YouTube says this video does not exist, so it cannot be shared")
     if code == "auth":
         raise ShareError("SHARE_AUTH", "the service does not accept the saved key for this share "
                                        "(it may have been deleted); use --new-link for a fresh link")
+    if resp.status == 429:
+        raise ShareError("SHARE_HTTP", "the share service is busy (HTTP 429); wait a minute and try again")
     raise ShareError("SHARE_HTTP", f"the share service answered HTTP {resp.status}")
+
+
+def _edge_limited(resp: Response) -> bool:
+    return resp.status == 429 and not resp.body.get("error")
 
 
 # ── report input ─────────────────────────────────────────────────────────────
@@ -408,8 +417,13 @@ def cmd_list(args) -> int:
     cfg = load_config()
     base = service_url(cfg)
     rows = []
-    for s in load_registry():
+    for i, s in enumerate(load_registry()):
+        if i + 1 >= LIST_PACE_FROM:
+            time.sleep(LIST_PACE)
         resp = request("GET", f"{base}/api/v1/shares/{s['id']}", key=s.get("manageKey"))
+        if _edge_limited(resp):
+            time.sleep(EDGE_WAIT)
+            resp = request("GET", f"{base}/api/v1/shares/{s['id']}", key=s.get("manageKey"))
         if resp.status == 401:
             info = {"status": "gone", "reason": None, "views": {}, "updated": s.get("updated")}
         else:

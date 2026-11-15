@@ -480,6 +480,45 @@ def test_rate_says_how_long_to_wait(env):
     assert "in about 2 hours" in env.run("report", env.report())[2]
 
 
+def test_messages_name_the_service_terms_and_no_fixed_day(env):
+    """051 F3: blocked links this service's terms; a pause has no end date; an edge 429 says wait."""
+    env.accept()
+    env.fault(match="POST /api/v1/shares", status=403, error="blocked")
+    assert f"{env.fake.url}/legal/terms" in env.run("report", env.report())[2]
+    env.fault(match="POST /api/v1/shares", status=503, error="paused")
+    err = env.run("report", env.report())[2]
+    assert "tomorrow" not in err and "try again later" in err
+    env.fault(match="POST /api/v1/shares", status=429, error=None)
+    err = env.run("report", env.report())[2]
+    assert err.startswith("ERROR:SHARE_HTTP:") and "wait a minute" in err
+
+
+def test_list_paces_long_registries_and_waits_out_an_edge_429(env, monkeypatch):
+    """051 F2: past 14 shares `list` pauses between GETs; a 429 without a JSON error is
+    Cloudflare's own limit, so wait and repeat that one request once."""
+    env.accept()
+    for i in range(16):
+        assert env.run("report", env.report(f"r{i}.html"))[0] == 0
+    sleeps = []
+    monkeypatch.setattr(sr.time, "sleep", sleeps.append)
+    env.fault(match="GET /api/v1/shares/", status=429, error=None)
+    code, out, err = env.run("list")
+    assert code == 0, err
+    assert len(lines(out, "SHARE:")) == 16
+    assert sleeps.count(sr.EDGE_WAIT) == 1
+    assert sleeps.count(sr.LIST_PACE) == 2   # the 15th and the 16th
+    gets = [x for x in env.api_log() if x.startswith("GET /api/v1/shares/")]
+    assert len(gets) == 17 and gets[0].endswith(" 429")
+
+
+def test_list_stops_on_a_second_edge_429(env):
+    env.accept()
+    env.run("report", env.report())
+    env.fault(match="GET /api/v1/shares/", status=429, error=None, times=2)
+    code, _, err = env.run("list")
+    assert code == 1 and err.startswith("ERROR:SHARE_HTTP:") and "wait a minute" in err
+
+
 def test_removed_share_cannot_be_updated(env):
     env.accept()
     path = env.report()
