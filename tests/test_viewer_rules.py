@@ -324,3 +324,12 @@ def test_file_note_has_slots_for_the_command_and_the_link():
     assert 'location.protocol === "file:"' in JS
     assert 'folder === "reports"' in JS and '"reports/" + name' in JS
     assert 'href="http://localhost:8765/"' in SHELL   # the host stays in the shell; the script only appends the path
+
+
+def test_file_panels_serve_on_loopback_only():
+    """051 F1: the command the file:// panels offer binds 127.0.0.1, as serve_report.sh does."""
+    gallery = (ROOT / "skills" / "video-lens-gallery" / "index.html").read_text(encoding="utf-8")
+    for name, text in (("shell", SHELL), ("viewer.js", JS), ("gallery", gallery)):
+        cmds = re.findall(r"python3 -m http\.server 8765[^<\"']*", text)
+        assert cmds, name
+        assert all("--bind 127.0.0.1" in c for c in cmds), (name, cmds)

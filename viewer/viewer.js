@@ -435,7 +435,7 @@
           if (folder === "reports") { parts.pop(); dir = parts.join("/"); urlPath = "reports/" + name; }
           try { dir = decodeURIComponent(dir); } catch (e) { /* keep the encoded path */ }
           dir = dir.replace(/^\/([A-Za-z]:)/, "$1"); // file:///C:/Users/… on Windows
-          var command = "python3 -m http.server 8765" + (dir ? ' --directory "' + dir.replace(/"/g, '\\"') + '"' : "");
+          var command = "python3 -m http.server 8765 --bind 127.0.0.1" + (dir ? ' --directory "' + dir.replace(/"/g, '\\"') + '"' : "");
           var here = $("file-link");
           if ($("file-cmd")) $("file-cmd").textContent = command;
           note.hidden = false;

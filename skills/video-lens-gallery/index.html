@@ -1268,7 +1268,7 @@ dialog a { color: var(--accent); }
   var rawPath = window.location.pathname;
   var dir = decodeURIComponent(rawPath.replace(/\/[^/]+$/, ''));
   var localUrl = 'http://localhost:8765/index.html';
-  var cmd = 'python3 -m http.server 8765 --directory "' + dir.replace(/"/g, '\\"') + '"';
+  var cmd = 'python3 -m http.server 8765 --bind 127.0.0.1 --directory "' + dir.replace(/"/g, '\\"') + '"';
 
   function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
