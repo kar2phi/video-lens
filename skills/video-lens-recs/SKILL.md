@@ -126,5 +126,3 @@ When Step 1 prints `NEEDS_SETUP:`, or the user asks to set up, import a Takeout,
 ## Privacy and bundled scripts
 
 Read-only towards YouTube: nothing here subscribes, likes or writes history. Watch history is never imported. In live mode each run reads the IDs of the user's recent watches (about 40 per day of the window, at most 600) and checks its candidates against them in memory; the only thing written down is "watched" for a video this skill showed earlier. What you see, and so a hosted model's provider sees: the profile (titles, channels and tags of the user's recent reports on the topic) and the candidate table; during setup, their subscription list. Personal state stays in `~/.config/video-lens` and `~/.local/share/video-lens`, outside the served `~/Downloads/video-lens`. Scripts in `./scripts/`: `recs.py` (the CLI), `collect.py`, `page.py`, `scoring.py`, `store.py`, `takeout.py`, `yt_sources.py`; no remote code is fetched. Network: yt-dlp and RSS requests to YouTube, and the YouTube Data API when `YOUTUBE_API_KEY` is set.
-
-User request:

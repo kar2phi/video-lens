@@ -115,7 +115,7 @@ Produce these four sections:
 
 **Takeaway** — The single most important thing to take away, in 1–3 sentences. Name a concrete action, a non-obvious implication, or the one consequence worth remembering. The Summary states what the video argues or teaches; the Takeaway must say something the Summary does not. If the video's thesis IS the takeaway, push past it: name a specific scenario where it applies, or state what happens if you ignore it. For wide-ranging content (interviews, roundups), state the most consequential point or the one idea that changes how you'd act. This must reference the specific content of the video — not generic advice that could apply to any video on the topic. Never restate what the Summary already says.
 
-**Key Points** — What does the video **give** you, and what does it **mean**? Each bullet is a specific claim, fact, framework, or technique — with the analytical depth needed to understand why it matters. Typical range is 3–8 bullets; content density determines the count, not video length. Each Key Point has three parts:
+**Key Points** — What does the video **give** you, and what does it **mean**? Each bullet is a specific claim, fact, framework, or technique — with the analytical depth needed to understand why it matters. Write 3–8 bullets; content density determines the count within that range, not video length. Each Key Point has three parts:
 
 - **point** — the core claim, concept, or term (a short headline).
 - **why** — one sentence on why it matters or what the viewer should understand from it. Optionally include *the speaker's own phrasing* when it adds colour or precision.
@@ -154,7 +154,16 @@ Rules:
 
 #### Length adjustments
 
-Scale Summary, Key Points paragraphs, and Outline entries to the video length: 2 sentences / 1–2 / 3–6 for short (<10 min); 2–3 / 2–3 / 5–12 for medium (10–45 min); 3–4 / 3–4 / 8–15 for long (45–90 min); 3–4 / 3–4 / 10–20 for very long (>90 min). Key Point count is governed by content density (3–8 typical), not video length.
+Scale the Summary, the Key Point detail paragraphs and the Outline to the video's length:
+
+| Video length | Summary | Key Point detail | Outline entries |
+|---|---|---|---|
+| Short (<10 min) | 2 sentences | 2 sentences | 3–6 |
+| Medium (10–45 min) | 2–3 sentences | 2–3 sentences | 5–12 |
+| Long (45–90 min) | 3–4 sentences | 3–4 sentences | 8–15 |
+| Very long (>90 min) | 3–4 sentences | 3–4 sentences | 10–20 |
+
+The number of Key Points (3–8) follows the content's density, not the video's length.
 
 ### 4. Render the report
 
@@ -167,7 +176,14 @@ Scale Summary, Key Points paragraphs, and Outline entries to the video length: 2
 python3 "SCRIPTS_DIR/render_report.py" --payload-file "PAYLOAD_PATH" --output-dir ~/Downloads/video-lens/reports/
 ```
 
-3. Read the `OUTPUT_PATH: /absolute/path.html` line from stdout and keep the path for Step 5. `RENDER_WARN:` lines beside it need no action.
+3. Read the `OUTPUT_PATH: /absolute/path.html` line from stdout and keep the path for Step 5. `RENDER_WARN:` lines beside it need no action now. A `not shareable as is` warning comes back as an `ERROR:SHARE_*` line only if the user asks to share (**Sharing** step 8).
+
+Before you `Write`, check the payload against the rules that make the renderer reject a first render. A rejection means writing the whole payload again:
+
+- `KEY_POINTS` has 3–8 entries, and at least half of them have a `detail`.
+- `OUTLINE` start times (`t`) increase from entry to entry and lie inside the video's duration.
+- `TAGS` has 3–5 entries.
+- `TAKEAWAY` does not repeat the `SUMMARY`'s phrasing.
 
 Payload fields (`python3 "SCRIPTS_DIR/render_report.py" --schema` prints the live required set):
 
@@ -185,7 +201,7 @@ Payload fields (`python3 "SCRIPTS_DIR/render_report.py" --schema` prints the liv
 | `CHANNEL`, `DURATION`, `PUBLISH_DATE`, `VIEWS` | Plain text from 2b's `YTDLP_*` values, else 2a's; blank if both are missing. The renderer joins them into the meta line. |
 | `META_LINE` *(optional)* | Omit it normally. Set it only to add a suffix: after `LANG_WARN:`, `<channel> · <duration> · <published> · <views> · ⚠ Requested language not available`; after the local fallback, the ` · 🎙 transcribed locally` suffix. |
 | `GENERATION_START_EPOCH` | `START_EPOCH` from Step 1. |
-| `AGENT_MODEL` | Your model name or ID as your system prompt or session context gives it (e.g. `"claude-opus-4-7"`, `"qwen3.6"`). Do not invent a version if only a family name is given; leave empty if none is visible. |
+| `AGENT_MODEL` | Your model name or ID as your system prompt or session context gives it (e.g. `"claude-opus-5-5"`, `"qwen3.8"`). Do not invent a version if only a family name is given; leave empty if none is visible. |
 | `SLUG_HINT` *(optional)* | A short ascii slug for the filename when the title has no ascii letters (e.g. CJK titles): `"ai_safety_talk"`. |
 | `GENERATION_DATE` *(optional)* | `YYYY-MM-DD`; omit and the renderer uses today. |
 
@@ -260,12 +276,10 @@ Scripts emit structured error codes with the prefix `ERROR:` followed by a typed
 | `ERROR:AUDIO_DOWNLOAD_FAILED` | Report the code and message. When the message carries the outdated-yt-dlp hint, surface `brew upgrade yt-dlp` and offer to retry. Otherwise offer the `--audio-file` escape hatch (see `references/whisper-fallback.md`) before stopping. |
 | `ERROR:YTDLP_*` | Non-fatal — print a one-line note and proceed with 2a metadata and no description context. For `YTDLP_MISSING`, suggest `brew install yt-dlp` or `pip install yt-dlp`. |
 | `ERROR:RENDER_*`, `ERROR:SERVE_*` | Report the code and message. Stop. Do NOT emit the success line. (A rejected payload gets one fixed retry first, as Step 4 says.) |
-| `ERROR:SHARE_*` | Follow **Sharing**: relay the message and stop; never retry. |
+| `ERROR:SHARE_*` | Follow **Sharing**. |
 | `LANG_WARN:` line (not an `ERROR:`) | Fall back to the auto-selected transcript; add the `⚠ Requested language not available` suffix to `META_LINE`. |
 | Metadata extraction fails (title/channel/views empty, no `ERROR:` emitted) | Proceed with the transcript; leave missing fields out of `META_LINE`. |
 
 ## Bundled scripts
 
 Eight local scripts ship in `./scripts/`: `preflight.py`, `fetch_transcript.py`, `fetch_metadata.py`, `transcribe_local.py`, `render_report.py`, `serve_report.sh`, `share_report.py`, `share_payload.py` (a module the renderer and `share_report.py` import), plus `references/whisper-fallback.md`. No remote code is fetched at runtime. Network calls during a run: YouTube transcript and metadata fetches. `share_report.py` is the only script that sends report content off the machine, and it runs only when the user asks to share. When the local-transcription fallback runs: audio download from YouTube via yt-dlp, and a one-time Whisper model download (~1.5 GB for medium) from Hugging Face. Network calls when the user views the report in their browser: the YouTube iframe API and Google Fonts CSS.
-
-YouTube URL to summarise:
