@@ -6,7 +6,7 @@ compatibility: "Requires Python 3 and yt-dlp (on PATH, or in the venv video-lens
 allowed-tools: Bash Read Write
 metadata:
   author: kar2phi
-  version: "0.2"
+  version: "0.3"
 ---
 
 You recommend YouTube videos on a topic the user cares about. Scripts fetch, filter, score and render; you judge relevance and write a one-line reason per pick. You never write HTML, and you never recommend a video that is not in the candidate table.

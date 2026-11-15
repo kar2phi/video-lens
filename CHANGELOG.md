@@ -10,6 +10,8 @@ it was reconstructed from.
 
 ## [Unreleased]
 
+## [5.6] — 2026-11-15
+
 - **Sets itself up.** The install is one line, `npx skills add kar2phi/video-lens`. On the
   first video, video-lens checks what is missing, says what it would install and asks once.
   On yes it installs youtube-transcript-api (and yt-dlp, if you want chapters and richer
@@ -19,6 +21,30 @@ it was reconstructed from.
   way when you accept local transcription. Recommendations find yt-dlp there too.
 - **Update hint.** When the installed youtube-transcript-api is older than a known-good
   release, the report run says so and offers the update (`setup.py --upgrade`).
+- **New-version notice.** At most once a day, when a report starts, video-lens fetches
+  `version.json` from this repo on GitHub (one plain GET, nothing about you or your videos).
+  If a newer video-lens is out, the agent says so in one line after the report and offers
+  the update; it never updates without asking. Turn it off with
+  `VIDEO_LENS_NO_UPDATE_CHECK=1`; it is also off when `CI` is set.
+
+With it: video-lens-recs **0.3**, which offers the yt-dlp install when it is missing.
+
+### Added
+
+- `scripts/setup.py` installs youtube-transcript-api, yt-dlp or mlx-whisper into
+  `~/.local/share/video-lens/venv`; `scripts/venv_env.py` re-runs the scripts with that
+  venv's Python and finds yt-dlp on `PATH`, then in the venv. Preflight prints
+  `SETUP_NEEDED:` and `LIBRARY_OUTDATED:`; `references/setup.md` tells the agent to ask once
+  and carry on with the same video. The README gains a manual-install block.
+- `scripts/update_check.py`: preflight prints `SKILL_OUTDATED:` when `version.json` on main
+  lists a newer version. The timestamp is written before the fetch, so offline runs don't
+  retry; only version-shaped strings reach the agent. `VIDEO_LENS_VERSION_URL` points it
+  elsewhere (tests and evals run with the check off). `references/setup.md` §5 covers the
+  update, by `npx skills update` or, for a clone, `git pull` and reinstall.
+- video-lens-recs: `SETUP_NEEDED: yt-dlp` and `ERROR:YTDLP_MISSING` are handled by offering
+  the install into video-lens's venv.
+
+_Commits: `1eca5e8`, `d18f2bb`._
 
 ## [5.5] — 2026-11-15
 
