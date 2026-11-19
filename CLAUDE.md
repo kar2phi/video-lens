@@ -20,7 +20,7 @@ No AI attribution: never add a `Co-Authored-By: Claude …` trailer (or any `nor
 task install-libraries                      # installs Python dependencies (pip install -r requirements.txt)
 task install-skill                          # installs skill for all detected agents via npx skills CLI
 task install-skill-local AGENT=claude       # copies skills/video-lens/ → ~/.claude/skills/video-lens/
-task install-raycast                        # copies scripts/raycast-video-lens.sh → ~/.raycast/scripts/video-lens.sh
+task install-raycast                        # copies tools/raycast-video-lens.sh → ~/.raycast/scripts/video-lens.sh
 task install-raycast AGENT=copilot          # installs Raycast script for a specific agent
 ```
 
@@ -31,21 +31,14 @@ video-lens/
   CLAUDE.md
   Taskfile.yml
   requirements.txt
-  scripts/
-    raycast-video-lens.sh  ← Raycast script (source of truth)
-    yt_template_dev.py     ← dev server helper
-  evals/
-    fixtures.json          ← real fixture videos + expected branch behaviour (SET=share: share cases)
-    checks.py              ← report/trace/share gates and metrics
-    run_eval.py            ← agent eval on real videos (task eval), A/B compare; one fake share service per case
-    replay.py              ← records the fetch scripts' output once, replays it (evals/cache/)
-    run_recs_eval.py       ← video-lens-recs eval (task eval-recs); fixtures in gitignored evals/recs_fixtures/
   viewer/                  ← report source of truth: shell.html, viewer.css, viewer.js, tokens.css,
                              components.css, mark.svg, fragments.json. Edit here, then
                              `python3 tools/build_viewer.py` (rewrites template.html; --check in task test),
                              then the private repo's `task assets` for the share build
   tools/
     build_viewer.py        ← builds template.html and the share build from viewer/
+    raycast-video-lens.sh  ← Raycast script (source of truth)
+    yt_template_dev.py     ← dev server helper
   skills/
     video-lens/
       SKILL.md             ← skill prompt (source of truth)
@@ -66,7 +59,8 @@ video-lens/
       scripts/             ← recs.py CLI + collect, scoring, yt_sources, page, store, takeout
   tests/
     share_contract.json    ← share service API contract
-    fake_share_service.py  ← stdlib fake of the share service (tests and evals)
+    fake_share_service.py  ← stdlib fake of the share service
+    recs_world.py          ← made-up channels and topics for the recs tests
 ```
 
 ## Dev
@@ -79,13 +73,11 @@ task dev   # renders template → ~/Downloads/sample_output.html, serves at http
 
 ```bash
 task test                 # fast, no network
-task test-real            # real YouTube fetches for evals/fixtures.json, no LLM
-task eval AGENT=claude    # real agent runs, validated (AGENT=pi MODEL=qwen3.8:27b-mxfp8 for local qwen)
+task test-real            # real YouTube fetches (recs sources, Whisper audio download), no LLM
+task test-full            # everything, including a real agent run (slow)
 ```
 
-Judge SKILL.md changes with `task eval` on both arms (`REF=HEAD` vs working tree) and `task eval-compare`, on Claude *and* qwen. The Claude arm runs on Opus 5.5 at medium effort; never run evals on Fable. For `skills/video-lens-recs/SKILL.md` the same with `task eval-recs` / `task eval-recs-compare`.
-
-The repo is public: recs fixtures, labels and examples built from a real library or topic config never get committed (they go in `evals/recs_fixtures/`, gitignored); docs and tests use made-up channels and topics.
+The repo is public: nothing built from a real library or topic config gets committed; docs and tests use made-up channels and topics.
 
 ## Working notes
 

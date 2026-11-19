@@ -1,6 +1,6 @@
 """Fast tests for fetch_transcript.py (024-T1): track selection and the error contract,
 against fake transcript lists shaped like what youtube-transcript-api returned for the
-fixture videos in evals/fixtures.json. No network."""
+real videos. No network."""
 import json
 import sys
 from pathlib import Path

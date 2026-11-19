@@ -2,7 +2,7 @@
 """A stdlib fake of the video-lens share service (033 §7, §12.1).
 
 It implements tests/share_contract.json with an in-memory store, so the client
-(share_report.py) and the evals run without the real service. Control routes under
+(share_report.py) runs in tests without the real service. Control routes under
 /__fake/ (never on the real service):
 
     POST /__fake/op      {"op": "takedown|pause|unpause|set_cap|video_gone|reset", "args": {...}}

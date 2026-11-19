@@ -33,51 +33,8 @@ tasks:
       - python3 -m pytest tests/ -v -m "not slow and not network"
 
   test-real:
-    desc: Real YouTube fetches for evals/fixtures.json and the recs sources (network, no LLM, ~1 min)
+    desc: Real YouTube fetches for the recs sources and the Whisper audio download (network, no LLM, ~1 min)
     cmd: python3 -m pytest tests/ -v -m network
-
-  eval:
-    desc: "Run an agent on the fixture videos and validate every report (AGENT=claude|pi MODEL= REF=<git ref> SET=slim|full|share ONLY=a,b RUNS=1 LIVE=1); share cases use a fake share service"
-    vars:
-      AGENT: '{{.AGENT | default "claude"}}'
-      SET: '{{.SET | default "slim"}}'
-      RUNS: '{{.RUNS | default "1"}}'
-    cmd: >-
-      python3 evals/run_eval.py --agent {{.AGENT}} --set {{.SET}} --runs {{.RUNS}}
-      {{if .MODEL}}--model {{.MODEL}}{{end}} {{if .REF}}--ref {{.REF}}{{end}} {{if .ONLY}}--only {{.ONLY}}{{end}} {{if .LIVE}}--live{{end}}
-
-  eval-compare:
-    desc: "Compare two eval runs (A=evals/results/<run> B=evals/results/<run>); exits 1 on a gate regression"
-    cmd: python3 evals/run_eval.py --compare {{.A}} {{.B}}
-
-  eval-recs:
-    desc: "Run an agent on the recs fixtures and gate its picks (AGENT=claude|pi MODEL= REF=<git ref> ONLY=a,b RUNS=1)"
-    vars:
-      AGENT: '{{.AGENT | default "claude"}}'
-      RUNS: '{{.RUNS | default "1"}}'
-    cmd: >-
-      python3 evals/run_recs_eval.py run --agent {{.AGENT}} --runs {{.RUNS}}
-      {{if .MODEL}}--model {{.MODEL}}{{end}} {{if .REF}}--ref {{.REF}}{{end}} {{if .ONLY}}--only {{.ONLY}}{{end}}
-
-  eval-recs-compare:
-    desc: "Compare two recs eval runs (A=evals/results/<run> B=evals/results/<run>); exits 1 on a gate regression"
-    cmd: python3 evals/run_recs_eval.py compare {{.A}} {{.B}}
-
-  eval-recs-rejudge:
-    desc: "Score a finished recs eval run again with the current labels and gates (RUN=evals/results/<run>); no agent runs"
-    cmd: python3 evals/run_recs_eval.py rejudge {{.RUN}}
-
-  eval-recs-record:
-    desc: "Record a recs fixture from your current topics into gitignored evals/recs_fixtures/ (NAME= REQUEST= TOPIC=)"
-    cmd: python3 evals/run_recs_eval.py record {{.NAME}} --request "{{.REQUEST}}" {{if .TOPIC}}--topic {{.TOPIC}}{{end}}
-
-  eval-recs-prior:
-    desc: Precision of the recs prior alone against your labels, per weight variant (no LLM)
-    cmd: python3 evals/run_recs_eval.py prior
-
-  eval-library:
-    desc: Score the saved reports in REPORTS_DIR by model family (no network)
-    cmd: python3 evals/checks.py {{.REPORTS_DIR}}/reports
 
   test-full:
     desc: Run all tests including real Claude session (slow, requires API key)
@@ -86,11 +43,11 @@ tasks:
   dev:
     desc: Rebuild template.html from viewer/ and serve a sample report (v1 payload)
     cmds:
-      - python3 scripts/yt_template_dev.py
+      - python3 tools/yt_template_dev.py
       - bash skills/video-lens/scripts/serve_report.sh ~/Downloads/video-lens/reports/video-lens_sample_output.html
 
   install-raycast:
-    desc: "Copy scripts/raycast-video-lens.sh to ~/.raycast/scripts/ (AGENT=claude|gemini|codex|cursor|opencode|copilot)"
+    desc: "Copy tools/raycast-video-lens.sh to ~/.raycast/scripts/ (AGENT=claude|gemini|codex|cursor|opencode|copilot)"
     vars:
       AGENT: '{{.AGENT | default "claude"}}'
     cmds:
@@ -118,7 +75,7 @@ tasks:
         if agent not in FLAGS:
             sys.exit("Unknown agent '{}'. Valid: {}".format(agent, ", ".join(FLAGS)))
         skip_perm, tools, prompt_flag = FLAGS[agent]
-        src = open("scripts/raycast-video-lens.sh").read()
+        src = open("tools/raycast-video-lens.sh").read()
         src = src.replace("opens Claude in a terminal", "opens {} in a terminal".format(agent.capitalize()))
         src = src.replace("&& claude ", "&& {} ".format(agent))
         if agent != "claude":

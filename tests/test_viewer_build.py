@@ -193,7 +193,7 @@ def test_dev_sample_is_v1_and_renders_without_warnings(tmp_path, monkeypatch, ca
     """038 B11: `task dev` exercises the current payload shape (v1 arrays, key-point t)."""
     import importlib.util
     root = Path(__file__).resolve().parent.parent
-    spec = importlib.util.spec_from_file_location("yt_template_dev", root / "scripts" / "yt_template_dev.py")
+    spec = importlib.util.spec_from_file_location("yt_template_dev", root / "tools" / "yt_template_dev.py")
     dev = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(dev)
     assert isinstance(dev.CONTENT["KEY_POINTS"], list) and isinstance(dev.CONTENT["OUTLINE"], list)
