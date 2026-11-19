@@ -27,9 +27,6 @@ AFFINITY_MIN_REPORTS = 3
 AFFINITY_MIN_SHARE = 0.5      # of the channel's reports that are on this topic
 FAVOURITE_MIN_REPORTS = 5      # a channel with this many reports may fill twice the table rows
 MAX_CHANNEL_RESOLVES = 8       # library channel names resolved to ids per run
-WAITING_MAX = 3
-WAITING_MIN_HOURS = 20
-WAITING_MAX_DAYS = 21
 DESC_CHARS = 200
 OUT_OF_WINDOW = "older than window"
 
@@ -412,6 +409,7 @@ def collect(run_dir: pathlib.Path, history_provider=None) -> tuple[list[str], li
     reports = store.load_reports()
     summarised = {r["videoId"] for r in reports}
     feedback = store.load_feedback()
+    store.prune_orphan_watched()
     shown_log = store.read_shown()
     shown = store.fold_shown(shown_log)
     muted = {m.get("id") for m in feedback["muted_channels"] if m.get("id")} | \
@@ -574,26 +572,27 @@ def collect(run_dir: pathlib.Path, history_provider=None) -> tuple[list[str], li
             c["topic"] = assign_topic(c, cfg["topics"], topic["query_topic"], channel_topics, _text(c))
 
     # ---- watched check (live): recent watch IDs, in memory only (026 §5.6) ----
-    waiting = select_waiting(shown, key, summarised, now)
     watched_checked = None
     if mode == "live":
-        depth = history_depth(int(cfg["account"].get("watched_check_depth") or 600), window, waiting, now)
+        depth = history_depth(int(cfg["account"].get("watched_check_depth") or 600), window)
         try:
             ids = (history_provider or yt.recent_watch_ids)(browser, depth)
             recent = set(ids)
             watched_checked = len(ids)
-            in_play = {c["videoId"] for c in cands} | {w["videoId"] for w in waiting}
-            matches = sorted(recent & in_play)
+            in_play = {c["videoId"] for c in cands}
+            earlier = {v for v, s in shown.items() if s["count"]}
+            matches = sorted(recent & (in_play | earlier))
             del recent, ids
             if matches:
                 # Only an earlier pick's outcome is kept: stats and channel affinity use it.
                 # Any other match just leaves this run, so no slice of the history reaches disk.
                 store.append_shown([{"event": "outcome", "videoId": v, "outcome": "watched",
                                      "run": run_dir.name, "at": _iso(now)}
-                                    for v in matches if v in shown and shown[v]["count"]])
-                excluded["recently watched"] = len(matches)
+                                    for v in matches if v in earlier])
+                gone = [c for c in cands if c["videoId"] in matches]
+                if gone:
+                    excluded["recently watched"] = len(gone)
                 cands = [c for c in cands if c["videoId"] not in matches]
-                waiting = [w for w in waiting if w["videoId"] not in matches]
         except SourceError as e:
             warns.append(f"watched check skipped ({e.code}: {_hint(e.code)})")
 
@@ -636,7 +635,7 @@ def collect(run_dir: pathlib.Path, history_provider=None) -> tuple[list[str], li
         "excluded": excluded, "watched_checked": watched_checked, "warnings": warns,
         "settings": {"picks": settings["picks"], "per_channel_cap": settings["per_channel_cap"]},
         "topics": {k: t.get("label", k) for k, t in cfg["topics"].items()} if key == "all" else {},
-        "candidates": [_public(c) for c in short], "waiting": waiting,
+        "candidates": [_public(c) for c in short],
     }
     store.write_json(run_dir / "candidates.json", data)
     (run_dir / "profile.txt").write_text(profile_text + "\n", encoding="utf-8")
@@ -684,17 +683,11 @@ def channel_topic_map(topics: dict, reports, name_to_id) -> dict:
 WATCHES_PER_DAY = 40
 
 
-def history_depth(max_depth: int, window_days: int, waiting: list, now: float) -> int:
+def history_depth(max_depth: int, window_days: int) -> int:
     """How many recent watches to read: about WATCHES_PER_DAY for each day a candidate can
-    have been watched in (the window, or back to when the oldest waiting pick was shown),
-    never more than the configured depth. Fewer entries, fewer signed-in page requests."""
-    days = window_days + 1
-    for w in waiting:
-        try:
-            days = max(days, (now - datetime.datetime.fromisoformat(w["at"]).timestamp()) / 86400 + 1)
-        except (KeyError, TypeError, ValueError):
-            continue
-    return min(max_depth, max(100, math.ceil(WATCHES_PER_DAY * days)))
+    have been watched in (the window), never more than the configured depth. Fewer entries,
+    fewer signed-in page requests."""
+    return min(max_depth, max(100, math.ceil(WATCHES_PER_DAY * (window_days + 1))))
 
 
 HINTS = {
@@ -709,26 +702,6 @@ def _hint(code: str) -> str:
     if code == "YTDLP_MISSING":
         return f"yt-dlp not installed — {yt.setup_hint()}"
     return HINTS.get(code, "local checks only this run")
-
-
-def select_waiting(shown: dict, topic: str, summarised: set, now: float) -> list[dict]:
-    """Picks shown once in this topic 20 h – 21 days ago with no outcome (026 §7.2)."""
-    out = []
-    for vid, st in shown.items():
-        snap = st["snapshot"]
-        if not snap or st["count"] != 1 or st["outcomes"] or vid in summarised:
-            continue
-        if snap.get("topic") != topic or snap.get("section") == "waiting":
-            continue
-        try:
-            age_h = (now - datetime.datetime.fromisoformat(st["last"]).timestamp()) / 3600
-        except ValueError:
-            continue
-        if WAITING_MIN_HOURS <= age_h <= WAITING_MAX_DAYS * 24:
-            out.append({k: snap.get(k) for k in ("videoId", "title", "channel", "channelId", "duration",
-                                                  "published", "reason", "rank", "at", "views")})
-    out.sort(key=lambda w: (w.get("rank") or 99, w.get("at") or ""))
-    return out[:WAITING_MAX]
 
 
 def acted_per_channel(shown: dict, summarised: set) -> dict:
@@ -842,8 +815,6 @@ def format_table(data: dict, profile_text: str, run_dir: pathlib.Path) -> list[s
             *([x.get("topic") or "?"] if topics else []), yours,
             fmt_age(x["age_days"]), fmt_duration(x["duration"]), fmt_count(x["views"]), fmt_perf(x["perf"]),
             source, story, clean_cell(x["description"], DESC_CHARS)]))
-    if data["waiting"]:
-        out.append(f"STILL_WAITING: {len(data['waiting'])} earlier pick(s) will be listed again automatically; do not grade them.")
     n_max = len(data["candidates"])
     out.append("")
     out.append(f"NEXT: Write {pathlib.Path(run_dir) / 'picks.json'} — a JSON array with one object per row, "

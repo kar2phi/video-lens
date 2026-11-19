@@ -201,15 +201,54 @@ def read_shown() -> list[dict]:
     return out
 
 
+def prune_orphan_watched() -> int:
+    """Drop the "watched" rows the live check wrote for a video that was never shown, and
+    return how many went. Current code records a watch only for an earlier pick, but a
+    version before that guard wrote others, and no slice of the watch history may stay on
+    disk. A row the user wrote with `feedback watched` has no run id and stays."""
+    p = shown_path()
+    try:
+        lines = p.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return 0
+    parsed = []
+    for line in lines:
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            rec = None
+        parsed.append(rec if isinstance(rec, dict) else None)
+    shown_ids = {r.get("videoId") for r in parsed if r and r.get("event", "shown") == "shown"}
+    keep = [line for line, r in zip(lines, parsed)
+            if not (r and r.get("event") == "outcome" and r.get("outcome") == "watched"
+                    and r.get("run") and r.get("videoId") not in shown_ids)]
+    dropped = len(lines) - len(keep)
+    if dropped:
+        fd, tmp = tempfile.mkstemp(dir=p.parent, prefix=f".{p.name}.")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write("\n".join(keep) + ("\n" if keep else ""))
+            os.chmod(tmp, 0o600)
+            os.replace(tmp, p)
+        except BaseException:
+            pathlib.Path(tmp).unlink(missing_ok=True)
+            raise
+    return dropped
+
+
 def fold_shown(records) -> dict:
-    """videoId → {count, first, last, outcomes, snapshot, topics} from shown-log events."""
+    """videoId → {count, first, last, outcomes, snapshot, first_snapshot, topics} from shown-log
+    events. `snapshot` is the latest showing and `first_snapshot` the earliest: the stats put a
+    video shown twice in the section and topic it first appeared in."""
     out: dict = {}
     for r in records:
         st = out.setdefault(r["videoId"], {"count": 0, "first": "", "last": "", "outcomes": set(),
-                                           "snapshot": None, "topics": set()})
+                                           "snapshot": None, "first_snapshot": None, "topics": set()})
         if r.get("event", "shown") == "shown":
             st["count"] += 1
             at = r.get("at", "")
+            if st["first_snapshot"] is None or at < st["first"]:
+                st["first_snapshot"] = r
             st["first"] = min(st["first"] or at, at)
             st["last"] = max(st["last"], at)
             st["snapshot"] = r

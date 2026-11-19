@@ -10,6 +10,13 @@ it was reconstructed from.
 
 ## [Unreleased]
 
+- **Recommendations: three fixes, and one section less.** `recs.py stats` counts a video
+  once, under the section it was first shown in, so a Top pick listed again no longer leaves the
+  Top figure; a video that was both summarised and watched counts once in "acted on". The live
+  watched check still records a watch for an earlier pick, and each run now drops the "watched"
+  rows an older version wrote for videos it never showed. The "Still waiting from last time"
+  section is gone: a pick you did not act on is shown once, and the list gives all its places to
+  new picks.
 - **A long video description ends on a whole line.** The description is still capped at 3,000
   characters, but the cut lands on the last line break, with "…" on a line of its own, so a
   chapter list no longer stops mid-line. A description that is one long paragraph is cut at a

@@ -195,8 +195,8 @@ def test_watched_check_records_the_outcome_of_an_earlier_pick(tmp_path, monkeypa
     depths = []
     _, data2, _ = recommend(history=lambda b, d: depths.append(d) or [W.A_HOT, W.B_NEW])
     watched = [r["videoId"] for r in store.read_shown() if r.get("outcome") == "watched"]
-    assert watched == [W.A_HOT]                 # the waiting pick; B_NEW was never shown
-    assert data2["waiting"] == [] and W.B_NEW not in by_video(data2)
+    assert watched == [W.A_HOT]                 # an earlier pick; B_NEW was never shown
+    assert "waiting" not in data2 and W.B_NEW not in by_video(data2)
     assert depths == [300]                      # the world's configured maximum
 
 
@@ -467,12 +467,10 @@ def test_all_topics_searches_every_topic_and_sections_by_topic(world):
     assert code == 0 and out.startswith("BOOSTED: news keywords +="), err
 
 
-def test_history_depth_follows_the_window_and_the_waiting_picks():
-    now = W.NOW
-    assert collect.history_depth(600, 7, [], now) == 320
-    assert collect.history_depth(600, 1, [], now) == 100
-    assert collect.history_depth(600, 14, [{"at": collect._iso(now - 20 * W.DAY)}], now) == 600
-    assert collect.history_depth(300, 14, [], now) == 300
+def test_history_depth_follows_the_window():
+    assert collect.history_depth(600, 7) == 320
+    assert collect.history_depth(600, 1) == 100
+    assert collect.history_depth(300, 14) == 300
 
 
 def test_a_version_1_config_keeps_choices_and_takes_new_defaults(world):
@@ -527,28 +525,25 @@ def test_summarize_button_uses_raycast_only_when_enabled(world):
     assert "raycast://script-commands/video-lens?arguments=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D" in html
 
 
-def test_still_waiting_returns_unacted_picks_once(world, monkeypatch):
+def test_earlier_picks_are_not_listed_again_and_there_is_no_still_waiting_section(world, monkeypatch):
     run_dir, data, _ = recommend()
     n_of = {c["videoId"]: c["n"] for c in data["candidates"]}
     write_picks(run_dir, [{"n": n_of[W.A_HOT], "relevance": 3, "reason": "Harness retrospective."},
                           {"n": n_of[W.B_NEW], "relevance": 2, "reason": "MCP build."}])
     page.render(run_dir, do_serve=False)
-    run_cli("feedback", "watched", "2")                      # acted on: never comes back
     monkeypatch.setenv(yt_sources.NOW_ENV, str(W.NOW + 2 * W.DAY))
     run2, data2, text2 = recommend()
+    # A pick the user did not act on comes back neither as a candidate nor in a section of its own.
     assert W.A_HOT not in by_video(data2) and W.B_NEW not in by_video(data2)
-    assert [w["videoId"] for w in data2["waiting"]] == [W.A_HOT]
-    assert "STILL_WAITING: 1 earlier pick(s)" in text2
+    assert "waiting" not in data2 and "STILL_WAITING" not in text2
     write_picks(run2, [{"n": 1, "relevance": 2, "reason": "Something new."}])
     out, _, _ = page.render(run2, do_serve=False)
     chat = "\n".join(out)
-    assert "STILL WAITING FROM LAST TIME" in chat and "shown Oct 21, not watched" in chat
-    assert "Why: Harness retrospective." in chat
-    # Shown twice now: it does not come back a third time.
-    monkeypatch.setenv(yt_sources.NOW_ENV, str(W.NOW + 4 * W.DAY))
-    _, data3, _ = recommend()
-    assert W.A_HOT not in {w["videoId"] for w in data3["waiting"]}
-    assert W.A_HOT not in by_video(data3)
+    html = pathlib.Path(re.search(r"^OUTPUT_PATH: (.*)$", chat, re.M).group(1)).read_text()
+    for blob in (chat, html):
+        assert "still waiting" not in blob.lower() and "Harness retrospective." not in blob
+    res = json.loads((run2 / "result.json").read_text())
+    assert len(res["items"]) == 1 and res["items"][0]["section"] != "waiting"
 
 
 # ---------- follow-ups ----------
@@ -607,6 +602,74 @@ def test_stats_counts_summarised_after_recommendation(world):
     assert code == 0
     row = next(l for l in out.splitlines() if l.startswith("topic | ai |"))
     assert row == "topic | ai | 4 | 1 | 0 | 0 | 25%"
+
+
+def _shown(vid, section, at, topic="ai", source="subscription", **extra):
+    return {"event": "shown", "run": "r", "topic": topic, "videoId": vid, "rank": 1, "section": section,
+            "source": source, "at": at, **extra}
+
+
+def test_stats_attributes_a_reshown_pick_to_the_section_it_was_first_shown_in(world):
+    # Logs from before "Still waiting" went hold a Top pick listed a second time as "waiting".
+    # The stats count it once, under Top: it must not leave the Top denominator.
+    store.append_shown([
+        _shown("tophit00001", "top", "2026-10-20T09:00:00"),
+        _shown("topmiss0001", "top", "2026-10-20T09:00:00"),
+        _shown("ownmiss0001", "own", "2026-10-20T09:00:00"),
+        _shown("tophit00001", "waiting", "2026-10-22T09:00:00", source="waiting"),
+        _shown("topmiss0001", "waiting", "2026-10-22T09:00:00", source="waiting"),
+        {"event": "outcome", "videoId": "tophit00001", "outcome": "watched", "at": "2026-10-22T10:00:00"},
+    ])
+    code, out, _ = run_cli("stats")
+    assert code == 0
+    rows = [l for l in out.splitlines() if " | " in l]
+    assert "section | top | 2 | 0 | 1 | 0 | 50%" in rows
+    assert "section | own | 1 | 0 | 0 | 0 | 0%" in rows
+    assert not [l for l in rows if l.startswith("section | waiting")]
+    assert "source | waiting" not in out
+
+
+def test_stats_counts_a_summarised_and_watched_pick_once(world):
+    store.append_shown([_shown("bothacted01", "top", "2026-10-20T09:00:00"),
+                        _shown("unacted0001", "top", "2026-10-20T09:00:00"),
+                        {"event": "outcome", "videoId": "bothacted01", "outcome": "watched", "at": "2026-10-21T10:00:00"}])
+    manifest = json.loads((world["library"] / "manifest.json").read_text())
+    manifest["reports"].append({"videoId": "bothacted01", "title": "x", "channel": "Alpha Agents",
+                                "tags": ["ai"], "generationDate": "2026-10-21"})
+    (world["library"] / "manifest.json").write_text(json.dumps(manifest))
+    code, out, _ = run_cli("stats")
+    assert "section | top | 2 | 1 | 1 | 0 | 50%" in out
+
+
+def _shown_lines():
+    return store.shown_path().read_text().splitlines()
+
+
+def test_stale_watched_rows_for_unshown_videos_are_pruned_on_load(tmp_path, monkeypatch):
+    W.build(tmp_path, monkeypatch, mode="live")
+    stale = {"event": "outcome", "videoId": "neverseen01", "outcome": "watched", "run": "old-run",
+             "at": "2026-10-26T08:25:00"}
+    kept_pick = {"event": "outcome", "videoId": "earlierpick", "outcome": "watched", "run": "old-run",
+                 "at": "2026-10-26T08:25:00"}
+    by_hand = {"event": "outcome", "videoId": "typedbyuser", "outcome": "watched", "at": "2026-10-26T08:30:00"}
+    store.append_shown([stale, _shown("earlierpick", "top", "2026-10-20T09:00:00"), kept_pick, by_hand])
+    with open(store.shown_path(), "a") as f:
+        f.write("not json\n")
+    assert store.prune_orphan_watched() == 1
+    ids = [json.loads(l)["videoId"] for l in _shown_lines() if l.startswith("{")]
+    assert ids == ["earlierpick", "earlierpick", "typedbyuser"]
+    assert "not json" in _shown_lines()                     # a line it cannot read is left alone
+    assert oct(store.shown_path().stat().st_mode & 0o777) == "0o600"
+    assert store.prune_orphan_watched() == 0                # nothing left to prune
+
+
+def test_a_run_prunes_stale_watched_rows_so_they_no_longer_exclude_videos(tmp_path, monkeypatch):
+    W.build(tmp_path, monkeypatch)
+    store.append_shown([{"event": "outcome", "videoId": W.A_HOT, "outcome": "watched", "run": "old-run",
+                         "at": "2026-10-20T08:25:00"}])
+    _, data, _ = recommend()
+    assert W.A_HOT in by_video(data)                        # the stale row no longer hides it
+    assert not [r for r in store.read_shown() if r.get("outcome") == "watched"]
 
 
 # ---------- topics ----------
