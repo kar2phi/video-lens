@@ -27,7 +27,6 @@ SECTION_TITLES = {
     "top": "Top picks",
     "own": "From your channels",
     "beyond": "Beyond your subscriptions",
-    "waiting": "Still waiting from last time",
 }
 AGENT_DIRS = ("agents", "claude", "copilot", "gemini", "cursor", "windsurf", "opencode", "codex")
 
@@ -186,7 +185,7 @@ def assign_sections(page: list, cands_by_n: dict, page_no: int, topics: dict) ->
 
 def section_title(key: str, page_no: int, topics: dict) -> str:
     title = topics.get(key[6:], key[6:] or "Other") if key.startswith("topic:") else SECTION_TITLES[key]
-    return title if page_no == 1 or key == "waiting" else f"More · {title}"
+    return title if page_no == 1 else f"More · {title}"
 
 
 # ---------- chips ----------
@@ -207,15 +206,7 @@ def _minutes(seconds) -> str:
     return f"{h}h {rem // 60:02d}m" if h else f"{max(1, round(rem / 60))} min"
 
 
-def _short_date(iso: str) -> str:
-    try:
-        d = datetime.datetime.fromisoformat(iso)
-    except (ValueError, TypeError):
-        return ""
-    return f"{d:%b} {d.day}"
-
-
-def chips(c: dict, also=(), waiting_at: str = "") -> list[tuple[str, str]]:
+def chips(c: dict, also=()) -> list[tuple[str, str]]:
     """(kind, text) chips for one item, from candidates.json numbers only."""
     out = []
     if c.get("perf") is not None and c["perf"] >= 1.5:
@@ -238,8 +229,6 @@ def chips(c: dict, also=(), waiting_at: str = "") -> list[tuple[str, str]]:
                     else f"also covered by {len(names)} channels"))
     if c.get("similar_report"):
         out.append(("story", "similar to a report you have"))
-    if waiting_at:
-        out.append(("waiting", f"shown {_short_date(waiting_at)}, not watched"))
     return out
 
 
@@ -249,7 +238,7 @@ def video_url(video_id: str) -> str:
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
-def build_items(pages: list, cands_by_n: dict, waiting: list) -> list[dict]:
+def build_items(pages: list, cands_by_n: dict) -> list[dict]:
     """Numbered items for every page shown so far; numbers run on across pages."""
     items = []
     for page_no, page in enumerate(pages, 1):
@@ -258,12 +247,6 @@ def build_items(pages: list, cands_by_n: dict, waiting: list) -> list[dict]:
             items.append({"num": len(items) + 1, "page": page_no, "section": p["section"], "n": p["n"],
                           "relevance": p["relevance"], "reason": p["reason"], "candidate": c,
                           "chips": chips(c, p["also"])})
-        if page_no == 1:
-            for w in waiting:
-                c = {**w, "age_days": None, "subscribed": True, "source": "waiting"}
-                items.append({"num": len(items) + 1, "page": 1, "section": "waiting", "n": None, "relevance": None,
-                              "reason": w.get("reason") or "", "candidate": c,
-                              "chips": chips({"views": None}, waiting_at=w.get("at", ""))})
     return items
 
 
@@ -308,9 +291,9 @@ def chat_facts(c: dict, item_chips) -> list[str]:
     return [f for f in facts if f]
 
 
-def _who(c: dict, section: str) -> str:
+def _who(c: dict) -> str:
     who = c.get("channel") or "?"
-    if section != "waiting" and scoring.source_group(c) != "own":
+    if scoring.source_group(c) != "own":
         subs = c.get("subscribers")
         who += " (not subscribed" + (f" · {collect.fmt_count(subs)} subs)" if subs else ")")
     return who
@@ -329,7 +312,7 @@ def chat_list(data: dict, items: list, page_no: int, page_url: str, left: int, a
         if it["section"] != section:
             section = it["section"]
             lines += ["", section_title(section, page_no, topics).upper()]
-        lines.append(f"{it['num']}. {c['title']} — {_who(c, section)}")
+        lines.append(f"{it['num']}. {c['title']} — {_who(c)}")
         lines.append("   " + " · ".join(chat_facts(c, it["chips"])))
         if it["reason"]:
             lines.append(f"   Why: {it['reason']}")
@@ -406,7 +389,7 @@ def also_html(rows: list, raycast: bool) -> str:
     for r in rows:
         c = r["candidate"]
         url = video_url(c["videoId"])
-        meta = [_who(c, "also"), _minutes(c.get("duration")), _ago(c.get("age_days"))]
+        meta = [_who(c), _minutes(c.get("duration")), _ago(c.get("age_days"))]
         if c.get("views") is not None:
             meta.append(f"{collect.fmt_count(c['views'])} views")
         lis.append(
@@ -448,7 +431,7 @@ def page_html(data: dict, items: list, also: list, cfg: dict, date: str) -> str:
         sections.append(also_html(also, raycast))
     head = header_lines(data)
     meta = {"run": data["run"], "topic": data["topic"], "label": data["label"], "date": date,
-            "windowDays": data["window_days"], "picks": sum(it["section"] != "waiting" for it in items),
+            "windowDays": data["window_days"], "picks": len(items),
             "videoIds": [it["candidate"]["videoId"] for it in items]}
     values = {
         "PAGE_TITLE": _e(f"Recommendations: {data['label']} · video-lens"),
@@ -546,9 +529,9 @@ def render(run_dir: pathlib.Path, do_serve: bool = True, advance: bool = False) 
             return [f"NO_MORE: all {len(order)} picks of this run are shown. Run Step 1 again with the same "
                     "request for fresh candidates; what was shown is skipped."], [], 0
     pages = [assign_sections(p, cands_by_n, i, topics) for i, p in enumerate(pages[:shown_pages], 1)]
-    items = build_items(pages, cands_by_n, data.get("waiting") or [])
+    items = build_items(pages, cands_by_n)
     also = also_rows(clean, cands_by_n, {it["n"] for it in items if it["n"] is not None}, dropped)
-    left = len(order) - sum(it["section"] != "waiting" for it in items)
+    left = len(order) - len(items)
     data["_picked"] = len(order)
     date = datetime.date.fromtimestamp(data["created"]).isoformat()
 

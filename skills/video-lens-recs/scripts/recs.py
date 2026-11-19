@@ -734,22 +734,26 @@ def cmd_stats(args) -> int:
     reports = {r["videoId"]: r.get("generationDate", "") for r in store.load_reports()}
     rows = {}
     for vid, st in shown.items():
-        snap = st["snapshot"]
+        # A video counts once, under the section, topic and source it was first shown in: a
+        # Top pick listed again later must not leave the Top denominator.
+        snap = st["first_snapshot"]
         if not snap:
             continue
         summarised = vid in reports and reports[vid] >= (st["first"] or "")[:10]
+        watched = "watched" in st["outcomes"]
         for dim in (("topic", snap.get("topic")), ("section", snap.get("section")), ("source", snap.get("source"))):
-            r = rows.setdefault(dim, {"shown": 0, "summarised": 0, "watched": 0, "dismissed": 0})
+            r = rows.setdefault(dim, {"shown": 0, "summarised": 0, "watched": 0, "dismissed": 0, "acted": 0})
             r["shown"] += 1
             r["summarised"] += summarised
-            r["watched"] += "watched" in st["outcomes"]
+            r["watched"] += watched
+            r["acted"] += summarised or watched
             r["dismissed"] += "dismissed" in st["outcomes"]
     if not rows:
         print("NO_STATS: nothing shown yet")
         return 0
     print("by | value | shown | summarised | watched | dismissed | acted on")
     for (dim, val), r in sorted(rows.items(), key=lambda kv: (kv[0][0], -kv[1]["shown"])):
-        acted = (r["summarised"] + r["watched"]) / r["shown"] if r["shown"] else 0
+        acted = r["acted"] / r["shown"] if r["shown"] else 0
         print(f"{dim} | {val} | {r['shown']} | {r['summarised']} | {r['watched']} | {r['dismissed']} | {acted:.0%}")
     print("TARGETS: about 1 in 3 for Top picks, at least 1 in 6 for Beyond (026 §12.4)")
     return 0
