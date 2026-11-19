@@ -31,6 +31,25 @@ METADATA_DIR = (
 )
 
 
+DESC_LIMIT = 3000  # code points; the description is context for the model and the local report only
+
+
+def _clip_description(text, limit=DESC_LIMIT):
+    """Cut a long description at its last line break within `limit` and end it with "…" on a
+    line of its own, so a chapter list or a link never ends mid-line. When that line break would
+    keep less than half of `limit` (a short intro, then one long paragraph), cut at the last
+    space instead, and mid-word only when the second half of `limit` has no space either."""
+    if len(text) <= limit:
+        return text
+    head = text[:limit + 1]
+    floor = limit // 2
+    cut = head.rfind("\n")
+    if cut >= floor:
+        return head[:cut].rstrip() + "\n\u2026"
+    cut = head.rfind(" ")
+    return (head[:cut] if cut >= floor else text[:limit]).rstrip() + " \u2026"
+
+
 def _linkify(line):
     parts = []
     last = 0
@@ -150,9 +169,7 @@ def main():
         print(f"ERROR:YTDLP_JSON_ERROR: {e} — raw output: {raw[:200]}")
         sys.exit(0)
 
-    desc_raw = (data.get("description") or "")[:3000]
-    if len(data.get("description") or "") > 3000:
-        desc_raw += "\u2026"
+    desc_raw = _clip_description(data.get("description") or "")
     desc_html = "<br>".join(_linkify(line) for line in desc_raw.split("\n"))
 
     chapters = data.get("chapters") or []

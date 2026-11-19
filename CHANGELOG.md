@@ -10,6 +10,11 @@ it was reconstructed from.
 
 ## [Unreleased]
 
+- **A long video description ends on a whole line.** The description is still capped at 3,000
+  characters, but the cut lands on the last line break, with "…" on a line of its own, so a
+  chapter list no longer stops mid-line. A description that is one long paragraph is cut at a
+  space.
+
 ## [5.6] — 2026-11-15
 
 - **Sets itself up.** The install is one line, `npx skills add kar2phi/video-lens`. On the
