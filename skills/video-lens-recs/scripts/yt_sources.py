@@ -5,7 +5,7 @@ Every network call goes through `_ytdlp` or `_http`, which add three things:
 
 - a 6-hour JSON cache for public fetches (never for the cookie feeds);
 - replay: with VIDEO_LENS_RECS_REPLAY=DIR every call is answered from DIR/<key>.json, so
-  tests and evals run offline and deterministically;
+  tests run offline and deterministically;
 - record: with VIDEO_LENS_RECS_RECORD=DIR live public responses are also written there.
   Cookie feeds are never recorded. With both set, a replay miss is fetched live and
   recorded, which extends a fixture when the code starts asking for more.

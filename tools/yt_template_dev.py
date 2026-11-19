@@ -5,7 +5,7 @@ Edit viewer/*, run this script (or `task dev`), and see the result through the p
 renderer. It rebuilds skills/video-lens/template.html from viewer/ first.
 
 Usage:
-    python scripts/yt_template_dev.py
+    python tools/yt_template_dev.py
 """
 import os
 import subprocess

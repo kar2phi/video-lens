@@ -329,7 +329,7 @@ def percentile_ranks(values) -> list[float]:
 def prior_scores(cands, weights: dict | None = None) -> list[float]:
     """0.30·perf + 0.20·kw + 0.20·affinity + 0.15·fresh + 0.15·velocity, each term a
     rank-percentile within this pool. An unknown perf counts as the channel's usual (1.0).
-    `weights` overrides PRIOR_WEIGHTS (the eval compares variants)."""
+    `weights` overrides PRIOR_WEIGHTS (to compare weight variants)."""
     weights = weights or PRIOR_WEIGHTS
     cols = {
         "perf": [c.get("perf") if c.get("perf") is not None else 1.0 for c in cands],

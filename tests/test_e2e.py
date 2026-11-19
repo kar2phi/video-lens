@@ -1775,7 +1775,7 @@ def test_outline_entries_are_keyboard_reachable():
 def test_raycast_accepts_mobile_youtube_and_defaults_to_haiku_5_5():
     """024-B8: m.youtube.com is what the iOS share sheet emits and preflight
     already accepts it. A blank model is Haiku 5.5; the stale pins stay gone."""
-    src = (REPO_ROOT / "scripts" / "raycast-video-lens.sh").read_text(encoding="utf-8")
+    src = (REPO_ROOT / "tools" / "raycast-video-lens.sh").read_text(encoding="utf-8")
     assert "(www|m)" in src
     assert "claude-opus-4-6" not in src and "claude-sonnet-4-6" not in src
     assert 'model="${2:-claude-haiku-5-5}"' in src
@@ -1797,7 +1797,7 @@ def test_raycast_prefers_cmux_then_iterm_then_terminal():
     """The launcher drives cmux through its AppleScript dictionary: the socket CLI
     refuses processes started outside cmux (socketControlMode defaults to cmuxOnly).
     Without cmux it falls back to iTerm2, then Terminal.app."""
-    src = (REPO_ROOT / "scripts" / "raycast-video-lens.sh").read_text(encoding="utf-8")
+    src = (REPO_ROOT / "tools" / "raycast-video-lens.sh").read_text(encoding="utf-8")
     assert src.index("open -Ra cmux") < src.index("open -Ra iTerm")
     # One AppleScript snippet per terminal: `tell application "cmux"` does not compile
     # without cmux, so no terminal's tell block may sit in the shared run handler.
@@ -1903,7 +1903,7 @@ def test_skill_md_contract_matches_the_repo():
     taskfile = (REPO_ROOT / "Taskfile.yml").read_text(encoding="utf-8")
     assert "skills/video-lens/references/" in taskfile
 
-    raycast = (REPO_ROOT / "scripts" / "raycast-video-lens.sh").read_text(encoding="utf-8")
+    raycast = (REPO_ROOT / "tools" / "raycast-video-lens.sh").read_text(encoding="utf-8")
     assert "Bash,Read,Write" in raycast
     # install-raycast swaps the claude tool list by exact match; keep them in sync.
     assert '"Bash,Read,Write" + Q' in taskfile

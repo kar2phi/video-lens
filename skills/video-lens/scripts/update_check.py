@@ -7,7 +7,7 @@ GET, no data about the user); every other run reads only a small cache file,
 here (058 U4).
 
 - `VIDEO_LENS_NO_UPDATE_CHECK=1` (or a set `CI`) turns it off (058 U2).
-- `VIDEO_LENS_VERSION_URL` points it elsewhere (tests and evals).
+- `VIDEO_LENS_VERSION_URL` points it elsewhere (tests).
 - The timestamp is written before the fetch, so offline runs never retry (058 U3).
 - Only version-shaped strings are taken from the network; nothing else reaches the
   agent (058 U6).
